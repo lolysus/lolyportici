@@ -2,7 +2,7 @@ import type { RestaurantLocation } from "@/config/brand";
 
 // Safe fallback for the dedicated Loly production project. Set
 // NEXT_PUBLIC_APP_URL to the definitive custom domain before the public launch.
-const fallbackPublicAppUrl = "https://loly.vercel.app";
+const fallbackPublicAppUrl = "https://loly-gules.vercel.app";
 
 export function getPublicAppUrl() {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
