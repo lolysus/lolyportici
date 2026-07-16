@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 160" role="img" aria-labelledby="title">
+  <title id="title">Regia Sushi, YUKO e KouSushi</title>
+  <rect width="520" height="160" rx="24" fill="#10100F"/>
+  <circle cx="84" cy="80" r="42" fill="none" stroke="#D5AF55" stroke-width="8"/>
+  <path d="M49 99 117 61M45 119 124 79" stroke="#D5AF55" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="133" cy="80" r="42" fill="#E60012"/>
+  <path d="M111 106c16-19 35-21 60-4" fill="none" stroke="#FFE7EC" stroke-width="5" stroke-linecap="round"/>
+  <text x="202" y="73" fill="#F8F4EA" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700">REGIA SUSHI</text>
+  <text x="202" y="110" fill="#A9A39A" font-family="Arial, Helvetica, sans-serif" font-size="17" letter-spacing="2">YUKO  ×  KOUSUSHI</text>
+</svg>

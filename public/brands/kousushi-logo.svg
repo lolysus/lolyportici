@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" role="img" aria-labelledby="title desc">
+  <title id="title">KouSushi</title>
+  <desc id="desc">KouSushi logo with a red sun, sakura branch and Japanese lettering.</desc>
+  <defs>
+    <linearGradient id="sakura" x1="0" x2="1"><stop stop-color="#F7B5C3"/><stop offset="1" stop-color="#E46F8D"/></linearGradient>
+  </defs>
+  <rect width="640" height="280" rx="28" fill="#FFFCFC"/>
+  <circle cx="142" cy="106" r="72" fill="#E60012"/>
+  <path d="M29 177C95 139 164 145 253 192" fill="none" stroke="#151515" stroke-width="10" stroke-linecap="round"/>
+  <path d="M124 151c38 18 72 23 116 21" fill="none" stroke="#151515" stroke-width="5" stroke-linecap="round"/>
+  <g fill="url(#sakura)">
+    <g transform="translate(55 158)"><circle r="12"/><circle cx="12" cy="-7" r="10"/><circle cx="12" cy="8" r="10"/><circle cx="-8" cy="11" r="10"/><circle cx="-10" cy="-9" r="10"/><circle r="4" fill="#F8D870"/></g>
+    <g transform="translate(91 148) scale(.78)"><circle r="12"/><circle cx="12" cy="-7" r="10"/><circle cx="12" cy="8" r="10"/><circle cx="-8" cy="11" r="10"/><circle cx="-10" cy="-9" r="10"/><circle r="4" fill="#F8D870"/></g>
+    <g transform="translate(126 160) scale(.72)"><circle r="12"/><circle cx="12" cy="-7" r="10"/><circle cx="12" cy="8" r="10"/><circle cx="-8" cy="11" r="10"/><circle cx="-10" cy="-9" r="10"/><circle r="4" fill="#F8D870"/></g>
+    <g transform="translate(162 171) scale(.55)"><circle r="12"/><circle cx="12" cy="-7" r="10"/><circle cx="12" cy="8" r="10"/><circle cx="-8" cy="11" r="10"/><circle cx="-10" cy="-9" r="10"/><circle r="4" fill="#F8D870"/></g>
+  </g>
+  <g fill="#111">
+    <text x="293" y="132" font-family="Arial, Helvetica, sans-serif" font-size="75" font-weight="600" letter-spacing="-4">KouSushi</text>
+    <text x="367" y="187" font-family="serif" font-size="38" letter-spacing="8">幸せ寿司</text>
+  </g>
+  <path d="M296 204h270" stroke="#E60012" stroke-opacity=".56" stroke-width="3"/>
+</svg>

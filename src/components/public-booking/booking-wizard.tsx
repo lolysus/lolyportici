@@ -1,0 +1,317 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { Accessibility, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock3, Home, Info, LoaderCircle, LockKeyhole, MapPin, Navigation, PhoneCall, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
+import type { RestaurantLocation } from "@/config/brand";
+import { BookingDatePicker } from "@/components/public-booking/booking-date-picker";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { Dictionary } from "@/lib/i18n";
+import type { AvailabilityOption, AvailabilityResult } from "@/types/api";
+import { cn } from "@/lib/utils";
+import { formatTimeInZone } from "@/lib/datetime";
+import { firstBookableServiceDate, type BookingCalendarRules } from "@/lib/service-calendar";
+
+type Fields = { firstName: string; lastName: string; phone: string; email: string; notes: string; allergies: string; accessibilityNeeds: string; privacyConsent: boolean; marketingConsent: boolean };
+type Completion = { type: "reservation"; code: string; token: string } | { type: "waitlist"; id: string };
+
+const detailCopy = {
+  it: { notes: "Occasione o richieste per il servizio", allergies: "Allergie o intolleranze", accessibility: "Esigenze di accessibilità", optional: "facoltativo" },
+  en: { notes: "Occasion or service requests", allergies: "Allergies or intolerances", accessibility: "Accessibility needs", optional: "optional" },
+  es: { notes: "Ocasión o solicitudes de servicio", allergies: "Alergias o intolerancias", accessibility: "Necesidades de accesibilidad", optional: "opcional" },
+} as const;
+
+const flowCopy = {
+  it: {
+    exactPartySize: "Numero esatto di ospiti",
+    largeParty: (maximum: number) => `Oltre ${maximum} ospiti invii una richiesta al personale, senza bloccare un tavolo.`,
+    deposit: (amount: string) => `Questa richiesta viene verificata dallo staff prima della conferma; la caparra indicativa è di ${amount}.`,
+    staffReview: "Questa richiesta viene inviata al personale per la verifica prima della conferma.",
+    realtimeCheck: "Al passaggio successivo verifichiamo tavolo, capienza, arrivi e durata in tempo reale.",
+    noBookableDateTitle: "Nessuna data prenotabile online",
+    noBookableDateDescription: "Nella finestra di prenotazione configurata non ci sono servizi disponibili online. Contatta il ristorante per una richiesta assistita.",
+    callRestaurant: "Chiama il ristorante",
+    instantConfirmation: "conferma immediata",
+    staffReviewTitle: "Richiesta da verificare dal personale",
+    staffReviewDescription: "Indica l’orario preferito: il personale verifica disponibilità, caparra se prevista e ti ricontatta senza bloccare un tavolo.",
+    waitlistDescription: "Lascia l’orario preferito: ti avviseremo appena si libera il tavolo giusto.",
+    waitlistDisabled: "La lista d’attesa non è attiva: contatta il ristorante per una verifica manuale.",
+    preferredTime: "Orario preferito",
+    sendStaffRequest: "Invia richiesta allo staff",
+    dateNotSelected: "Da scegliere",
+  },
+  en: {
+    exactPartySize: "Exact number of guests",
+    largeParty: (maximum: number) => `For groups over ${maximum} guests, send a request to the team without holding a table.`,
+    deposit: (amount: string) => `The team will review this request before confirmation; the indicative deposit is ${amount}.`,
+    staffReview: "This request is sent to the team for review before confirmation.",
+    realtimeCheck: "At the next step we check table availability, capacity, arrivals and duration in real time.",
+    noBookableDateTitle: "No dates are available online",
+    noBookableDateDescription: "There are no online services within the configured booking window. Contact the restaurant for assisted booking.",
+    callRestaurant: "Call the restaurant",
+    instantConfirmation: "instant confirmation",
+    staffReviewTitle: "Request to be reviewed by the team",
+    staffReviewDescription: "Choose your preferred time: the team will check availability, any deposit, and contact you without holding a table.",
+    waitlistDescription: "Leave your preferred time and we will notify you as soon as the right table becomes available.",
+    waitlistDisabled: "The waiting list is not active: contact the restaurant for a manual review.",
+    preferredTime: "Preferred time",
+    sendStaffRequest: "Send request to the team",
+    dateNotSelected: "To be selected",
+  },
+  es: {
+    exactPartySize: "Número exacto de comensales",
+    largeParty: (maximum: number) => `Para grupos de más de ${maximum} comensales, envía una solicitud al equipo sin bloquear una mesa.`,
+    deposit: (amount: string) => `El equipo revisará esta solicitud antes de confirmarla; el depósito orientativo es ${amount}.`,
+    staffReview: "Esta solicitud se envía al equipo para su revisión antes de confirmarla.",
+    realtimeCheck: "En el siguiente paso comprobamos mesa, capacidad, llegadas y duración en tiempo real.",
+    noBookableDateTitle: "No hay fechas disponibles online",
+    noBookableDateDescription: "No hay servicios online en la ventana de reserva configurada. Contacta con el restaurante para una solicitud asistida.",
+    callRestaurant: "Llamar al restaurante",
+    instantConfirmation: "confirmación inmediata",
+    staffReviewTitle: "Solicitud pendiente de revisión del equipo",
+    staffReviewDescription: "Indica la hora preferida: el equipo comprobará disponibilidad, posible depósito y te contactará sin bloquear una mesa.",
+    waitlistDescription: "Deja tu hora preferida y te avisaremos en cuanto se libere la mesa adecuada.",
+    waitlistDisabled: "La lista de espera no está activa: contacta con el restaurante para una revisión manual.",
+    preferredTime: "Hora preferida",
+    sendStaffRequest: "Enviar solicitud al equipo",
+    dateNotSelected: "Por elegir",
+  },
+} as const;
+
+type BookingFeatures = {
+  onlineBookingEnabled: boolean;
+  waitlistEnabled: boolean;
+  minimumPartySize: number;
+  maximumPartySize: number;
+  requiresManualApproval: boolean;
+  requiresDeposit: boolean;
+  depositAmount: number;
+  minimumNoticeMinutes: number;
+  calendarRules: BookingCalendarRules;
+};
+
+export function BookingWizard({ dictionary, locale, location, features }: { dictionary: Dictionary; locale: "it" | "en" | "es"; location: RestaurantLocation; features: BookingFeatures }) {
+  const t = dictionary.booking;
+  const details = detailCopy[locale];
+  const flow = flowCopy[locale];
+  const [step, setStep] = useState(1);
+  const [partySize, setPartySize] = useState(Math.max(2, features.minimumPartySize));
+  const [date, setDate] = useState(() => firstBookableServiceDate(features.calendarRules));
+  const [requestedTime, setRequestedTime] = useState("20:00");
+  const [slots, setSlots] = useState<AvailabilityOption[]>([]);
+  const [selected, setSelected] = useState<AvailabilityOption | null>(null);
+  const [holdId, setHoldId] = useState<string | null>(null);
+  const [waitlistMode, setWaitlistMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [restrictions, setRestrictions] = useState<string[]>([]);
+  const [manualReviewRequired, setManualReviewRequired] = useState(false);
+  const [completion, setCompletion] = useState<Completion | null>(null);
+  const [fields, setFields] = useState<Fields>({ firstName: "", lastName: "", phone: "", email: "", notes: "", allergies: "", accessibilityNeeds: "", privacyConsent: false, marketingConsent: false });
+  const sessionId = useMemo(() => `web_${crypto.randomUUID()}`, []);
+  const idempotencyKey = useMemo(() => crypto.randomUUID(), []);
+  const hasMountedBookingFlow = useRef(false);
+  const requiresManualHandling = features.requiresManualApproval || features.requiresDeposit || partySize > features.maximumPartySize;
+  const selectedDateLabel = date ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(`${date}T12:00:00`)) : flow.dateNotSelected;
+  const depositAmount = new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(features.depositAmount);
+  const hasPhone = Boolean(location.phoneHref);
+
+  useEffect(() => {
+    if (!hasMountedBookingFlow.current) {
+      hasMountedBookingFlow.current = true;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      document.getElementById("booking-content")?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [step]);
+
+  async function loadSlots() {
+    if (!date) return;
+    if (holdId) await releaseCurrentHold();
+    setStep(3); setSlots([]); setSelected(null); setHoldId(null); setError(null); setRestrictions([]); setManualReviewRequired(false);
+    setLoading(true); setError(null); setSelected(null); setHoldId(null);
+    try {
+      const response = await fetch("/api/public/v1/availability", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, date, partySize, source: "web" }) });
+      const payload = await response.json() as { success: boolean; data?: AvailabilityResult; error?: { message: string } };
+      if (!response.ok || !payload.data) throw new Error(payload.error?.message ?? t.error);
+      setSlots(payload.data.availableOptions);
+      setRestrictions(payload.data.restrictions ?? []);
+      setManualReviewRequired(payload.data.requiresManualApproval);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t.error); }
+    finally { setLoading(false); }
+  }
+
+  async function chooseSlot(slot: AvailabilityOption) {
+    if (!date) return;
+    setLoading(true); setError(null);
+    try {
+      if (holdId) await releaseCurrentHold();
+      const response = await fetch("/api/public/v1/holds", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, date, partySize, source: "web", startAt: slot.startAt, sessionId }) });
+      const payload = await response.json() as { success: boolean; data?: { id: string }; error?: { message: string } };
+      if (!response.ok || !payload.data) throw new Error(payload.error?.message ?? t.error);
+      setSelected(slot); setHoldId(payload.data.id); setWaitlistMode(false); setStep(4);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t.error); }
+    finally { setLoading(false); }
+  }
+
+  async function releaseCurrentHold() {
+    const currentHoldId = holdId;
+    setHoldId(null);
+    setSelected(null);
+    if (!currentHoldId) return;
+    await fetch("/api/public/v1/holds", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ holdId: currentHoldId }) }).catch(() => undefined);
+  }
+
+  function validateDetails() {
+    if (fields.firstName.trim().length < 2 || fields.lastName.trim().length < 2 || fields.phone.trim().length < 6 || !fields.privacyConsent) {
+      setError(locale === "it" ? "Completa i campi obbligatori e accetta l'informativa privacy." : t.error); return false;
+    }
+    setError(null); return true;
+  }
+
+  async function finish() {
+    setLoading(true); setError(null);
+    try {
+      if (waitlistMode) {
+        if (!date) throw new Error(t.error);
+        const response = await fetch("/api/public/v1/waitlist", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, firstName: fields.firstName, lastName: fields.lastName, phone: fields.phone, requestedDate: date, requestedTime, partySize, flexibilityMinutes: 60, notes: fields.notes }) });
+        const payload = await response.json() as { success: boolean; data?: { id: string }; error?: { message: string } };
+        if (!response.ok || !payload.data) throw new Error(payload.error?.message ?? t.error);
+        setCompletion({ type: "waitlist", id: payload.data.id });
+      } else {
+        if (!holdId) throw new Error(t.error);
+        const response = await fetch("/api/public/v1/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, holdId, idempotencyKey, customer: { firstName: fields.firstName, lastName: fields.lastName, phone: fields.phone, email: fields.email, preferredLanguage: locale, marketingConsent: fields.marketingConsent, privacyConsent: fields.privacyConsent, allergies: fields.allergies || undefined, accessibilityNeeds: fields.accessibilityNeeds || undefined }, customerNotes: fields.notes || undefined }) });
+        const payload = await response.json() as { success: boolean; data?: { reservation: { reservationCode: string }; managementToken: string }; error?: { message: string } };
+        if (!response.ok || !payload.data) throw new Error(payload.error?.message ?? t.error);
+        setCompletion({ type: "reservation", code: payload.data.reservation.reservationCode, token: payload.data.managementToken });
+      }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t.error); }
+    finally { setLoading(false); }
+  }
+
+  function setField<K extends keyof Fields>(key: K, value: Fields[K]) { setFields((current) => ({ ...current, [key]: value })); }
+
+  if (!features.onlineBookingEnabled) {
+    return <section id="booking-content" className="mx-auto max-w-2xl px-5 py-16 text-center sm:py-24"><div className="surface-3d rounded-3xl border bg-card p-8 sm:p-12"><span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"><PhoneCall className="size-6" /></span><p className="mt-6 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Prenotazioni online sospese</p><h2 className="mt-3 font-heading text-4xl">Siamo a tua disposizione.</h2><p className="mx-auto mt-4 max-w-md text-sm leading-6 text-muted-foreground">Per questa data o fascia il ristorante gestisce le richieste direttamente con il personale.</p>{hasPhone ? <Button asChild size="lg" className="mt-7"><a href={location.phoneHref}><PhoneCall />Chiama {location.phone}</a></Button> : <p className="mt-7 text-sm text-muted-foreground">I recapiti del ristorante saranno disponibili a breve.</p>}</div></section>;
+  }
+
+  if (completion) {
+    const calendarUrl = selected ? buildGoogleCalendarUrl({ location, selected, partySize, customerName: `${fields.firstName} ${fields.lastName}` }) : undefined;
+    const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}`;
+    return <section className="mx-auto max-w-2xl px-5 py-16 text-center sm:py-24" aria-live="polite">
+      <div className="surface-3d mx-auto overflow-hidden rounded-xl border border-white/10 bg-card px-6 py-10 sm:px-12 sm:py-14">
+      <div className="signal-pulse mx-auto mb-7 flex size-16 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-400/10 text-emerald-300"><CheckCircle2 className="size-8" /></div>
+      <p className="mb-3 font-mono text-xs uppercase tracking-[0.24em] text-primary">{completion.type === "reservation" ? t.code : t.waitlist}</p>
+      <h1 className="font-heading text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">{completion.type === "reservation" ? t.confirmed : t.waitlist}</h1>
+      {completion.type === "reservation" ? <>
+        <p className="mx-auto mt-6 max-w-md text-sm leading-6 text-muted-foreground">La prenotazione è entrata nella regia di <span className="font-medium text-foreground">{location.name}</span>. Conserva il codice per ogni modifica.</p>
+        <div className="my-7 border border-primary/35 bg-primary/8 px-5 py-4"><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">Codice prenotazione</p><p className="mt-2 font-mono text-3xl font-semibold tracking-[0.14em] text-foreground">{completion.code}</p></div>
+        <div className="mx-auto mb-7 max-w-md divide-y divide-white/8 border border-white/10 bg-[#0d0e0d] text-left">
+          <SummaryCell label="Ristorante" value={location.name} />
+          <SummaryCell label={t.steps[1]} value={selectedDateLabel} />
+          <SummaryCell label={t.steps[2]} value={selected ? formatTimeInZone(selected.startAt) : requestedTime} />
+          <SummaryCell label={t.steps[0]} value={`${partySize} ${dictionary.common.guests}`} />
+          <SummaryCell label="Intestatario" value={`${fields.firstName} ${fields.lastName}`} />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2"><Button asChild size="lg"><Link href={`/${locale}/booking/manage/${completion.token}`}>{t.manage}<ArrowRight /></Link></Button>{calendarUrl && <Button asChild size="lg" variant="outline"><a href={calendarUrl} target="_blank" rel="noreferrer"><CalendarPlus />Aggiungi al calendario</a></Button>}<Button asChild variant="outline"><a href={directionsUrl} target="_blank" rel="noreferrer"><Navigation />Indicazioni</a></Button><Button asChild variant="ghost"><Link href={`/${locale}/book`}><Home />Scegli un altro ristorante</Link></Button></div>
+      </> : <><p className="mx-auto my-8 max-w-md text-muted-foreground">Ti contatteremo appena si libera un tavolo compatibile con la tua richiesta.</p><p className="font-mono text-xs text-muted-foreground">ID {completion.id.slice(0, 8).toUpperCase()}</p><Button asChild variant="outline" className="mt-7"><Link href={`/${locale}/book`}><Home />Torna ai ristoranti</Link></Button></>}
+      </div>
+    </section>;
+  }
+
+  return <div id="booking-content" tabIndex={-1} className="mx-auto grid max-w-6xl scroll-mt-14 gap-12 px-5 py-10 outline-none lg:grid-cols-[minmax(0,1fr)_340px] lg:py-16">
+    <main className="pb-24 sm:pb-0">
+      <div className="sticky top-[59px] z-30 -mx-5 mb-5 border-y border-border/70 bg-background/95 px-5 py-3 text-xs shadow-[0_8px_18px_-18px_rgba(0,0,0,.8)] backdrop-blur sm:static sm:mx-0 sm:mb-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none" aria-live="polite">
+        <div className="flex items-center justify-between gap-4">
+          <span className="font-mono uppercase tracking-[0.16em] text-muted-foreground">Passaggio {step} di {t.steps.length}</span>
+          <span className="truncate font-medium">{t.steps[step - 1]}</span>
+        </div>
+        <div className="mt-2 h-1 overflow-hidden bg-border sm:hidden"><span className="block h-full bg-primary transition-[width] duration-300" style={{ width: `${(step / t.steps.length) * 100}%` }} /></div>
+      </div>
+      <ol className="relative mb-10 grid grid-cols-5 gap-2 sm:mb-12" aria-label="Progresso prenotazione">
+        <div aria-hidden className="absolute left-[10%] right-[10%] top-4 h-px bg-border" />
+        <div aria-hidden className="absolute left-[10%] top-4 h-px bg-primary transition-[width] duration-500" style={{ width: `${Math.max(0, step - 1) * 20}%` }} />
+        {t.steps.map((label, index) => { const number = index + 1; const done = number < step; return <li key={label} aria-current={number === step ? "step" : undefined} className="relative z-10 min-w-0 text-center">
+          <span className={cn("mx-auto flex size-8 items-center justify-center rounded-full border bg-background font-mono text-[10px] transition-colors", number === step ? "border-primary bg-primary text-primary-foreground ring-4 ring-primary/10" : done ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground")}>{done ? <Check className="size-3.5" /> : number}</span>
+          <span className={cn("mt-3 hidden truncate text-[11px] sm:block", number === step ? "font-semibold text-foreground" : "text-muted-foreground")}>{label}</span>
+          <span className="sr-only">{number === step ? "Passaggio corrente: " : ""}{label}</span>
+        </li>; })}
+      </ol>
+
+      {step === 1 && <Step title={t.partyTitle} icon={<UsersRound />}>
+        <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
+          {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => <button key={value} type="button" disabled={value < features.minimumPartySize} onClick={() => setPartySize(value)} aria-pressed={partySize === value} className={cn("surface-3d flex aspect-square items-center justify-center rounded-xl border text-lg font-semibold transition-[transform,border-color,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px disabled:cursor-not-allowed disabled:opacity-35", partySize === value ? "-translate-y-0.5 border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5 hover:border-primary/50")}>{value}</button>)}
+          <button type="button" onClick={() => setPartySize(11)} aria-pressed={partySize > 10} className={cn("surface-3d col-span-5 min-h-12 rounded-xl border px-4 text-sm font-semibold transition-transform active:translate-y-px sm:col-span-2", partySize > 10 ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5")}>{t.partyMore}</button>
+        </div>
+        {partySize > 10 && <div className="mt-5 max-w-xs"><Label htmlFor="large-party-size">{flow.exactPartySize}</Label><Input id="large-party-size" type="number" min={11} max={100} value={partySize} onChange={(event) => setPartySize(Math.max(11, Number(event.target.value)))} className="mt-2 h-12 bg-card"/></div>}
+        {requiresManualHandling && <p className="mt-5 flex items-start gap-2 rounded-xl border border-accent/35 bg-accent/15 p-4 text-sm"><Info className="mt-0.5 size-4 shrink-0" />{partySize > features.maximumPartySize ? flow.largeParty(features.maximumPartySize) : features.requiresDeposit ? flow.deposit(depositAmount) : flow.staffReview}</p>}
+        <StepActions next={() => setStep(2)} nextLabel={t.continue} />
+      </Step>}
+
+      {step === 2 && <Step title={t.dateTitle} icon={<CalendarDays />}>
+        {date ? <><BookingDatePicker value={date} onChange={setDate} locale={locale} rules={features.calendarRules} minimumNoticeMinutes={features.minimumNoticeMinutes} />
+        <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="size-3.5" />{flow.realtimeCheck}</p></> : <div className="surface-3d max-w-xl rounded-3xl border border-dashed bg-card p-6 text-center sm:p-8"><span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><PhoneCall className="size-5" /></span><h3 className="mt-5 font-heading text-2xl">{flow.noBookableDateTitle}</h3><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">{flow.noBookableDateDescription}</p>{hasPhone ? <Button asChild variant="outline" className="mt-6"><a href={location.phoneHref}><PhoneCall />{flow.callRestaurant}</a></Button> : <p className="mt-6 text-sm text-muted-foreground">I recapiti saranno disponibili a breve.</p>}</div>}
+        <StepActions back={() => setStep(1)} next={date ? () => void loadSlots() : undefined} nextLabel={t.continue} backLabel={t.back} disabled={!date} />
+      </Step>}
+
+      {step === 3 && <Step title={t.timeTitle} icon={<Clock3 />}><p className="-mt-5 mb-7 text-sm text-muted-foreground">{t.timeHint}</p>
+        {loading && <div className="flex h-36 items-center justify-center text-muted-foreground"><LoaderCircle className="mr-2 size-5 animate-spin" />{t.loading}</div>}
+        {!loading && slots.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{slots.map((slot) => <button type="button" key={`${slot.startAt}-${slot.diningArea.id}`} onClick={() => chooseSlot(slot)} className="surface-3d group rounded-2xl border bg-card px-4 py-4 text-left transition-[transform,border-color] hover:-translate-y-0.5 hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px"><span className="flex items-center justify-between gap-2"><span className="font-mono text-xl font-semibold">{formatTimeInZone(slot.startAt)}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" /></span><span className="mt-2 block truncate text-xs font-medium">{slot.diningArea.name}</span><span className="mt-1 block text-[11px] text-muted-foreground">{slot.durationMinutes} min · {flow.instantConfirmation}</span></button>)}</div>}
+        {!loading && slots.length === 0 && <div className="surface-3d rounded-2xl border border-dashed bg-card/70 p-6"><p className="font-medium">{requiresManualHandling || manualReviewRequired ? flow.staffReviewTitle : t.unavailable}</p><p className="mt-2 text-sm text-muted-foreground">{requiresManualHandling || manualReviewRequired ? flow.staffReviewDescription : features.waitlistEnabled ? flow.waitlistDescription : flow.waitlistDisabled}</p>{restrictions.length > 0 && <ul className="mt-4 space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">{restrictions.map((restriction) => <li key={restriction} className="flex gap-2"><Info className="mt-0.5 size-4 shrink-0 text-amber-600" />{restriction}</li>)}</ul>}<div className="mt-5 flex flex-wrap items-end gap-3">{features.waitlistEnabled ? <><div><Label htmlFor="requested-time" className="text-xs">{flow.preferredTime}</Label><Input id="requested-time" type="time" value={requestedTime} onChange={(event) => setRequestedTime(event.target.value)} className="mt-2 w-36 bg-background" /></div><Button variant="outline" onClick={() => { setWaitlistMode(true); setStep(4); }}>{requiresManualHandling || manualReviewRequired ? flow.sendStaffRequest : t.waitlist}</Button></> : hasPhone ? <Button asChild variant="outline"><a href={location.phoneHref}><PhoneCall />{flow.callRestaurant}</a></Button> : <p className="text-sm text-muted-foreground">I recapiti saranno disponibili a breve.</p>}</div></div>}
+        <StepActions back={() => setStep(2)} backLabel={t.back} />
+      </Step>}
+
+      {step === 4 && <Step title={t.detailsTitle} icon={<ShieldCheck />}>
+        {!waitlistMode && selected && <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-700/20 bg-emerald-700/8 p-4 text-sm"><span className="signal-pulse mt-1 size-2 shrink-0 rounded-full bg-emerald-600" /><div><p className="font-semibold">Tavolo temporaneamente riservato</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Completa i dati per confermare {formatTimeInZone(selected.startAt)} · {selected.diningArea.name}.</p></div></div>}
+        <div className="rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><LockKeyhole className="size-4 text-primary" />Contatto della prenotazione</p><div className="grid gap-5 sm:grid-cols-2"><Field id="firstName" label={t.firstName} value={fields.firstName} onChange={(value) => setField("firstName", value)} autoComplete="given-name" required /><Field id="lastName" label={t.lastName} value={fields.lastName} onChange={(value) => setField("lastName", value)} autoComplete="family-name" required /><Field id="phone" label={t.phone} value={fields.phone} onChange={(value) => setField("phone", value)} type="tel" autoComplete="tel" required /><Field id="email" label={t.email} value={fields.email} onChange={(value) => setField("email", value)} type="email" autoComplete="email" /></div></div>
+        <div className="mt-4 rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4 text-primary" />Preferenze per il servizio</p><div><Label htmlFor="notes">{details.notes} <span className="font-normal text-muted-foreground">({details.optional})</span></Label><Textarea id="notes" value={fields.notes} onChange={(event) => setField("notes", event.target.value)} className="mt-2 min-h-24 bg-background" placeholder="Es. compleanno, seggiolone, tavolo tranquillo…" /></div><div className="mt-5 grid gap-5 sm:grid-cols-2"><Field id="allergies" label={`${details.allergies} (${details.optional})`} value={fields.allergies} onChange={(value) => setField("allergies", value)} /><Field id="accessibilityNeeds" label={`${details.accessibility} (${details.optional})`} value={fields.accessibilityNeeds} onChange={(value) => setField("accessibilityNeeds", value)} /></div></div>
+        <div className="mt-6 space-y-4"><CheckRow id="privacy" checked={fields.privacyConsent} onCheckedChange={(value) => setField("privacyConsent", value)} label={t.privacy} required /><CheckRow id="marketing" checked={fields.marketingConsent} onCheckedChange={(value) => setField("marketingConsent", value)} label={t.marketing} /></div>
+        <StepActions back={() => { setStep(3); void releaseCurrentHold(); }} next={() => { if (validateDetails()) setStep(5); }} nextLabel={t.continue} backLabel={t.back} />
+      </Step>}
+
+      {step === 5 && <Step title={t.reviewTitle} icon={<Sparkles />}>
+        <div className="mb-5 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/8 p-4 text-sm"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><div><p className="font-semibold">Ultimo controllo</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Confermando, la prenotazione entra subito nella regia di sala.</p></div></div>
+        <dl className="surface-3d divide-y rounded-2xl border bg-card px-5">{[
+          [t.steps[0], `${partySize} ${dictionary.common.guests}`], [t.steps[1], selectedDateLabel], [t.steps[2], selected ? formatTimeInZone(selected.startAt) : requestedTime], [t.firstName, `${fields.firstName} ${fields.lastName}`], [t.phone, fields.phone], ...(fields.allergies ? [[details.allergies, fields.allergies]] : []), ...(fields.accessibilityNeeds ? [[details.accessibility, fields.accessibilityNeeds]] : []),
+        ].map(([label, value]) => <div key={label} className="grid grid-cols-[120px_1fr] gap-4 py-4 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>
+        <StepActions back={() => setStep(4)} next={finish} nextLabel={t.confirm} backLabel={t.back} loading={loading} />
+      </Step>}
+      {error && <p role="alert" className="mt-6 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</p>}
+    </main>
+
+    <aside className="hidden lg:block"><div className="surface-3d sticky top-8 overflow-hidden rounded-xl border bg-card">
+      <div className="relative overflow-hidden bg-[#111311] p-6 text-white"><div aria-hidden className="absolute -right-16 -top-20 size-48 rounded-full bg-primary/12 blur-2xl" /><div className="relative"><div className="flex items-center justify-between"><p className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/45">{location.shortName}</p><span className="flex items-center gap-1.5 text-[10px] text-emerald-300"><span className="signal-pulse size-1.5 rounded-full bg-emerald-400" />Live</span></div><h2 className="mt-3 font-heading text-2xl font-semibold tracking-tight">{location.name}</h2><p className="mt-2 text-xs text-white/45">Riepilogo aggiornato automaticamente</p></div></div>
+      <div className="space-y-5 p-6 text-sm"><SummaryLine icon={<UsersRound />} label={t.steps[0]} value={`${partySize} ${dictionary.common.guests}`} active={step >= 1} /><SummaryLine icon={<CalendarDays />} label={t.steps[1]} value={selectedDateLabel} active={step >= 2} /><SummaryLine icon={<Clock3 />} label={t.steps[2]} value={selected ? formatTimeInZone(selected.startAt) : flow.dateNotSelected} active={Boolean(selected)} /><SummaryLine icon={<MapPin />} label="Zona" value={selected?.diningArea.name ?? "Assegnazione ottimale"} active={Boolean(selected)} />
+        <div className="border-t pt-5 text-xs leading-5 text-muted-foreground"><Accessibility className="mb-2 size-4 text-primary" />Allergie e accessibilità arrivano evidenziate nella scheda operativa dello staff.</div>
+      </div>
+    </div></aside>
+  </div>;
+}
+
+function Step({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) { return <section className="surface-3d rounded-3xl border bg-background/70 p-5 sm:p-8"><div className="mb-8 flex items-center gap-4 text-primary"><span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/8 [&_svg]:size-5">{icon}</span><div><p className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Prenotazione guidata</p><h2 className="font-heading text-3xl tracking-tight sm:text-4xl">{title}</h2></div></div>{children}</section>; }
+function StepActions({ back, next, backLabel, nextLabel, disabled, loading }: { back?: () => void; next?: () => void; backLabel?: string; nextLabel?: string; disabled?: boolean; loading?: boolean }) { return <div className="fixed inset-x-0 bottom-0 z-50 flex gap-3 border-t border-border/80 bg-background/95 px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_-18px_rgba(0,0,0,.9)] backdrop-blur sm:static sm:mt-9 sm:flex-row sm:items-center sm:justify-between sm:border-t sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-6 sm:shadow-none">{back ? <Button variant="outline" onClick={back} className="min-h-12 flex-1 sm:w-auto sm:flex-none"><ArrowLeft />{backLabel}</Button> : <span className="hidden sm:block" />}{next && <Button size="lg" onClick={next} disabled={disabled || loading} className="surface-3d min-h-12 flex-1 sm:w-auto">{loading ? <LoaderCircle className="animate-spin" /> : null}{nextLabel}<ArrowRight /></Button>}</div>; }
+function Field({ id, label, value, onChange, type = "text", autoComplete, required }: { id: string; label: string; value: string; onChange: (value: string) => void; type?: string; autoComplete?: string; required?: boolean }) { return <div><Label htmlFor={id}>{label}{required ? " *" : ""}</Label><Input id={id} type={type} inputMode={type === "tel" ? "tel" : type === "email" ? "email" : undefined} autoComplete={autoComplete} autoCapitalize={type === "email" || type === "tel" ? "none" : "words"} enterKeyHint={type === "tel" || type === "email" ? "next" : undefined} value={value} onChange={(event) => onChange(event.target.value)} required={required} aria-required={required} className="mt-2 h-12 bg-background" /></div>; }
+function CheckRow({ id, checked, onCheckedChange, label, required }: { id: string; checked: boolean; onCheckedChange: (value: boolean) => void; label: string; required?: boolean }) { return <div className="flex items-start gap-3"><Checkbox id={id} checked={checked} onCheckedChange={(value) => onCheckedChange(value === true)} aria-required={required} /><Label htmlFor={id} className="text-sm font-normal leading-5">{label}{required ? " *" : ""}</Label></div>; }
+function SummaryLine({ icon, label, value, active }: { icon: React.ReactNode; label: string; value: string; active?: boolean }) { return <div className="grid grid-cols-[32px_1fr] gap-3"><span className={cn("flex size-8 items-center justify-center rounded-lg [&_svg]:size-4", active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{icon}</span><div><p className="text-xs text-muted-foreground">{label}</p><p className="mt-0.5 font-medium">{value}</p></div></div>; }
+function SummaryCell({ label, value }: { label: string; value: string }) { return <div className="bg-transparent px-4 py-3"><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 font-medium">{value}</p></div>; }
+
+function buildGoogleCalendarUrl({ location, selected, partySize, customerName }: { location: RestaurantLocation; selected: AvailabilityOption; partySize: number; customerName: string }) {
+  const toCalendarDate = (value: string) => new Date(value).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: `Prenotazione · ${location.name}`,
+    dates: `${toCalendarDate(selected.startAt)}/${toCalendarDate(selected.endAt)}`,
+    details: `Prenotazione per ${partySize} persone a nome ${customerName}.`,
+    location: location.address,
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
