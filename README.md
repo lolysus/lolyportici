@@ -1,4 +1,4 @@
-# Regia Sushi YUKO × KouSushi
+# Loly — Regia Sushi YUKO × KouSushi
 
 Regia Ristoranti riunisce prenotazioni web e telefoniche, sala, lista d'attesa, CRM, chiamate AI e report di due ristoranti indipendenti in un'app Next.js. Il repository parte in modalità demo senza servizi esterni. Collegando Supabase e i provider elencati in `.env.example`, gli stessi flussi usano dati persistenti e notifiche reali.
 
