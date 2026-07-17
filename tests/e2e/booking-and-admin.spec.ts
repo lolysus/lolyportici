@@ -114,6 +114,19 @@ test("the CEO has one executive dashboard for both locations", async ({ page }) 
   await expect(page.getByRole("heading", { name: "YUKO e KouSushi: due servizi indipendenti, una sola regia." })).toBeVisible();
 });
 
+test("sound notifications are armed for each operator and centrally for the CEO", async ({ page }) => {
+  await page.goto("/admin/yuko");
+  await page.getByRole("button", { name: "Apri notifiche operative" }).click();
+  await expect(page.getByText("YUKO", { exact: true }).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Suono attivo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Attiva campana|Testa campana/ })).toBeVisible();
+
+  await page.goto("/admin/ceo");
+  await page.getByRole("button", { name: "Apri notifiche operative" }).click();
+  await expect(page.getByText("YUKO + KouSushi", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Suono attivo" })).toBeVisible();
+});
+
 test("the central administrator sees the master rules for both restaurant brands", async ({ page }) => {
   await page.goto("/admin/master");
   await expect(page.getByRole("heading", { name: "Regole comuni, identità indipendenti" })).toBeVisible();

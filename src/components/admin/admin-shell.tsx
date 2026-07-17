@@ -118,7 +118,7 @@ export function AdminShell({ session, locations, activeLocation, children }: { s
         </Select> : <div className="hidden items-center gap-2 rounded-lg border border-white/8 bg-card/60 px-2.5 py-1.5 text-xs sm:flex"><span className="size-2 rounded-full bg-primary" /><span className="max-w-28 truncate">{activeLocation.shortName}</span></div>}
         <RealtimeStatus locationId={activeLocation.id} />
         <Button asChild size="sm" className="hidden xl:inline-flex"><Link href={`/it/book/${activeLocation.slug}`}><CalendarPlus />Nuova prenotazione</Link></Button>
-        <OperationalNotifications key={activeLocation.id} location={activeLocation} />
+        <OperationalNotifications key={isMasterAccount ? "ceo" : activeLocation.id} location={activeLocation} locations={isMasterAccount ? locations : undefined} />
       </header>
       {session.demo && <Link href="/admin/integrations" className="flex items-center justify-center gap-2 border-b border-primary/15 bg-primary/8 px-4 py-2 text-center text-xs text-primary hover:bg-primary/12"><Sparkles className="size-3.5" /><span>Ambiente sandbox · dati temporanei</span><span className="font-semibold underline underline-offset-4">Completa la configurazione</span></Link>}
       <main id="admin-content" tabIndex={-1} className="mx-auto max-w-[1540px] scroll-mt-20 px-4 py-6 pb-24 outline-none md:px-7 md:py-8">{children}</main>
