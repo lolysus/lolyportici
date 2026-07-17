@@ -6,6 +6,13 @@ import { getCurrentStaffSession } from "@/lib/auth/dal";
 import type { StaffSession } from "@/types/domain";
 
 export const adminLocationCookie = "sushi_admin_location";
+export const adminLocationCookieOptions = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 365,
+};
 
 export function getAccessibleAdminLocations(session: StaffSession) {
   return restaurantLocations.filter((location) => session.accessibleLocationIds.includes(location.id));

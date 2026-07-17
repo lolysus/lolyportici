@@ -79,6 +79,16 @@ test("the admin dashboard remains usable on a mobile viewport", async ({ page })
   expect(pageErrors).toEqual([]);
 });
 
+test("direct operator entries open the correct restaurant context", async ({ page }) => {
+  await page.goto("/admin/yuko");
+  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+  await expect(page.getByText("YUKO", { exact: true }).first()).toBeVisible();
+
+  await page.goto("/admin/kousushi");
+  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+  await expect(page.getByText("KouSushi", { exact: true }).first()).toBeVisible();
+});
+
 test("the central administrator sees the master rules for both restaurant brands", async ({ page }) => {
   await page.goto("/admin/master");
   await expect(page.getByRole("heading", { name: "Regole comuni, identità indipendenti" })).toBeVisible();
