@@ -75,9 +75,9 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
       </div>
     </header>
     <div className="sticky top-0 z-40 border-b border-white/10 bg-[#0c0d0c]/95 px-5 py-2.5 text-white backdrop-blur lg:hidden">
-      <div className="mx-auto flex max-w-6xl gap-3"><a href="#booking-content" className="flex min-h-11 flex-1 items-center justify-center gap-2 bg-primary px-4 text-sm font-semibold text-primary-foreground"><CalendarCheck2 className="size-4" />Prenota ora</a><a href={directionsUrl} target="_blank" rel="noreferrer" aria-label={`Apri ${location.name} in Google Maps`} className="flex size-11 shrink-0 items-center justify-center border border-white/20 text-white"><MapPinned className="size-4 text-primary" /></a></div>
+      <div className="mx-auto flex max-w-6xl gap-3"><a href="#booking-content" className="flex min-h-11 flex-1 items-center justify-center gap-2 bg-primary px-4 text-sm font-semibold text-primary-foreground"><CalendarCheck2 className="size-4" />Inizia la prenotazione</a><a href={directionsUrl} target="_blank" rel="noreferrer" aria-label={`Apri ${location.name} in Google Maps`} className="flex size-11 shrink-0 items-center justify-center border border-white/20 text-white"><MapPinned className="size-4 text-primary" /></a></div>
     </div>
-    <section className="relative overflow-hidden border-b border-white/10 bg-[#111] text-white">
+    <section className="booking-hero relative overflow-hidden border-b border-white/10 bg-[#111] text-white">
       <div className="relative mx-auto grid max-w-6xl gap-12 px-5 py-12 sm:py-16 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,.9fr)] lg:items-center lg:py-20">
         <div>
           <div className="mb-5 inline-flex items-center gap-2 border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-white/75">
@@ -87,10 +87,14 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
           <p className="mb-4 font-mono text-xs uppercase tracking-[0.22em] text-primary">{dictionary.booking.eyebrow}</p>
           <h1 className="max-w-3xl text-balance font-heading text-5xl font-semibold leading-[1.02] tracking-[-0.045em] sm:text-7xl">{dictionary.booking.title}</h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-white/58 sm:text-lg">{settings.guestExperience.arrivalMessage}</p>
+          <div className="mt-7 hidden flex-wrap gap-3 lg:flex">
+            <a href="#booking-content" className="inline-flex min-h-12 items-center gap-2 bg-primary px-5 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#111]"><CalendarCheck2 className="size-4" />Inizia la prenotazione</a>
+            <a href={directionsUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center gap-2 border border-white/15 bg-white/[0.03] px-5 text-sm font-medium text-white transition-colors hover:border-primary/55 hover:bg-white/[0.07]"><MapPinned className="size-4 text-primary" />Come arrivare<ExternalLink className="size-3" /></a>
+          </div>
           <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/60">
             <span className="inline-flex items-center gap-2"><MapPin className="size-4 text-primary" />{location.city} · {location.address}</span>
             <span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-primary" />{location.serviceNote}</span>
-            {hasPhone ? <a href={location.phoneHref} className="inline-flex items-center gap-2 font-medium text-white hover:text-primary"><Phone className="size-4 text-primary" />{location.phone}</a> : <span className="inline-flex items-center gap-2 text-white/55"><Phone className="size-4 text-primary" />{location.phone}</span>}
+            {hasPhone ? <a href={location.phoneHref} className="inline-flex items-center gap-2 font-medium text-white hover:text-primary"><Phone className="size-4 text-primary" />{location.phone}</a> : null}
             <a href={directionsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-medium text-white hover:text-primary"><MapPinned className="size-4 text-primary" />Google Maps<ExternalLink className="size-3" /></a>
           </div>
         </div>
@@ -115,7 +119,7 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
       </div>
     </section>
     <section className="border-b border-foreground/10 bg-card" aria-label="Informazioni per l’arrivo">
-      <div className="mx-auto grid max-w-6xl gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-px bg-border lg:grid-cols-4">
         <GuestInfo icon={MapPinned} label="Come arrivare" text={settings.guestExperience.directions} />
         <GuestInfo icon={Car} label="Parcheggio" text={settings.guestExperience.parkingInfo} />
         <GuestInfo icon={Accessibility} label="Accessibilità" text={settings.guestExperience.accessibilityInfo} />
@@ -123,7 +127,7 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
       </div>
     </section>
     <BookingWizard dictionary={dictionary} locale={locale} location={location} features={{ onlineBookingEnabled: settings.operations.serviceMode !== "paused" && settings.service.onlineBookingEnabled && availabilityContext.locationAvailable !== false, waitlistEnabled: settings.features.waitlistEnabled, minimumPartySize: settings.rules.minimumPartySize, maximumPartySize: settings.rules.maximumPartySize, requiresManualApproval: settings.rules.requiresManualApproval || settings.operations.serviceMode === "approval", requiresDeposit: settings.rules.requiresDeposit, depositAmount: settings.rules.depositAmount, minimumNoticeMinutes: settings.policies.minimumNoticeMinutes, calendarRules: { firstDate, maximumAdvanceDays: settings.policies.maximumAdvanceDays, enabledWeekdays, closedDates: [...new Set(closedDates)] } }} />
-    <footer className="border-t border-foreground/10"><div className="mx-auto grid max-w-6xl gap-6 px-5 pb-28 pt-8 text-xs text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-end sm:py-8"><div><p className="font-medium text-foreground">© {new Date().getFullYear()} {location.legalName}</p><p className="mt-2">{location.address} · P.IVA {location.vatNumber}</p></div><div className="flex flex-wrap gap-x-5 gap-y-2 sm:justify-end">{hasPhone ? <a href={location.phoneHref}>{location.phone}</a> : <span>{location.phone}</span>}<a href={location.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">Link prenotazione<ExternalLink className="size-3" /></a><Link href={`/${locale}/privacy`}>Privacy</Link><Link href={`/${locale}/terms`}>Condizioni</Link></div></div></footer>
+    <footer className="border-t border-foreground/10"><div className="mx-auto grid max-w-6xl gap-6 px-5 pb-28 pt-8 text-xs text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-end sm:py-8"><div><p className="font-medium text-foreground">© {new Date().getFullYear()} {location.legalName}</p><p className="mt-2">{location.address} · P.IVA {location.vatNumber}</p></div><div className="flex flex-wrap gap-x-5 gap-y-2 sm:justify-end">{hasPhone ? <a href={location.phoneHref}>{location.phone}</a> : null}<a href={location.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">Link prenotazione<ExternalLink className="size-3" /></a><Link href={`/${locale}/privacy`}>Privacy</Link><Link href={`/${locale}/terms`}>Condizioni</Link></div></div></footer>
   </div>;
 }
 

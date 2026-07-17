@@ -16,6 +16,7 @@
 /test-results
 /work
 /--full-page
+/artifacts-*.png
 
 # next.js
 /.next/

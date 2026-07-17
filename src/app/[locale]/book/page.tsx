@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, Building2, Clock3, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRight, Building2, CalendarCheck2, Clock3, MapPin, Phone, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { brandConfig, managedRestaurants, restaurantConfig } from "@/config/brand";
@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils";
 import type { ServiceMode } from "@/types/settings";
 
 const copy = {
-  it: { eyebrow: "Prenotazioni YUKO × KouSushi", title: "Due identità. Un tavolo scelto con cura.", description: "YUKO ad Ardea e KouSushi a Portici mantengono disponibilità, sala, regole e immagine separate. Scegli il tuo ristorante.", choose: "Prenota in questo ristorante", staff: "Area staff", guests: "Area ospite", restaurants: "Ristoranti gestiti", secure: "Richiesta protetta" },
-  en: { eyebrow: "YUKO × KouSushi reservations", title: "Two identities. One table chosen with care.", description: "YUKO in Ardea and KouSushi in Portici keep their availability, floor, rules and identity separate.", choose: "Book this restaurant", staff: "Staff area", guests: "Guest area", restaurants: "Managed restaurants", secure: "Secure request" },
-  es: { eyebrow: "Reservas YUKO × KouSushi", title: "Dos identidades. Una mesa elegida con cuidado.", description: "YUKO en Ardea y KouSushi en Portici mantienen separadas disponibilidad, sala, reglas e identidad.", choose: "Reservar en este restaurante", staff: "Área del personal", guests: "Área de cliente", restaurants: "Restaurantes gestionados", secure: "Solicitud protegida" },
+  it: { eyebrow: "Prenotazioni YUKO × KouSushi", title: "Due identità. Un tavolo scelto con cura.", description: "YUKO ad Ardea e KouSushi a Portici mantengono disponibilità, sala, regole e immagine separate. Scegli il tuo ristorante.", choose: "Prenota in questo ristorante", staff: "Area staff", guests: "Area ospite", restaurants: "Ristoranti gestiti", secure: "Richiesta protetta", journey: { choose: ["Scegli la sede", "Ogni ristorante conserva immagine, sala e disponibilità indipendenti."], personalise: ["Personalizza la richiesta", "Orario, numero di ospiti e preferenze arrivano ordinati allo staff."], confirm: ["Ricevi conferma", "Il percorso guida il cliente fino al riepilogo della prenotazione."] } },
+  en: { eyebrow: "YUKO × KouSushi reservations", title: "Two identities. One table chosen with care.", description: "YUKO in Ardea and KouSushi in Portici keep their availability, floor, rules and identity separate.", choose: "Book this restaurant", staff: "Staff area", guests: "Guest area", restaurants: "Managed restaurants", secure: "Secure request", journey: { choose: ["Choose your restaurant", "Each restaurant keeps its own identity, floor plan and availability."], personalise: ["Make it yours", "Time, party size and preferences are sent clearly to the team."], confirm: ["Receive confirmation", "The guided flow ends with a clear booking summary."] } },
+  es: { eyebrow: "Reservas YUKO × KouSushi", title: "Dos identidades. Una mesa elegida con cuidado.", description: "YUKO en Ardea y KouSushi en Portici mantienen separadas disponibilidad, sala, reglas e identidad.", choose: "Reservar en este restaurante", staff: "Área del personal", guests: "Área de cliente", restaurants: "Restaurantes gestionados", secure: "Solicitud protegida", journey: { choose: ["Elige el restaurante", "Cada restaurante conserva su identidad, sala y disponibilidad."], personalise: ["Personaliza la solicitud", "Hora, comensales y preferencias llegan ordenados al equipo."], confirm: ["Recibe confirmación", "El flujo guiado termina con un resumen claro de la reserva."] } },
 } as const;
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
@@ -86,7 +86,7 @@ export default async function RestaurantSelectionPage({ params }: { params: Prom
                 <dl className="mt-6 space-y-3 text-sm text-white/55">
                   <div className="flex gap-3"><MapPin className="mt-0.5 size-4 shrink-0 text-primary" /><span>{restaurant.address}</span></div>
                   <div className="flex gap-3"><Clock3 className="mt-0.5 size-4 shrink-0 text-primary" /><span>{restaurant.serviceNote}</span></div>
-                  <div className="flex gap-3"><Phone className="mt-0.5 size-4 shrink-0 text-primary" /><span>{restaurant.phone}</span></div>
+                  {restaurant.phoneHref ? <div className="flex gap-3"><Phone className="mt-0.5 size-4 shrink-0 text-primary" /><a href={restaurant.phoneHref} className="hover:text-primary">{restaurant.phone}</a></div> : null}
                 </dl>
               </div>
               <a href={`/${locale}/book/${restaurant.slug}`} className="group/link flex items-center justify-between border-t border-white/8 bg-white/[0.02] px-6 py-5 font-medium text-white transition-colors hover:bg-primary/10 sm:px-8">
@@ -100,7 +100,21 @@ export default async function RestaurantSelectionPage({ params }: { params: Prom
           <span className="inline-flex items-center gap-2"><Building2 className="size-3.5 text-primary" />{managedRestaurants.length} {text.restaurants}</span>
           <span className="inline-flex items-center gap-2"><ShieldCheck className="size-3.5 text-primary" />{text.secure}</span>
         </div>
+
+        <div className="mt-8 grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-3">
+          <JourneyItem index="01" icon={Building2} title={text.journey.choose[0]} description={text.journey.choose[1]} />
+          <JourneyItem index="02" icon={Sparkles} title={text.journey.personalise[0]} description={text.journey.personalise[1]} />
+          <JourneyItem index="03" icon={CalendarCheck2} title={text.journey.confirm[0]} description={text.journey.confirm[1]} />
+        </div>
       </div>
     </section>
   </main>;
+}
+
+function JourneyItem({ index, icon: Icon, title, description }: { index: string; icon: typeof Building2; title: string; description: string }) {
+  return <div className="group bg-[#0b0d0b]/92 px-5 py-5 transition-colors hover:bg-white/[0.055] sm:px-6">
+    <div className="flex items-center justify-between"><Icon className="size-4 text-primary" /><span className="font-mono text-[10px] tracking-[0.2em] text-white/35">{index}</span></div>
+    <h2 className="mt-5 font-heading text-lg font-semibold tracking-tight text-white">{title}</h2>
+    <p className="mt-2 text-sm leading-6 text-white/48">{description}</p>
+  </div>;
 }

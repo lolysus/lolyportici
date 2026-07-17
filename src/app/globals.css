@@ -170,6 +170,28 @@
   .control-rail {
     border-left: 2px solid var(--primary);
   }
+  .booking-hero::before {
+    content: "";
+    position: absolute;
+    inset: auto -12% -52% auto;
+    width: min(62vw, 760px);
+    aspect-ratio: 1;
+    pointer-events: none;
+    background: radial-gradient(circle, color-mix(in oklab, var(--primary) 20%, transparent) 0%, transparent 68%);
+    filter: blur(8px);
+    opacity: 0.9;
+  }
+  .booking-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgb(0 0 0 / 20%), transparent 58%);
+  }
+  .booking-hero > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 @keyframes ambient-drift {
@@ -204,5 +226,6 @@
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
 }

@@ -18,7 +18,7 @@ test("the restaurant booking page exposes Google-ready metadata and mobile actio
 
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/it\/book\/yuko$/);
   await expect.poll(() => page.locator('script[type="application/ld+json"]').textContent()).toContain('"@type":"Restaurant"');
-  await expect(page.getByRole("link", { name: "Prenota ora" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Inizia la prenotazione" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Apri YUKO Sushi & Fusion in Google Maps/ })).toBeVisible();
 });
 
