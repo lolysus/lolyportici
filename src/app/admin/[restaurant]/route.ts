@@ -15,7 +15,7 @@ export async function GET(request: Request, context: { params: Promise<{ restaur
   if (!session) return NextResponse.redirect(new URL("/login", request.url));
   if (!canAccessAdminLocation(session, location.id)) return NextResponse.redirect(new URL("/admin/dashboard", request.url));
 
-  const response = NextResponse.redirect(new URL("/admin/dashboard", request.url));
+  const response = NextResponse.redirect(new URL(`/admin/${location.slug}/dashboard`, request.url));
   response.cookies.set(adminLocationCookie, location.slug, adminLocationCookieOptions);
   return response;
 }

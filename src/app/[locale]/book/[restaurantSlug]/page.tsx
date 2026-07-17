@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Accessibility, Building2, CalendarCheck2, Car, Clock3, ExternalLink, Leaf, MapPinned, MapPin, Phone, ShieldCheck, Sparkles, UserRound, Utensils } from "lucide-react";
+import { Accessibility, Building2, CalendarCheck2, Car, Clock3, ExternalLink, Leaf, MapPinned, MapPin, Phone, ShieldCheck, Sparkles, UserRound, UsersRound, Utensils } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { BookingWizard } from "@/components/public-booking/booking-wizard";
 import { RestaurantBookingJsonLd } from "@/components/seo/restaurant-booking-json-ld";
@@ -14,6 +14,24 @@ import { restaurantThemeStyle } from "@/lib/brand-theme";
 import { buildServiceTimeSlots, dayOfWeekForDateKey } from "@/lib/service-calendar";
 import { getRestaurantSettings } from "@/domains/settings/settings-service";
 import { getRepository } from "@/repositories";
+
+const bookingTrustCopy = {
+  it: [
+    { icon: UserRound, label: "Senza account", detail: "Accesso immediato" },
+    { icon: Phone, label: "Dati essenziali", detail: "Nome, cognome e cellulare" },
+    { icon: UsersRound, label: "Persone obbligatorie", detail: "Capienza corretta" },
+  ],
+  en: [
+    { icon: UserRound, label: "No account", detail: "Start immediately" },
+    { icon: Phone, label: "Essential details", detail: "Name, surname and phone" },
+    { icon: UsersRound, label: "Guest count required", detail: "Accurate capacity" },
+  ],
+  es: [
+    { icon: UserRound, label: "Sin cuenta", detail: "Acceso inmediato" },
+    { icon: Phone, label: "Datos esenciales", detail: "Nombre, apellidos y telefono" },
+    { icon: UsersRound, label: "Personas obligatorias", detail: "Aforo correcto" },
+  ],
+} as const;
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string; restaurantSlug: string }> }): Promise<Metadata> {
   const { locale, restaurantSlug } = await params;
@@ -59,6 +77,7 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
   if (onlineServicesToday.length > 0 && !hasTimeAfterNotice) closedDates.push(firstDate);
   const directionsUrl = getGoogleMapsDirectionsUrl(location.address);
   const hasPhone = Boolean(location.phoneHref);
+  const bookingTrust = bookingTrustCopy[locale as keyof typeof bookingTrustCopy];
   return <div style={restaurantThemeStyle(location)} className={`dark japanese-pattern min-h-screen bg-background brand-${location.slug}`}>
     <RestaurantBookingJsonLd restaurant={location} locale={locale} />
     <a href="#booking-content" className="sr-only fixed left-4 top-4 z-50 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only">Vai alla prenotazione</a>
@@ -91,6 +110,9 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
             <a href="#booking-content" className="inline-flex min-h-12 items-center gap-2 bg-primary px-5 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#111]"><CalendarCheck2 className="size-4" />Inizia la prenotazione</a>
             <a href={directionsUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center gap-2 border border-white/15 bg-white/[0.03] px-5 text-sm font-medium text-white transition-colors hover:border-primary/55 hover:bg-white/[0.07]"><MapPinned className="size-4 text-primary" />Come arrivare<ExternalLink className="size-3" /></a>
           </div>
+          <div className="booking-trust-rail mt-8 grid max-w-xl grid-cols-3 gap-2" aria-label="Prenotazione semplice e sicura">
+            {bookingTrust.map((item) => <div key={item.label} className="booking-trust-card"><item.icon className="size-4 text-primary" /><p>{item.label}</p><span>{item.detail}</span></div>)}
+          </div>
           <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/60">
             <span className="inline-flex items-center gap-2"><MapPin className="size-4 text-primary" />{location.city} · {location.address}</span>
             <span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-primary" />{location.serviceNote}</span>
@@ -99,8 +121,8 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
           </div>
         </div>
 
-        <div className="perspective-stage hidden lg:block" aria-label="Il percorso della prenotazione">
-          <div className="depth-card surface-3d-dark relative overflow-hidden rounded-xl border border-white/10 bg-[#111311] p-6">
+        <div className="booking-constellation perspective-stage hidden lg:block" aria-label="Il percorso della prenotazione">
+          <div className="booking-route-card depth-card surface-3d-dark relative overflow-hidden rounded-xl border border-white/10 bg-[#111311] p-6">
             <div className="flex items-start justify-between gap-4">
               <div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/38">{location.shortName}</p><p className="mt-2 font-heading text-2xl">Il tavolo, senza attese.</p></div>
               <span className="flex size-11 items-center justify-center border border-primary/30 bg-primary/10 text-primary"><Utensils className="size-5" /></span>

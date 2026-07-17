@@ -45,7 +45,8 @@ export function AdminShell({ session, locations, activeLocation, children }: { s
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [locationPending, startLocationTransition] = useTransition();
-  const isMasterAccount = session.centralAccess && locations.length > 1;
+  const isScopedOperatorView = /^\/admin\/(yuko|kousushi)(?:\/|$)/.test(pathname);
+  const isMasterAccount = session.centralAccess && locations.length > 1 && !isScopedOperatorView;
   const visibleNav = nav
     .filter((item) => session.permissions.includes(item.permission))
     .filter((item) => !item.masterOnly || isMasterAccount)

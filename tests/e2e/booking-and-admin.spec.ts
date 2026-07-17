@@ -22,6 +22,22 @@ test("the restaurant booking page exposes Google-ready metadata and mobile actio
   await expect(page.getByRole("link", { name: /Apri YUKO Sushi & Fusion in Google Maps/ })).toBeVisible();
 });
 
+test("the direct customer entries are branded, account-free, and require party size", async ({ page }) => {
+  await page.goto("/prenota/yuko");
+  await expect(page).toHaveURL(/\/prenota\/yuko$/);
+  await expect(page.getByLabel("YUKO Sushi & Fusion").first()).toBeVisible();
+  await expect(page.getByText("Senza account", { exact: true })).toBeVisible();
+  await expect(page.getByText("Persone obbligatorie", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continua" })).toBeDisabled();
+  await page.getByRole("button", { name: "4", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Continua" })).toBeEnabled();
+
+  await page.goto("/prenota/kousushi");
+  await expect(page).toHaveURL(/\/prenota\/kousushi$/);
+  await expect(page.getByLabel("KouSushi").first()).toBeVisible();
+  await expect(page.getByText("Senza account", { exact: true })).toBeVisible();
+});
+
 test("an ospite can verify an existing reservation without exposing the management token", async ({ page }) => {
   await page.goto("/account");
   await page.getByLabel("Codice prenotazione").fill("YK-2401");
@@ -40,6 +56,7 @@ test("an ospite completes a booking and opens the management page", async ({ pag
   await page.goto("/it/book/yuko");
   await expect(page.getByRole("heading", { name: "Una tavola, il tempo giusto." })).toBeVisible();
 
+  await page.getByRole("button", { name: "4", exact: true }).click();
   await page.getByRole("button", { name: "Continua" }).click();
   await expect(page.getByRole("heading", { name: "Quando vuoi venire?" })).toBeVisible();
   await page.getByRole("button", { name: "Continua" }).click();
@@ -81,12 +98,20 @@ test("the admin dashboard remains usable on a mobile viewport", async ({ page })
 
 test("direct operator entries open the correct restaurant context", async ({ page }) => {
   await page.goto("/admin/yuko");
-  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+  await expect(page).toHaveURL(/\/admin\/yuko\/dashboard$/);
   await expect(page.getByText("YUKO", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Pannello operatori")).toBeVisible();
 
   await page.goto("/admin/kousushi");
-  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+  await expect(page).toHaveURL(/\/admin\/kousushi\/dashboard$/);
   await expect(page.getByText("KouSushi", { exact: true }).first()).toBeVisible();
+});
+
+test("the CEO has one executive dashboard for both locations", async ({ page }) => {
+  await page.goto("/admin/ceo");
+  await expect(page).toHaveURL(/\/admin\/ceo$/);
+  await expect(page.getByRole("heading", { name: "Regia CEO: Ardea e Portici" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "YUKO e KouSushi: due servizi indipendenti, una sola regia." })).toBeVisible();
 });
 
 test("the central administrator sees the master rules for both restaurant brands", async ({ page }) => {

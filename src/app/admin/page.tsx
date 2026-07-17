@@ -1,3 +1,3 @@
 import { redirect } from "next/navigation";
-export default function AdminPage() { redirect("/admin/locations"); }
+export default function AdminPage() { redirect("/admin/ceo"); }
 

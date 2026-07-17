@@ -1,4 +1,4 @@
-import { Building2, Network, ShieldCheck } from "lucide-react";
+import { ArrowRight, Building2, Network, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { CentralReservationsStream } from "@/components/admin/central-reservations-stream";
 import { LocationCards, type LocationSummary } from "@/components/admin/location-cards";
@@ -59,12 +59,13 @@ export default async function LocationsPage() {
 
   return <>
     <PageHeading
-      eyebrow={session.centralAccess ? "Regia multi-ristorante" : "Controllo ristorante"}
-      title={accessibleLocations.length > 1 ? "I tuoi ristoranti" : accessibleLocations[0]?.shortName ?? "Il tuo ristorante"}
+      eyebrow={session.centralAccess ? "Dashboard CEO" : "Controllo ristorante"}
+      title={accessibleLocations.length > 1 ? "Regia CEO: Ardea e Portici" : accessibleLocations[0]?.shortName ?? "Il tuo ristorante"}
       description={accessibleLocations.length > 1
         ? "Una regia centrale, due ristoranti indipendenti. Scegli il ristorante per entrare nella sua dashboard, agenda, sala e configurazione."
         : "Prenotazioni, sala e configurazione sono limitate al ristorante assegnato al tuo account."}
     />
+    {accessibleLocations.length > 1 && <CeoCommandDeck />}
     <div className="mb-6 grid gap-px overflow-hidden rounded-2xl border bg-border sm:grid-cols-3">
       <IntroStat icon={Building2} value={String(accessibleLocations.length)} label={accessibleLocations.length === 1 ? "Ristorante autorizzato" : "Ristoranti operativi"} />
       <IntroStat icon={Network} value={String(totalReservations)} label="Prenotazioni attive" />
@@ -82,4 +83,20 @@ function dayOfWeekInZone(timeZone: string) {
 
 function IntroStat({ icon: Icon, value, label }: { icon: typeof Building2; value: string; label: string }) {
   return <div className="flex items-center gap-4 bg-card p-5"><span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="size-4" /></span><div><p className="font-mono text-lg font-semibold">{value}</p><p className="text-xs text-muted-foreground">{label}</p></div></div>;
+}
+
+function CeoCommandDeck() {
+  return <section className="ceo-command-deck surface-3d-dark relative mb-6 overflow-hidden rounded-2xl border border-white/10 p-5 sm:p-7" aria-labelledby="ceo-command-title">
+    <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/55">Controllo centrale</p>
+        <h2 id="ceo-command-title" className="mt-2 max-w-2xl font-heading text-3xl font-semibold tracking-tight sm:text-4xl">YUKO e KouSushi: due servizi indipendenti, una sola regia.</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">Il CEO confronta prenotazioni, coperti, attese e stato operativo tra Ardea (RM) e Portici (NA), senza mescolare i flussi delle due sedi.</p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <a href="/admin/yuko" className="ceo-location-link ceo-location-yuko"><span><strong>YUKO</strong><small>Operativita Ardea</small></span><ArrowRight className="size-4" /></a>
+        <a href="/admin/kousushi" className="ceo-location-link ceo-location-kousushi"><span><strong>KouSushi</strong><small>Operativita Portici</small></span><ArrowRight className="size-4" /></a>
+      </div>
+    </div>
+  </section>;
 }

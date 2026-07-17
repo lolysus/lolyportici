@@ -43,6 +43,7 @@ const flowCopy = {
     preferredTime: "Orario preferito",
     sendStaffRequest: "Invia richiesta allo staff",
     dateNotSelected: "Da scegliere",
+    partySizeRequired: "Seleziona il numero di persone: questo dato è obbligatorio per mostrarti solo i tavoli disponibili.",
   },
   en: {
     exactPartySize: "Exact number of guests",
@@ -61,6 +62,7 @@ const flowCopy = {
     preferredTime: "Preferred time",
     sendStaffRequest: "Send request to the team",
     dateNotSelected: "To be selected",
+    partySizeRequired: "Choose the number of guests: this is required to show only available tables.",
   },
   es: {
     exactPartySize: "Número exacto de comensales",
@@ -79,6 +81,7 @@ const flowCopy = {
     preferredTime: "Hora preferida",
     sendStaffRequest: "Enviar solicitud al equipo",
     dateNotSelected: "Por elegir",
+    partySizeRequired: "Selecciona el numero de personas: es obligatorio para mostrar solo las mesas disponibles.",
   },
 } as const;
 
@@ -100,6 +103,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
   const flow = flowCopy[locale];
   const [step, setStep] = useState(1);
   const [partySize, setPartySize] = useState(Math.max(2, features.minimumPartySize));
+  const [partySizeSelected, setPartySizeSelected] = useState(false);
   const [date, setDate] = useState(() => firstBookableServiceDate(features.calendarRules));
   const [requestedTime, setRequestedTime] = useState("20:00");
   const [slots, setSlots] = useState<AvailabilityOption[]>([]);
@@ -248,13 +252,14 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
       </ol>
 
       {step === 1 && <Step title={t.partyTitle} icon={<UsersRound />}>
-        <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
-          {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => <button key={value} type="button" disabled={value < features.minimumPartySize} onClick={() => setPartySize(value)} aria-pressed={partySize === value} className={cn("surface-3d flex aspect-square items-center justify-center rounded-xl border text-lg font-semibold transition-[transform,border-color,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px disabled:cursor-not-allowed disabled:opacity-35", partySize === value ? "-translate-y-0.5 border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5 hover:border-primary/50")}>{value}</button>)}
-          <button type="button" onClick={() => setPartySize(11)} aria-pressed={partySize > 10} className={cn("surface-3d col-span-5 min-h-12 rounded-xl border px-4 text-sm font-semibold transition-transform active:translate-y-px sm:col-span-2", partySize > 10 ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5")}>{t.partyMore}</button>
+        <p id="party-size-hint" className="-mt-4 mb-5 text-sm text-muted-foreground">{flow.partySizeRequired}</p>
+        <div role="group" aria-label={t.partyTitle} aria-describedby="party-size-hint" className="grid grid-cols-5 gap-2 sm:grid-cols-6">
+          {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => <button key={value} type="button" disabled={value < features.minimumPartySize} onClick={() => { setPartySize(value); setPartySizeSelected(true); }} aria-pressed={partySizeSelected && partySize === value} className={cn("surface-3d flex aspect-square items-center justify-center rounded-xl border text-lg font-semibold transition-[transform,border-color,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px disabled:cursor-not-allowed disabled:opacity-35", partySizeSelected && partySize === value ? "-translate-y-0.5 border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5 hover:border-primary/50")}>{value}</button>)}
+          <button type="button" onClick={() => { setPartySize(11); setPartySizeSelected(true); }} aria-pressed={partySizeSelected && partySize > 10} className={cn("surface-3d col-span-5 min-h-12 rounded-xl border px-4 text-sm font-semibold transition-transform active:translate-y-px sm:col-span-2", partySizeSelected && partySize > 10 ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5")}>{t.partyMore}</button>
         </div>
-        {partySize > 10 && <div className="mt-5 max-w-xs"><Label htmlFor="large-party-size">{flow.exactPartySize}</Label><Input id="large-party-size" type="number" min={11} max={100} value={partySize} onChange={(event) => setPartySize(Math.max(11, Number(event.target.value)))} className="mt-2 h-12 bg-card"/></div>}
+        {partySizeSelected && partySize > 10 && <div className="mt-5 max-w-xs"><Label htmlFor="large-party-size">{flow.exactPartySize}</Label><Input id="large-party-size" type="number" min={11} max={100} value={partySize} onChange={(event) => { setPartySize(Math.max(11, Number(event.target.value))); setPartySizeSelected(true); }} className="mt-2 h-12 bg-card"/></div>}
         {requiresManualHandling && <p className="mt-5 flex items-start gap-2 rounded-xl border border-accent/35 bg-accent/15 p-4 text-sm"><Info className="mt-0.5 size-4 shrink-0" />{partySize > features.maximumPartySize ? flow.largeParty(features.maximumPartySize) : features.requiresDeposit ? flow.deposit(depositAmount) : flow.staffReview}</p>}
-        <StepActions next={() => setStep(2)} nextLabel={t.continue} />
+        <StepActions next={() => setStep(2)} nextLabel={t.continue} disabled={!partySizeSelected} />
       </Step>}
 
       {step === 2 && <Step title={t.dateTitle} icon={<CalendarDays />}>
@@ -290,7 +295,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
 
     <aside className="hidden lg:block"><div className="surface-3d sticky top-8 overflow-hidden rounded-xl border bg-card">
       <div className="relative overflow-hidden bg-[#111311] p-6 text-white"><div aria-hidden className="absolute -right-16 -top-20 size-48 rounded-full bg-primary/12 blur-2xl" /><div className="relative"><div className="flex items-center justify-between"><p className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/45">{location.shortName}</p><span className="flex items-center gap-1.5 text-[10px] text-emerald-300"><span className="signal-pulse size-1.5 rounded-full bg-emerald-400" />Live</span></div><h2 className="mt-3 font-heading text-2xl font-semibold tracking-tight">{location.name}</h2><p className="mt-2 text-xs text-white/45">Riepilogo aggiornato automaticamente</p></div></div>
-      <div className="space-y-5 p-6 text-sm"><SummaryLine icon={<UsersRound />} label={t.steps[0]} value={`${partySize} ${dictionary.common.guests}`} active={step >= 1} /><SummaryLine icon={<CalendarDays />} label={t.steps[1]} value={selectedDateLabel} active={step >= 2} /><SummaryLine icon={<Clock3 />} label={t.steps[2]} value={selected ? formatTimeInZone(selected.startAt) : flow.dateNotSelected} active={Boolean(selected)} /><SummaryLine icon={<MapPin />} label="Zona" value={selected?.diningArea.name ?? "Assegnazione ottimale"} active={Boolean(selected)} />
+      <div className="space-y-5 p-6 text-sm"><SummaryLine icon={<UsersRound />} label={t.steps[0]} value={partySizeSelected ? `${partySize} ${dictionary.common.guests}` : flow.dateNotSelected} active={partySizeSelected} /><SummaryLine icon={<CalendarDays />} label={t.steps[1]} value={selectedDateLabel} active={step >= 2} /><SummaryLine icon={<Clock3 />} label={t.steps[2]} value={selected ? formatTimeInZone(selected.startAt) : flow.dateNotSelected} active={Boolean(selected)} /><SummaryLine icon={<MapPin />} label="Zona" value={selected?.diningArea.name ?? "Assegnazione ottimale"} active={Boolean(selected)} />
         <div className="border-t pt-5 text-xs leading-5 text-muted-foreground"><Accessibility className="mb-2 size-4 text-primary" />Allergie e accessibilità arrivano evidenziate nella scheda operativa dello staff.</div>
       </div>
     </div></aside>
