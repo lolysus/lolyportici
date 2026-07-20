@@ -107,11 +107,11 @@ insert into public.customers (id,organization_id,first_name,last_name,phone,norm
 on conflict (id) do nothing;
 
 insert into public.knowledge_base (restaurant_id,location_id,category,question,answer,language,is_public,is_active,priority) values
-('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','orari','Quali sono gli orari?','Gli orari disponibili sono mostrati nel calendario di prenotazione. Per informazioni chiamare il +39 010 272 1545.','it',true,true,10),
+('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','orari','Quali sono gli orari?','Gli orari disponibili sono mostrati nel calendario di prenotazione. Per informazioni contatta direttamente YUKO.','it',true,true,10),
 ('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','accessibilità','Il ristorante è accessibile?','Sono disponibili tavoli accessibili; segnalare la necessità durante la prenotazione.','it',true,true,8),
 ('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','allergeni','Come comunico un allergene?','Indicare sempre allergie e intolleranze durante la prenotazione; i casi gravi vengono trasferiti al personale.','it',true,true,10),
-('00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000004','orari','Quali sono gli orari?','Gli orari disponibili sono mostrati nel calendario del Ristorante Mare.','it',true,true,10),
-('00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000004','allergeni','Come comunico un allergene?','Indicare allergie e intolleranze durante la prenotazione; lo staff del Ristorante Mare verificherÃ  la richiesta.','it',true,true,10);
+('00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000004','orari','Quali sono gli orari?','Gli orari disponibili sono mostrati nel calendario di KouSushi.','it',true,true,10),
+('00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000004','allergeni','Come comunico un allergene?','Indicare allergie e intolleranze durante la prenotazione; lo staff di KouSushi verifichera la richiesta.','it',true,true,10);
 
 insert into public.reservations (
   id,organization_id,restaurant_id,location_id,customer_id,service_period_id,
@@ -142,13 +142,55 @@ select
   seed.language,
   now()
 from (values
-  ('60000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','MG-2401','web','confirmed',4,'19:30'::time,120,'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000003','Anniversario','Anniversario','it'),
-  ('60000000-0000-0000-0000-000000000002','50000000-0000-0000-0000-000000000002','MG-2402','phone_ai','arriving',2,'20:00'::time,90,'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',null,null,'it'),
-  ('60000000-0000-0000-0000-000000000003','50000000-0000-0000-0000-000000000003','MG-2403','admin','confirmed',6,'20:30'::time,150,'10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000013','Accesso senza gradini',null,'en')
+  ('60000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','YK-2401','web','confirmed',4,'19:30'::time,120,'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000003','Anniversario','Anniversario','it'),
+  ('60000000-0000-0000-0000-000000000002','50000000-0000-0000-0000-000000000002','YK-2402','phone_ai','arriving',2,'20:00'::time,90,'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',null,null,'it'),
+  ('60000000-0000-0000-0000-000000000003','50000000-0000-0000-0000-000000000003','YK-2403','admin','confirmed',6,'20:30'::time,150,'10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000013','Accesso senza gradini',null,'en')
 ) as seed(id,customer_id,code,source,status,party_size,start_time,duration_minutes,area_id,table_id,note,occasion,language)
 join lateral (
   select id from public.service_periods
   where location_id = '00000000-0000-0000-0000-000000000003'
+    and name = 'Cena'
+    and day_of_week = extract(dow from current_date)::integer
+  limit 1
+) service on true
+on conflict (id) do nothing;
+
+insert into public.reservations (
+  id,organization_id,restaurant_id,location_id,customer_id,service_period_id,
+  reservation_code,management_token_hash,source,status,party_size,reservation_date,
+  start_at,end_at,duration_minutes,dining_area_preference_id,assigned_table_id,
+  customer_notes,special_occasion,language,confirmed_at
+)
+select
+  seed.id::uuid,
+  '00000000-0000-0000-0000-000000000001'::uuid,
+  '00000000-0000-0000-0000-000000000005'::uuid,
+  '00000000-0000-0000-0000-000000000004'::uuid,
+  seed.customer_id::uuid,
+  service.id,
+  seed.code,
+  'demo-management-token-' || seed.code,
+  seed.source,
+  seed.status,
+  seed.party_size,
+  current_date,
+  (current_date + seed.start_time) at time zone 'Europe/Rome',
+  ((current_date + seed.start_time) at time zone 'Europe/Rome') + make_interval(mins => seed.duration_minutes + 15),
+  seed.duration_minutes,
+  seed.area_id::uuid,
+  seed.table_id::uuid,
+  seed.note,
+  seed.occasion,
+  seed.language,
+  now()
+from (values
+  ('60000000-0000-0000-0000-000000000004','50000000-0000-0000-0000-000000000002','KS-2401','web','confirmed',2,'19:30'::time,120,'11000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000002',null,null,'it'),
+  ('60000000-0000-0000-0000-000000000005','50000000-0000-0000-0000-000000000003','KS-2402','phone_ai','arriving',4,'20:00'::time,90,'11000000-0000-0000-0000-000000000001','21000000-0000-0000-0000-000000000005','Compleanno',null,'it'),
+  ('60000000-0000-0000-0000-000000000006','50000000-0000-0000-0000-000000000001','KS-2403','admin','confirmed',6,'20:30'::time,150,'11000000-0000-0000-0000-000000000002','21000000-0000-0000-0000-000000000011','Allergia dichiarata',null,'it')
+) as seed(id,customer_id,code,source,status,party_size,start_time,duration_minutes,area_id,table_id,note,occasion,language)
+join lateral (
+  select id from public.service_periods
+  where location_id = '00000000-0000-0000-0000-000000000004'
     and name = 'Cena'
     and day_of_week = extract(dow from current_date)::integer
   limit 1
@@ -161,7 +203,10 @@ from public.reservations
 where id in (
   '60000000-0000-0000-0000-000000000001',
   '60000000-0000-0000-0000-000000000002',
-  '60000000-0000-0000-0000-000000000003'
+  '60000000-0000-0000-0000-000000000003',
+  '60000000-0000-0000-0000-000000000004',
+  '60000000-0000-0000-0000-000000000005',
+  '60000000-0000-0000-0000-000000000006'
 )
 on conflict (reservation_id,table_id) do nothing;
 
@@ -170,7 +215,8 @@ insert into public.waitlist_entries (
   party_size,flexibility_minutes,status,priority,notes
 ) values
 ('70000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000003','50000000-0000-0000-0000-000000000002','{"firstName":"Marco","lastName":"Rossi (Demo)","phone":"+390000000002"}',current_date,(current_date + time '21:00') at time zone 'Europe/Rome',2,30,'waiting',2,'Dato dimostrativo'),
-('70000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003',null,'{"firstName":"Sara","lastName":"Demo","phone":"+390000000011"}',current_date,(current_date + time '20:30') at time zone 'Europe/Rome',4,60,'offered',1,'Dato dimostrativo')
+('70000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003',null,'{"firstName":"Sara","lastName":"Demo","phone":"+390000000011"}',current_date,(current_date + time '20:30') at time zone 'Europe/Rome',4,60,'offered',1,'Dato dimostrativo'),
+('70000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004','50000000-0000-0000-0000-000000000001','{"firstName":"Giulia","lastName":"Bianchi (Demo)","phone":"+390000000001"}',current_date,(current_date + time '21:00') at time zone 'Europe/Rome',2,45,'waiting',1,'Dato dimostrativo KouSushi')
 on conflict (id) do nothing;
 
 insert into public.voice_calls (
@@ -179,5 +225,6 @@ insert into public.voice_calls (
   human_escalation_required
 ) values
 ('80000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000003','retell','call_demo_01','+390000000020',(current_date + time '17:44') at time zone 'Europe/Rome',(current_date + time '17:46:12') at time zone 'Europe/Rome',132,'completed','Nuova prenotazione','Prenotazione creata','60000000-0000-0000-0000-000000000002','50000000-0000-0000-0000-000000000002','{"text":"Cena per due persone alle 20:00."}','positive',false),
-('80000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','retell','call_demo_02','+390000000021',(current_date + time '18:12') at time zone 'Europe/Rome',(current_date + time '18:13:21') at time zone 'Europe/Rome',81,'callback_requested','Evento privato','Richiamata richiesta',null,null,'{"text":"Richiesta per gruppo numeroso; escalation al manager."}','neutral',true)
+('80000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','retell','call_demo_02','+390000000021',(current_date + time '18:12') at time zone 'Europe/Rome',(current_date + time '18:13:21') at time zone 'Europe/Rome',81,'callback_requested','Evento privato','Richiamata richiesta',null,null,'{"text":"Richiesta per gruppo numeroso; escalation al manager."}','neutral',true),
+('80000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004','retell','call_demo_03','+390000000022',(current_date + time '18:35') at time zone 'Europe/Rome',(current_date + time '18:36:09') at time zone 'Europe/Rome',69,'completed','Nuova prenotazione','Prenotazione creata','60000000-0000-0000-0000-000000000005','50000000-0000-0000-0000-000000000003','{"text":"Prenotazione per quattro persone alle 20:00."}','positive',false)
 on conflict (id) do nothing;
