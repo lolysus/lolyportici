@@ -1,8 +1,10 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { restaurantConfig } from "@/config/brand";
+import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { checkAvailability } from "@/domains/availability/availability-service";
+import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
+import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-machine";
 import { CapacityExceededError, HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableConflictError } from "@/domains/bookings/errors";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { hashManagementToken, managementTokenForIdempotency } from "@/lib/security";
@@ -133,7 +135,7 @@ export class SupabaseReservationRepository implements ReservationRepository {
         depositAmount: asNumber(rule.deposit_amount),
       } : undefined,
       locationAvailable: Boolean(locationResult.data?.booking_enabled && locationResult.data.status === "active" && restaurant?.status === "active"),
-      timezone: restaurantConfig.timezone,
+      timezone: getRestaurantLocationById(this.locationId)?.timezone ?? restaurantConfig.timezone,
       now: new Date(),
     };
   }
@@ -164,12 +166,17 @@ export class SupabaseReservationRepository implements ReservationRepository {
     return { id: asString(row.id), locationId: asString(row.location_id), sessionId: asString(row.session_id), partySize: asNumber(row.party_size), startAt: asString(row.start_at), endAt: asString(row.end_at), tableIds: Array.isArray(row.table_ids) ? row.table_ids.map(String) : [], combinationId: asString(row.combination_id) || undefined, diningAreaId: asString(row.dining_area_id), expiresAt: asString(row.expires_at), status: asString(row.status) as ReservationHold["status"], createdAt: asString(row.created_at) };
   }
 
-  async releaseHold(holdId: string) {
-    const { error } = await getSupabaseAdmin().from("reservation_holds").update({ status: "released" }).eq("id", holdId).eq("status", "active");
+  async releaseHold(holdId: string, sessionId?: string) {
+    let query = getSupabaseAdmin().from("reservation_holds").update({ status: "released" }).eq("id", holdId).eq("location_id", this.locationId).eq("status", "active");
+    if (sessionId) query = query.eq("session_id", sessionId);
+    const { error } = await query;
     if (error) throw error;
   }
 
   async confirmHold(input: ConfirmHoldInput): Promise<ConfirmedReservation> {
+    const { data: hold, error: holdError } = await getSupabaseAdmin().from("reservation_holds").select("location_id").eq("id", input.holdId).maybeSingle();
+    if (holdError) throw holdError;
+    if (!hold || asString(hold.location_id) !== this.locationId) throw new HoldExpiredError();
     const token = managementTokenForIdempotency(input.idempotencyKey);
     const { data, error } = await getSupabaseAdmin().rpc("confirm_reservation_from_hold", {
       p_hold_id: input.holdId, p_idempotency_key: input.idempotencyKey, p_management_token_hash: hashManagementToken(token),
@@ -193,14 +200,24 @@ export class SupabaseReservationRepository implements ReservationRepository {
   }
 
   private async reservationByToken(token: string) {
-    const { data, error } = await getSupabaseAdmin().from("reservations").select(reservationSelect).eq("management_token_hash", hashManagementToken(token)).maybeSingle();
+    const { data, error } = await getSupabaseAdmin().from("reservations").select(reservationSelect).eq("management_token_hash", hashManagementToken(token)).eq("location_id", this.locationId).maybeSingle();
     if (error) throw error;
     return data ? mapReservation(data as Row) : null;
   }
   async findReservationByToken(token: string) { const row = await this.reservationByToken(token); return row ? toPublic(row) : null; }
   async updateReservationByToken(token: string, changes: Partial<Reservation>) {
     const current = await this.reservationByToken(token); if (!current) throw new ReservationNotFoundError();
-    if (changes.partySize || changes.startAt || changes.durationMinutes) {
+    assertCustomerCanModifyReservation(current);
+    const customerUpdate: Row = {};
+    if (changes.customer?.allergies !== undefined) customerUpdate.allergies = changes.customer.allergies;
+    if (changes.customer?.accessibilityNeeds !== undefined) customerUpdate.accessibility_needs = changes.customer.accessibilityNeeds;
+    const updateCustomer = async () => {
+      if (Object.keys(customerUpdate).length === 0) return;
+      const customerResult = await getSupabaseAdmin().from("customers").update(customerUpdate).eq("id", current.customerId);
+      if (customerResult.error) throw customerResult.error;
+    };
+    const requiresAvailabilityCheck = changes.partySize !== undefined || changes.startAt !== undefined || changes.durationMinutes !== undefined;
+    if (requiresAvailabilityCheck) {
       const targetStart = changes.startAt ?? current.startAt;
       const targetPartySize = changes.partySize ?? current.partySize;
       const availabilityContext = await this.getAvailabilityContext();
@@ -232,22 +249,24 @@ export class SupabaseReservationRepository implements ReservationRepository {
         if (["SLOT_UNAVAILABLE", "TABLE_UNAVAILABLE", "TABLE_CAPACITY_MISMATCH", "LOCATION_CLOSED", "BOOKING_WINDOW_VIOLATION", "MANUAL_APPROVAL_REQUIRED"].some((code) => error.message.includes(code))) throw new SlotUnavailableError({ alternatives: availability.alternativeSlots });
         throw error;
       }
-      if (changes.customer?.allergies !== undefined || changes.customer?.accessibilityNeeds !== undefined) {
-        const customerUpdate: Row = {};
-        if (changes.customer.allergies !== undefined) customerUpdate.allergies = changes.customer.allergies;
-        if (changes.customer.accessibilityNeeds !== undefined) customerUpdate.accessibility_needs = changes.customer.accessibilityNeeds;
-        const customerResult = await getSupabaseAdmin().from("customers").update(customerUpdate).eq("id", current.customerId);
-        if (customerResult.error) throw customerResult.error;
-      }
+      await updateCustomer();
       const { data, error: fetchError } = await getSupabaseAdmin().from("reservations").select(reservationSelect).eq("id", asString(reservationId, current.id)).single();
       if (fetchError) throw fetchError;
       return toPublic(mapReservation(data as Row));
     }
-    const { data, error } = await getSupabaseAdmin().from("reservations").update({ customer_notes: changes.customerNotes, updated_at: new Date().toISOString() }).eq("id", current.id).select(reservationSelect).single();
-    if (error) throw error; return toPublic(mapReservation(data as Row));
+    await updateCustomer();
+    if (changes.customerNotes !== undefined) {
+      const { data, error } = await getSupabaseAdmin().from("reservations").update({ customer_notes: changes.customerNotes, updated_at: new Date().toISOString() }).eq("id", current.id).select(reservationSelect).single();
+      if (error) throw error;
+      return toPublic(mapReservation(data as Row));
+    }
+    const { data, error } = await getSupabaseAdmin().from("reservations").select(reservationSelect).eq("id", current.id).single();
+    if (error) throw error;
+    return toPublic(mapReservation(data as Row));
   }
   async cancelReservationByToken(token: string, reason?: string) {
     const current = await this.reservationByToken(token); if (!current) throw new ReservationNotFoundError();
+    assertCustomerCanCancelReservation(current);
     const { data, error } = await getSupabaseAdmin().from("reservations").update({ status: "cancelled_by_customer", cancellation_reason: reason, cancelled_at: new Date().toISOString() }).eq("id", current.id).select(reservationSelect).single();
     if (error) throw error; return toPublic(mapReservation(data as Row));
   }
@@ -277,7 +296,7 @@ export class SupabaseReservationRepository implements ReservationRepository {
     const { data, error } = await getSupabaseAdmin().from("waitlist_entries").insert({ location_id: this.locationId, requested_date: entry.requestedDate, requested_start_at: entry.requestedStartAt, party_size: entry.partySize, flexibility_minutes: entry.flexibilityMinutes, preferred_area_id: entry.preferredAreaId, notes: entry.notes, status: "waiting", customer_snapshot: entry.customer }).select("*").single();
     if (error) throw error; const row = data as Row; return { ...entry, id: asString(row.id), locationId: asString(row.location_id, this.locationId), status: "waiting" as const, priority: asNumber(row.priority), createdAt: asString(row.created_at) };
   }
-  async updateWaitlist(id: string, status: WaitlistEntry["status"]) { const { data, error } = await getSupabaseAdmin().from("waitlist_entries").update({ status, offered_start_at: status === "offered" ? new Date().toISOString() : undefined, offer_expires_at: status === "offered" ? new Date(Date.now() + 10 * 60_000).toISOString() : undefined }).eq("id", id).eq("location_id", this.locationId).select("*").single(); if (error) throw error; const row = data as Row; return { id: asString(row.id), locationId: asString(row.location_id), customer: (row.customer_snapshot ?? {}) as WaitlistEntry["customer"], requestedDate: asString(row.requested_date), requestedStartAt: asString(row.requested_start_at), partySize: asNumber(row.party_size), flexibilityMinutes: asNumber(row.flexibility_minutes), preferredAreaId: asString(row.preferred_area_id) || undefined, status: asString(row.status) as WaitlistEntry["status"], priority: asNumber(row.priority), notes: asString(row.notes) || undefined, createdAt: asString(row.created_at) }; }
+  async updateWaitlist(id: string, status: WaitlistEntry["status"]) { const db = getSupabaseAdmin(); const { data: current, error: currentError } = await db.from("waitlist_entries").select("status").eq("id", id).eq("location_id", this.locationId).maybeSingle(); if (currentError) throw currentError; if (!current) throw new ReservationNotFoundError(); const currentStatus = asString(current.status) as WaitlistEntry["status"]; if (currentStatus !== status) assertWaitlistTransition(currentStatus, status); const { data, error } = await db.from("waitlist_entries").update({ status, offered_start_at: status === "offered" ? new Date().toISOString() : undefined, offer_expires_at: status === "offered" ? new Date(Date.now() + 10 * 60_000).toISOString() : undefined }).eq("id", id).eq("location_id", this.locationId).select("*").single(); if (error) throw error; const row = data as Row; return { id: asString(row.id), locationId: asString(row.location_id), customer: (row.customer_snapshot ?? {}) as WaitlistEntry["customer"], requestedDate: asString(row.requested_date), requestedStartAt: asString(row.requested_start_at), partySize: asNumber(row.party_size), flexibilityMinutes: asNumber(row.flexibility_minutes), preferredAreaId: asString(row.preferred_area_id) || undefined, status: asString(row.status) as WaitlistEntry["status"], priority: asNumber(row.priority), notes: asString(row.notes) || undefined, createdAt: asString(row.created_at) }; }
   async listWaitlist() { const { data, error } = await getSupabaseAdmin().from("waitlist_entries").select("*").eq("location_id", this.locationId); if (error) throw error; return ((data ?? []) as Row[]).map((row) => ({ id: asString(row.id), locationId: asString(row.location_id), customer: (row.customer_snapshot ?? {}) as WaitlistEntry["customer"], requestedDate: asString(row.requested_date), requestedStartAt: asString(row.requested_start_at), partySize: asNumber(row.party_size), flexibilityMinutes: asNumber(row.flexibility_minutes), preferredAreaId: asString(row.preferred_area_id) || undefined, status: asString(row.status) as WaitlistEntry["status"], priority: asNumber(row.priority), notes: asString(row.notes) || undefined, createdAt: asString(row.created_at) })); }
   async listCustomers() {
     const db = getSupabaseAdmin();

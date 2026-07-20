@@ -28,6 +28,8 @@ describe("POST /api/public/v1/availability", () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(formatTimeInZone(body.data.availableOptions[0].startAt)).toBe("19:00");
+    expect(body.data.availableOptions[0]).not.toHaveProperty("tableIds");
+    expect(body.data.availableOptions[0]).not.toHaveProperty("diningArea");
   });
 
   it("returns a stable validation error envelope", async () => {

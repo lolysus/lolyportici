@@ -121,10 +121,7 @@ export function OperationalNotifications({ location, locations }: { location: Re
   }, [loadReservations, location.id, monitorAllLocations]);
 
   useEffect(() => {
-    if (!soundEnabled) {
-      setAudioReady(false);
-      return;
-    }
+    if (!soundEnabled) return;
     const prime = () => { void unlockAudio(); };
     window.addEventListener("pointerdown", prime, { once: true, passive: true });
     window.addEventListener("keydown", prime, { once: true });

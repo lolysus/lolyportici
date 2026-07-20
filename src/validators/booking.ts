@@ -36,7 +36,7 @@ export const customerSchema = z.object({
 });
 
 export const reservationCreateSchema = z.object({
-  locationId: databaseIdSchema.optional(),
+  locationId: databaseIdSchema,
   holdId: databaseIdSchema,
   idempotencyKey: z.string().min(16).max(128),
   customer: customerSchema,
@@ -48,9 +48,15 @@ export const reservationUpdateSchema = z.object({
   partySize: z.number().int().min(1).max(100).optional(),
   date: z.iso.date().optional(),
   requestedTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
-  preferredAreaId: databaseIdSchema.optional(),
   customerNotes: z.string().trim().max(1000).optional(),
   allergies: z.string().trim().max(500).optional(),
+  accessibilityNeeds: z.string().trim().max(500).optional(),
+}).refine((value) => Object.keys(value).length > 0, "Inserisci almeno una modifica.");
+
+export const holdReleaseSchema = z.object({
+  holdId: databaseIdSchema,
+  locationId: databaseIdSchema,
+  sessionId: z.string().min(12).max(128),
 });
 
 export const waitlistSchema = z.object({
@@ -64,4 +70,8 @@ export const waitlistSchema = z.object({
   flexibilityMinutes: z.number().int().min(0).max(180).default(60),
   preferredAreaId: databaseIdSchema.optional(),
   notes: z.string().trim().max(500).optional(),
+});
+
+export const publicWaitlistSchema = waitlistSchema.extend({
+  privacyConsent: z.literal(true),
 });

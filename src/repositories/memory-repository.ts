@@ -4,6 +4,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { checkAvailability, findBestTableAssignment } from "@/domains/availability/availability-service";
 import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableConflictError } from "@/domains/bookings/errors";
+import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
+import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-machine";
 import { assertTransition } from "@/domains/bookings/state-machine";
 import { normalizeEmail, normalizePhone } from "@/domains/customers/normalization";
 import { dateKeyInZone, formatTimeInZone } from "@/lib/datetime";
@@ -97,7 +99,7 @@ function context(locationId: string) {
       depositAmount: settings.rules.depositAmount,
     },
     locationAvailable: settings.operations.serviceMode !== "paused",
-    timezone: restaurantConfig.timezone,
+    timezone: getRestaurantLocationById(locationId)?.timezone ?? restaurantConfig.timezone,
     now: new Date(),
   };
 }
@@ -150,18 +152,19 @@ export class MemoryReservationRepository implements ReservationRepository {
     });
   }
 
-  async releaseHold(holdId: string) {
-    const hold = state().holds.find((item) => item.id === holdId);
+  async releaseHold(holdId: string, sessionId?: string) {
+    const hold = state().holds.find((item) => item.id === holdId && item.locationId === this.locationId && (!sessionId || item.sessionId === sessionId));
     if (hold && hold.status === "active") hold.status = "released";
   }
 
   async confirmHold(input: ConfirmHoldInput) {
     return withLock(() => {
       const memory = state();
-      const previousResult = memory.idempotency.get(input.idempotencyKey);
+      const idempotencyKey = `${this.locationId}:${input.idempotencyKey}`;
+      const previousResult = memory.idempotency.get(idempotencyKey);
       if (previousResult) return structuredClone(previousResult);
       const hold = memory.holds.find((item) => item.id === input.holdId);
-      if (!hold || hold.status !== "active" || new Date(hold.expiresAt).getTime() <= Date.now()) throw new HoldExpiredError();
+      if (!hold || hold.locationId !== this.locationId || hold.status !== "active" || new Date(hold.expiresAt).getTime() <= Date.now()) throw new HoldExpiredError();
       const assignment = findBestTableAssignment({ partySize: hold.partySize, preferredAreaId: hold.diningAreaId }, context(hold.locationId), hold.startAt, hold.endAt, hold.id);
       if (!assignment || assignment.tableIds.some((id) => !hold.tableIds.includes(id))) throw new SlotUnavailableError();
 
@@ -222,7 +225,7 @@ export class MemoryReservationRepository implements ReservationRepository {
       memory.reservations.push(reservation);
       event(reservation.id, "reservation_confirmed", "web", undefined, reservation);
       const result = { reservation: toPublic(reservation), managementToken };
-      memory.idempotency.set(input.idempotencyKey, result);
+      memory.idempotency.set(idempotencyKey, result);
       return structuredClone(result);
     });
   }
@@ -232,16 +235,18 @@ export class MemoryReservationRepository implements ReservationRepository {
   }
 
   async findReservationByToken(token: string) {
-    const found = state().reservations.find((item) => item.managementTokenHash === tokenHash(token));
+    const found = state().reservations.find((item) => item.locationId === this.locationId && item.managementTokenHash === tokenHash(token));
     return found ? toPublic(found) : null;
   }
 
   async updateReservationByToken(token: string, changes: Partial<Reservation>) {
     return withLock(() => {
-      const reservation = state().reservations.find((item) => item.managementTokenHash === tokenHash(token));
+      const reservation = state().reservations.find((item) => item.locationId === this.locationId && item.managementTokenHash === tokenHash(token));
       if (!reservation) throw new ReservationNotFoundError();
+      assertCustomerCanModifyReservation(reservation);
       const before = structuredClone(reservation);
-      if (changes.partySize || changes.startAt) {
+      const requiresAvailabilityCheck = changes.partySize !== undefined || changes.startAt !== undefined || changes.durationMinutes !== undefined;
+      if (requiresAvailabilityCheck) {
         const targetStart = changes.startAt ?? reservation.startAt;
         const targetPartySize = changes.partySize ?? reservation.partySize;
         const currentContext = context(reservation.locationId);
@@ -264,16 +269,22 @@ export class MemoryReservationRepository implements ReservationRepository {
         changes.diningAreaId = option.diningArea.id;
         changes.reservationDate = dateKeyInZone(targetStart);
       }
-      Object.assign(reservation, changes, { status: "modified", updatedAt: new Date().toISOString() });
-      event(reservation.id, "reservation_modified", "web", before, reservation);
+      if (changes.customer) {
+        const customer = state().customers.find((item) => item.id === reservation.customerId);
+        if (customer) Object.assign(customer, changes.customer);
+        changes.customer = customer ?? changes.customer;
+      }
+      Object.assign(reservation, changes, { status: requiresAvailabilityCheck && reservation.status === "confirmed" ? "modified" : reservation.status, updatedAt: new Date().toISOString() });
+      event(reservation.id, requiresAvailabilityCheck ? "reservation_modified" : "reservation_details_updated", "web", before, reservation);
       return toPublic(reservation);
     });
   }
 
   async cancelReservationByToken(token: string, reason?: string) {
     return withLock(() => {
-      const reservation = state().reservations.find((item) => item.managementTokenHash === tokenHash(token));
+      const reservation = state().reservations.find((item) => item.locationId === this.locationId && item.managementTokenHash === tokenHash(token));
       if (!reservation) throw new ReservationNotFoundError();
+      assertCustomerCanCancelReservation(reservation);
       assertTransition(reservation.status, "cancelled_by_customer");
       const before = structuredClone(reservation);
       reservation.status = "cancelled_by_customer";
@@ -308,7 +319,7 @@ export class MemoryReservationRepository implements ReservationRepository {
     state().waitlist.push(row);
     return structuredClone(row);
   }
-  async updateWaitlist(id: string, status: WaitlistEntry["status"]) { const row = state().waitlist.find((item) => item.id === id && item.locationId === this.locationId); if (!row) throw new ReservationNotFoundError(); row.status = status; return structuredClone(row); }
+  async updateWaitlist(id: string, status: WaitlistEntry["status"]) { const row = state().waitlist.find((item) => item.id === id && item.locationId === this.locationId); if (!row) throw new ReservationNotFoundError(); if (row.status !== status) assertWaitlistTransition(row.status, status); row.status = status; return structuredClone(row); }
   async listWaitlist() { return structuredClone(state().waitlist.filter((item) => item.locationId === this.locationId)); }
   async listCustomers() {
     const customerIds = new Set(state().reservations.filter((reservation) => reservation.locationId === this.locationId).map((reservation) => reservation.customerId));

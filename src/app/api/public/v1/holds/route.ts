@@ -1,15 +1,21 @@
 import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { failure, success, validationFailure } from "@/lib/api/response";
 import { getRepository } from "@/repositories";
-import { holdSchema } from "@/validators/booking";
+import { holdReleaseSchema, holdSchema } from "@/validators/booking";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 
 function publicHoldInput(body: unknown) {
   const input = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};
   const requestedLocationId = typeof input.locationId === "string" && getRestaurantLocationById(input.locationId) ? input.locationId : restaurantConfig.locationId;
   return {
-    ...input,
     locationId: requestedLocationId,
+    date: input.date,
+    requestedTime: input.requestedTime,
+    partySize: input.partySize,
+    requestedDuration: input.requestedDuration,
+    accessibilityRequirements: input.accessibilityRequirements === true,
+    startAt: input.startAt,
+    sessionId: input.sessionId,
     source: "web" as const,
   };
 }
@@ -29,9 +35,12 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const body = await request.json() as { holdId?: string };
-    if (!body.holdId) return validationFailure({ holdId: ["Campo obbligatorio"] });
-    await getRepository().releaseHold(body.holdId);
+    enforceRateLimit(request, "hold-release", 30);
+    const parsed = holdReleaseSchema.safeParse(await request.json());
+    if (!parsed.success) return validationFailure(parsed.error.flatten());
+    const location = getRestaurantLocationById(parsed.data.locationId);
+    if (!location) return validationFailure({ locationId: ["Sede non valida"] });
+    await getRepository(location.id).releaseHold(parsed.data.holdId, parsed.data.sessionId);
     return success({ released: true });
   } catch (error) { return failure(error); }
 }

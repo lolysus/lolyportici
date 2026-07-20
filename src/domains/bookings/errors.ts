@@ -31,6 +31,12 @@ export class ReservationModificationNotAllowedError extends DomainError {
 export class InvalidReservationStateError extends DomainError {
   constructor(from: string, to: string) { super("INVALID_RESERVATION_STATE", `Transizione non consentita da ${from} a ${to}.`, 409); }
 }
+export class ReservationCancellationNotAllowedError extends DomainError {
+  constructor() { super("CANCELLATION_NOT_ALLOWED", "Questa prenotazione non puÃ² piÃ¹ essere cancellata online.", 409); }
+}
+export class InvalidWaitlistStateError extends DomainError {
+  constructor(from: string, to: string) { super("INVALID_WAITLIST_STATE", `Transizione richiesta non consentita da ${from} a ${to}.`, 409); }
+}
 export class PermissionDeniedError extends DomainError {
   constructor() { super("PERMISSION_DENIED", "Non hai i permessi necessari.", 403); }
 }

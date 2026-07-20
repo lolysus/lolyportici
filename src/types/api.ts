@@ -31,6 +31,13 @@ export interface AvailabilityResult {
   requiresManualApproval: boolean;
 }
 
+export type PublicAvailabilityOption = Pick<AvailabilityOption, "startAt" | "endAt" | "durationMinutes">;
+
+export interface PublicAvailabilityResult extends Omit<AvailabilityResult, "availableOptions" | "alternativeSlots"> {
+  availableOptions: PublicAvailabilityOption[];
+  alternativeSlots: PublicAvailabilityOption[];
+}
+
 export interface ApiErrorBody {
   success: false;
   error: { code: string; message: string; details: Record<string, unknown> };

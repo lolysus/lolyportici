@@ -1,4 +1,5 @@
 import { ArrowRight, Building2, Network, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CentralReservationsStream } from "@/components/admin/central-reservations-stream";
 import { LocationCards, type LocationSummary } from "@/components/admin/location-cards";
@@ -94,8 +95,8 @@ function CeoCommandDeck() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">Il CEO confronta prenotazioni, coperti, attese e stato operativo tra Ardea (RM) e Portici (NA), senza mescolare i flussi delle due sedi.</p>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <a href="/admin/yuko" className="ceo-location-link ceo-location-yuko"><span><strong>YUKO</strong><small>Operativita Ardea</small></span><ArrowRight className="size-4" /></a>
-        <a href="/admin/kousushi" className="ceo-location-link ceo-location-kousushi"><span><strong>KouSushi</strong><small>Operativita Portici</small></span><ArrowRight className="size-4" /></a>
+        <Link href="/admin/yuko" className="ceo-location-link ceo-location-yuko"><span><strong>YUKO</strong><small>Operativita Ardea</small></span><ArrowRight className="size-4" /></Link>
+        <Link href="/admin/kousushi" className="ceo-location-link ceo-location-kousushi"><span><strong>KouSushi</strong><small>Operativita Portici</small></span><ArrowRight className="size-4" /></Link>
       </div>
     </div>
   </section>;

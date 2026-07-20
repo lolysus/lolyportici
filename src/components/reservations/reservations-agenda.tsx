@@ -22,7 +22,6 @@ import {
   Search,
   UserRound,
   UserRoundCheck,
-  UsersRound,
 } from "lucide-react";
 import { ReservationSourceBadge, reservationSourceInfo } from "@/components/reservations/reservation-source-badge";
 import { Badge } from "@/components/ui/badge";

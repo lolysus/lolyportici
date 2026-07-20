@@ -34,7 +34,7 @@ export interface VoiceEscalationInput {
 export interface ReservationRepository {
   getAvailabilityContext(): Promise<AvailabilityContext>;
   createHold(input: CreateHoldInput): Promise<ReservationHold>;
-  releaseHold(holdId: string): Promise<void>;
+  releaseHold(holdId: string, sessionId?: string): Promise<void>;
   confirmHold(input: ConfirmHoldInput): Promise<ConfirmedReservation>;
   listReservations(): Promise<PublicReservation[]>;
   findReservationByToken(token: string): Promise<PublicReservation | null>;
