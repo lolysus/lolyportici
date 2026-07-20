@@ -129,13 +129,29 @@ test("sound notifications are armed for each operator and centrally for the CEO"
   await page.goto("/admin/yuko");
   await page.getByRole("button", { name: "Apri notifiche operative" }).click();
   await expect(page.getByText("YUKO", { exact: true }).last()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Suono attivo" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Attiva campana|Testa campana/ })).toBeVisible();
+  await expect(page.getByText(/Campanella pronta|Attiva la campanella/)).toBeVisible();
+  await page.getByRole("button", { name: "Disattiva" }).click();
+  await expect(page.getByText("Campanella disattivata")).toBeVisible();
+
+  await page.goto("/admin/kousushi");
+  await page.getByRole("button", { name: "Apri notifiche operative" }).click();
+  await expect(page.getByText("KouSushi", { exact: true }).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Disattiva" })).toBeVisible();
 
   await page.goto("/admin/ceo");
   await page.getByRole("button", { name: "Apri notifiche operative" }).click();
   await expect(page.getByText("YUKO + KouSushi", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Suono attivo" })).toBeVisible();
+  await expect(page.getByText(/Campanella pronta|Attiva la campanella/)).toBeVisible();
+});
+
+test("the operator header remains usable on a mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin/yuko");
+  await expect(page.getByRole("button", { name: "Apri menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Vai a una sezione" })).toBeVisible();
+  await page.getByRole("button", { name: "Apri notifiche operative" }).click();
+  await expect(page.getByRole("button", { name: "Disattiva" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Abilita audio|Prova suono/ })).toBeVisible();
 });
 
 test("the central administrator sees the master rules for both restaurant brands", async ({ page }) => {

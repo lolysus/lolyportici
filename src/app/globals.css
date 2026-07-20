@@ -137,6 +137,20 @@
   .depth-card { transform: rotateX(2deg) rotateY(-2deg); transform-style: preserve-3d; }
   .ambient-drift { animation: ambient-drift 12s ease-in-out infinite alternate; }
   .signal-pulse { animation: signal-pulse 2.4s ease-out infinite; }
+  .notification-bell-trigger::after {
+    content: "";
+    position: absolute;
+    right: 0.45rem;
+    bottom: 0.42rem;
+    width: 0.43rem;
+    height: 0.43rem;
+    border: 2px solid var(--background);
+    border-radius: 999px;
+    background: rgb(148 163 184);
+  }
+  .notification-bell-trigger[data-sound-status="armed"]::after { background: rgb(74 222 128); animation: bell-beacon 2.4s ease-out infinite; }
+  .notification-bell-trigger[data-sound-status="pending"]::after { background: rgb(250 204 21); }
+  .notification-bell-trigger[data-sound-status="muted"]::after { background: rgb(148 163 184); }
   .service-route {
     background: color-mix(in oklab, var(--primary) 42%, transparent);
   }
@@ -266,6 +280,11 @@
   12% { opacity: 1; }
   70% { opacity: 1; }
   100% { left: 100%; opacity: 0; }
+}
+
+@keyframes bell-beacon {
+  0%, 55% { box-shadow: 0 0 0 0 rgb(74 222 128 / 45%); }
+  100% { box-shadow: 0 0 0 5px transparent; }
 }
 
 ::selection { background: color-mix(in oklab, var(--accent) 55%, transparent); }
