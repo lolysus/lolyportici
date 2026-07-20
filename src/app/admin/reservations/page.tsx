@@ -21,7 +21,7 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
   const initialDate = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : selectedReservation?.reservationDate ?? dateKeyInZone(new Date());
 
   return <>
-    <PageHeading eyebrow={location.shortName} title="Agenda prenotazioni" description={`Calendario operativo di ${location.city}, collegato a servizi, capienza e canali reali.`} actions={<Button asChild><Link href={`/it/book/${location.slug}`}><CalendarPlus />Nuova prenotazione</Link></Button>} />
-    <ReservationsAgenda initialReservations={reservations} servicePeriods={availabilityContext.servicePeriods} closures={availabilityContext.closures} tables={availabilityContext.tables} initialDate={initialDate} initialSelectedId={selectedReservation?.id} />
+    <PageHeading eyebrow={location.shortName} title="Agenda prenotazioni" description={`Calendario operativo di ${location.city}, collegato a servizi, capienza e canali reali.`} actions={<Button asChild><Link href={`/prenota/${location.slug}`}><CalendarPlus />Apri booking</Link></Button>} />
+    <ReservationsAgenda initialReservations={reservations} servicePeriods={availabilityContext.servicePeriods} closures={availabilityContext.closures} initialDate={initialDate} initialSelectedId={selectedReservation?.id} />
   </>;
 }

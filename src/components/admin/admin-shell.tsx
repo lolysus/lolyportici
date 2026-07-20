@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpenText, Bot, Building2, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LoaderCircle, MapPin, Menu, PanelLeftClose, PanelLeftOpen, PhoneCall, Search, Settings2, Sparkles, TableProperties, UsersRound, Utensils, type LucideIcon } from "lucide-react";
+import { BarChart3, BookOpenText, Bot, Building2, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LoaderCircle, MapPin, Menu, PanelLeftClose, PanelLeftOpen, PhoneCall, Search, Settings2, Sparkles, UsersRound, Utensils, type LucideIcon } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { RealtimeStatus } from "@/components/admin/realtime-status";
 import { OperationalNotifications } from "@/components/admin/operational-notifications";
@@ -24,7 +24,6 @@ const nav: NavItem[] = [
   { href: "/admin/locations", label: "Ristoranti", icon: Building2, permission: "reservations:read" },
   { href: "/admin/dashboard", label: "Oggi", icon: LayoutDashboard, permission: "reservations:read" },
   { href: "/admin/reservations", label: "Prenotazioni", icon: CalendarRange, permission: "reservations:read" },
-  { href: "/admin/floor-plan", label: "Sala", icon: TableProperties, permission: "floor:read" },
   { href: "/admin/waitlist", label: "Lista d'attesa", icon: UsersRound, permission: "reservations:read" },
   { href: "/admin/customers", label: "Ospiti", icon: ContactRound, permission: "customers:read" },
   { href: "/admin/calls", label: "Chiamate AI", icon: PhoneCall, permission: "calls:read" },
@@ -117,7 +116,7 @@ export function AdminShell({ session, locations, activeLocation, children }: { s
           </SelectContent>
         </Select> : <div className="hidden items-center gap-2 rounded-lg border border-white/8 bg-card/60 px-2.5 py-1.5 text-xs sm:flex"><span className="size-2 rounded-full bg-primary" /><span className="max-w-28 truncate">{activeLocation.shortName}</span></div>}
         <RealtimeStatus locationId={activeLocation.id} />
-        <Button asChild size="sm" className="hidden xl:inline-flex"><Link href={`/it/book/${activeLocation.slug}`}><CalendarPlus />Nuova prenotazione</Link></Button>
+        <Button asChild size="sm" className="hidden xl:inline-flex"><Link href={`/prenota/${activeLocation.slug}`}><CalendarPlus />Apri booking</Link></Button>
         <OperationalNotifications key={isMasterAccount ? "ceo" : activeLocation.id} location={activeLocation} locations={isMasterAccount ? locations : undefined} />
       </header>
       {session.demo && <Link href="/admin/integrations" className="flex items-center justify-center gap-2 border-b border-primary/15 bg-primary/8 px-4 py-2 text-center text-xs text-primary hover:bg-primary/12"><Sparkles className="size-3.5" /><span>Ambiente sandbox · dati temporanei</span><span className="font-semibold underline underline-offset-4">Completa la configurazione</span></Link>}

@@ -62,8 +62,8 @@ export default async function LocationsPage() {
       eyebrow={session.centralAccess ? "Dashboard CEO" : "Controllo ristorante"}
       title={accessibleLocations.length > 1 ? "Regia CEO: Ardea e Portici" : accessibleLocations[0]?.shortName ?? "Il tuo ristorante"}
       description={accessibleLocations.length > 1
-        ? "Una regia centrale, due ristoranti indipendenti. Scegli il ristorante per entrare nella sua dashboard, agenda, sala e configurazione."
-        : "Prenotazioni, sala e configurazione sono limitate al ristorante assegnato al tuo account."}
+        ? "Una regia centrale, due ristoranti indipendenti. Scegli il ristorante per entrare nella sua dashboard, agenda e configurazione."
+        : "Prenotazioni e configurazione sono limitate al ristorante assegnato al tuo account."}
     />
     {accessibleLocations.length > 1 && <CeoCommandDeck />}
     <div className="mb-6 grid gap-px overflow-hidden rounded-2xl border bg-border sm:grid-cols-3">

@@ -114,6 +114,17 @@ test("the CEO has one executive dashboard for both locations", async ({ page }) 
   await expect(page.getByRole("heading", { name: "YUKO e KouSushi: due servizi indipendenti, una sola regia." })).toBeVisible();
 });
 
+test("operator surfaces focus on booking flow without exposing table availability", async ({ page }) => {
+  await page.goto("/admin/yuko");
+  await expect(page.getByRole("link", { name: "Sala" })).toHaveCount(0);
+  await expect(page.getByText("Dalla prenotazione al servizio")).toBeVisible();
+
+  await page.goto("/admin/floor-plan");
+  await expect(page).toHaveURL(/\/admin\/reservations$/);
+  await expect(page.getByRole("tab", { name: "Sequenza arrivi" })).toBeVisible();
+  await expect(page.getByText("Servizi attivi", { exact: true })).toBeVisible();
+});
+
 test("sound notifications are armed for each operator and centrally for the CEO", async ({ page }) => {
   await page.goto("/admin/yuko");
   await page.getByRole("button", { name: "Apri notifiche operative" }).click();

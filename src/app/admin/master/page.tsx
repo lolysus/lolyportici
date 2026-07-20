@@ -18,7 +18,7 @@ export default async function MasterRulesPage() {
     <PageHeading
       eyebrow="Account master · YUKO × KouSushi"
       title="Regole comuni, identità indipendenti"
-      description="Queste policy si applicano contemporaneamente ai due ristoranti. Orari, capienza, sala e messaggi restano configurabili dentro la singola dashboard operativa."
+      description="Queste policy si applicano contemporaneamente ai due ristoranti. Orari, capienza e messaggi restano configurabili dentro la singola dashboard operativa."
     />
     <MasterRulesPanel restaurants={restaurants} />
   </>;

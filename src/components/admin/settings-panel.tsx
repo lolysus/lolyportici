@@ -215,7 +215,7 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
 
       <TabsContent value="booking">
         <div className="grid gap-6 xl:grid-cols-2">
-          <SettingsCard title="Regole di prenotazione" description="Limiti applicati prima di proporre orari e tavoli.">
+          <SettingsCard title="Regole di prenotazione" description="Limiti applicati prima di proporre gli orari disponibili.">
             <Field id="min-party" label="Minimo ospiti" type="number" min={1} max={20} value={String(settings.rules.minimumPartySize)} setValue={(value) => updateSection("rules", { minimumPartySize: Number(value) })} />
             <Field id="max-party" label="Massimo per conferma online" type="number" min={1} max={100} value={String(settings.rules.maximumPartySize)} setValue={(value) => updateSection("rules", { maximumPartySize: Number(value) })} />
             <SwitchRow id="manual-approval" label="Verifica manuale permanente" description="Mantiene ogni richiesta in approvazione anche quando la sede è operativa." checked={settings.rules.requiresManualApproval} setChecked={(value) => updateSection("rules", { requiresManualApproval: value })} />
@@ -223,7 +223,7 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
             {settings.rules.requiresDeposit && <Field id="deposit-amount" label="Importo caparra" type="number" min={0} max={10000} value={String(settings.rules.depositAmount)} setValue={(value) => updateSection("rules", { depositAmount: Number(value) })} suffix="€" />}
           </SettingsCard>
 
-          <SettingsCard title="Durata del tavolo" description="Tempi usati dal motore per liberare e riassegnare le risorse.">
+          <SettingsCard title="Durata dell’esperienza" description="Tempi usati dal motore per gestire gli intervalli di prenotazione.">
             <Field id="duration-1-2" label="1–2 persone" type="number" min={45} max={360} value={String(settings.durations.party1To2)} setValue={(value) => updateSection("durations", { party1To2: Number(value) })} suffix="min" />
             <Field id="duration-3-4" label="3–4 persone" type="number" min={45} max={360} value={String(settings.durations.party3To4)} setValue={(value) => updateSection("durations", { party3To4: Number(value) })} suffix="min" />
             <Field id="duration-5-6" label="5–6 persone" type="number" min={45} max={360} value={String(settings.durations.party5To6)} setValue={(value) => updateSection("durations", { party5To6: Number(value) })} suffix="min" />
@@ -260,7 +260,7 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
       </TabsContent>
 
       <TabsContent value="notifications">
-        <SettingsCard title="Conferme e attenzioni operative" description="Configura ciò che riceve l’ospite e quali segnali entrano nella regia di sala.">
+        <SettingsCard title="Conferme e attenzioni operative" description="Configura ciò che riceve l’ospite e quali segnali entrano nella regia operativa.">
           <SwitchRow id="email-confirmation" label="Conferma via email" description="Invia il riepilogo quando l’ospite lascia un indirizzo email." checked={settings.notifications.emailConfirmationEnabled} setChecked={(value) => updateSection("notifications", { emailConfirmationEnabled: value })} />
           <SwitchRow id="sms-confirmation" label="Conferma via SMS" description="Invia il codice prenotazione al numero di telefono indicato." checked={settings.notifications.smsConfirmationEnabled} setChecked={(value) => updateSection("notifications", { smsConfirmationEnabled: value })} />
           <SwitchRow id="staff-allergy-alerts" label="Avvisi allergie" description="Evidenzia nella dashboard le prenotazioni con allergie o intolleranze." checked={settings.notifications.staffAllergyAlertsEnabled} setChecked={(value) => updateSection("notifications", { staffAllergyAlertsEnabled: value })} />
@@ -275,7 +275,7 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
           <Field id="voice-name" label="Nome assistente" type="text" value={settings.voiceAI.assistantName} setValue={(value) => updateSection("voiceAI", { assistantName: value })} />
           <div><Label htmlFor="voice-language">Lingua predefinita</Label><Select value={settings.voiceAI.defaultLanguage} onValueChange={(value) => updateSection("voiceAI", { defaultLanguage: value as RestaurantSettings["voiceAI"]["defaultLanguage"] })}><SelectTrigger id="voice-language" className="mt-2 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="it">Italiano</SelectItem><SelectItem value="en">English</SelectItem><SelectItem value="es">Español</SelectItem></SelectContent></Select></div>
           <div className="sm:col-span-2"><Label htmlFor="voice-greeting">Messaggio iniziale</Label><Textarea id="voice-greeting" value={settings.voiceAI.greeting} onChange={(event) => updateSection("voiceAI", { greeting: event.target.value })} className="mt-2 min-h-24" /></div>
-          <SwitchRow id="voice-new" label="Crea nuove prenotazioni" description="Permette all’AI di bloccare e confermare un tavolo." checked={settings.voiceAI.allowNewReservations} setChecked={(value) => updateSection("voiceAI", { allowNewReservations: value })} />
+          <SwitchRow id="voice-new" label="Crea nuove prenotazioni" description="Permette all’AI di creare e confermare una prenotazione." checked={settings.voiceAI.allowNewReservations} setChecked={(value) => updateSection("voiceAI", { allowNewReservations: value })} />
           <SwitchRow id="voice-modify" label="Modifica prenotazioni" description="Permette all’AI di aggiornare richieste esistenti." checked={settings.voiceAI.allowModifyReservations} setChecked={(value) => updateSection("voiceAI", { allowModifyReservations: value })} />
           <SwitchRow id="voice-cancel" label="Cancella prenotazioni" description="Permette all’AI di annullare dopo l’identificazione dell’ospite." checked={settings.voiceAI.allowCancellation} setChecked={(value) => updateSection("voiceAI", { allowCancellation: value })} />
           <SwitchRow id="voice-waitlist" label="Gestisce lista d’attesa" description="Permette all’AI di registrare richieste senza disponibilità." checked={settings.voiceAI.allowWaitlist} setChecked={(value) => updateSection("voiceAI", { allowWaitlist: value })} />

@@ -81,7 +81,7 @@ export function LocationCards({ summaries, activeLocationId }: { summaries: Loca
         <div className="relative flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div>
             <p className="flex items-center gap-2 text-xs font-medium">{attentionCount > 0 ? <><AlertTriangle className="size-3.5 text-amber-300" />{attentionCount} {attentionCount === 1 ? "attenzione operativa" : "attenzioni operative"}</> : <><Check className="size-3.5 text-emerald-300" />Configurazione regolare</>}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{location.tables} tavoli / {capacityLimit} coperti configurati</p>
+            <p className="mt-1 text-xs text-muted-foreground">{capacityLimit} coperti programmabili nel servizio</p>
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm"><Link href={`/it/book/${location.slug}`} target="_blank">Booking<ExternalLink /></Link></Button>
