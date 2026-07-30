@@ -53,7 +53,7 @@ export default async function RestaurantSelectionPage({ params }: { params: Prom
   return <main className="dark min-h-screen bg-background text-foreground">
     <header className="border-b border-white/10 bg-[#080908]">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-5 px-5 py-5">
-        <Link href={`/${locale}/book`} aria-label={brandConfig.platformName} className="block w-44 sm:w-52"><BrandLogo priority subtitle="Due ristoranti · una regia" /></Link>
+        <Link href={`/${locale}/book`} aria-label={brandConfig.platformName} className="block w-36 shrink-0 sm:w-44"><BrandLogo priority subtitle="Due ristoranti · una regia" /></Link>
         <nav className="flex items-center gap-3 text-xs" aria-label="Lingua e accesso">
           {restaurantConfig.supportedLocales.map((language) => <Link key={language} href={`/${language}/book`} hrefLang={language} aria-current={language === locale ? "page" : undefined} className={language === locale ? "font-semibold text-white" : "text-white/45 hover:text-white"}>{language.toUpperCase()}</Link>)}
           <Link href="/account" className="ml-2 hidden items-center gap-1.5 text-white/65 hover:text-white sm:inline-flex"><UserRound className="size-3.5" />{text.guests}</Link>
