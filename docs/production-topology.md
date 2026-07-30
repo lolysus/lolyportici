@@ -1,5 +1,12 @@
 # Topologia di produzione
 
+> ⚠️ **DOCUMENTO SUPERATO — non seguire questa topologia.**
+> Descrive l'assetto precedente, con Supabase come fonte dati unica e Railway come fase futura
+> opzionale. Dal commit `b9384dc` la produzione usa **PostgreSQL su Railway**, e Vercel fa da
+> frontend e proxy verso il backend Railway.
+> La topologia valida è in **`docs/infrastruttura.md`**.
+> Conservato come riferimento storico.
+
 ## Componenti
 
 ```text
