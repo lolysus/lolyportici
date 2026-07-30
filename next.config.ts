@@ -15,13 +15,17 @@ const nextConfig: NextConfig = {
     const configuredBackend = process.env.BACKEND_ORIGIN
       ?? (process.env.VERCEL ? "https://loly-api-production.up.railway.app" : undefined);
     const backendOrigin = configuredBackend?.replace(/\/+$/, "");
-    if (!backendOrigin) return [];
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${backendOrigin}/api/:path*`,
-      },
-    ];
+    if (!backendOrigin) return { beforeFiles: [], afterFiles: [], fallback: [] };
+    return {
+      beforeFiles: [
+        {
+          source: "/api/:path*",
+          destination: `${backendOrigin}/api/:path*`,
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
   },
   async headers() {
     return [
