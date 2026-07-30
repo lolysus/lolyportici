@@ -66,16 +66,30 @@ npm run test:e2e
 npm run build
 ```
 
-## Attivazione produzione
+## Produzione
 
-1. Crea un progetto Supabase e copia `.env.example` in `.env.local`.
-2. Collega il progetto con `npx supabase link --project-ref <PROJECT_REF>`.
-3. Esegui `npm run db:migrate`. Per caricare i dati demo locali usa `npm run db:seed`.
-4. Crea il primo utente in Supabase Auth e assegnagli un ruolo con le query in `docs/deployment.md`.
-5. Inserisci le stesse variabili nel progetto Vercel, poi esegui `vercel --prod`.
-6. Configura i webhook dei provider dopo che il dominio HTTPS risponde su `/api/health`.
+La produzione è già attiva. Lo stesso codice gira in due posti: **Vercel** serve le pagine,
+**Railway** serve tutte le `/api/*` ed è l'unico collegato al database PostgreSQL.
 
-La topologia consigliata è Vercel per l'applicazione e le Route Handler, Supabase per Postgres/Auth/RLS/Realtime e Railway, in una fase successiva, soltanto per worker persistenti e retry asincroni. Vedi `docs/production-topology.md`.
+| | |
+| --- | --- |
+| Frontend | https://lolyportici.vercel.app |
+| Backend API | https://loly-api-production.up.railway.app |
+| Database | PostgreSQL 18 su Railway, regione Amsterdam |
+
+Entrambe le piattaforme sono collegate a `main`: **un push aggiorna tutto**, senza comandi manuali.
+Railway impiega ~5 minuti, Vercel ~45 secondi.
+
+```bash
+npm run lint && npm run typecheck && npm test && npm run build
+git push origin main
+curl https://loly-api-production.up.railway.app/api/health
+```
+
+Procedura completa, variabili d'ambiente, migrazioni e diagnosi: **`docs/infrastruttura.md`**.
+
+Le migrazioni partono da sole a ogni deploy (`preDeployCommand` in `railway.json`). Non ci sono
+backup automatici del database: richiedono Railway Pro e il piano attuale è Trial.
 
 Il seed contiene solo dati fittizi. Non usarlo in un database che contiene prenotazioni reali.
 
@@ -108,6 +122,7 @@ Prompt, payload, escalation e test sandbox sono descritti in `docs/voice-agent.m
 
 ## Documentazione
 
+- `docs/infrastruttura.md`: **dove vive il progetto, come si aggiorna, come si verifica.** Da leggere prima di toccare la produzione.
 - `docs/architecture.md`: componenti, flusso booking, invarianti e sicurezza.
 - `docs/database.md`: schema, migrazioni, RLS, audit e seed.
 - `docs/booking-engine.md`: regole, assegnazione, concorrenza e timezone.
@@ -115,7 +130,7 @@ Prompt, payload, escalation e test sandbox sono descritti in `docs/voice-agent.m
 - `docs/api.md`: endpoint pubblici, amministrativi, vocali ed errori.
 - `docs/voice-agent.md`: configurazione Retell, Telnyx e regole dell'assistente.
 - `docs/deployment.md`: Supabase, primo amministratore, Vercel e checklist di rilascio.
-- `docs/production-topology.md`: confini tra Vercel, Supabase, Railway, ambienti e domini.
+- `docs/production-topology.md`: ⚠️ superato — descrive la topologia precedente basata su Supabase. Vale `docs/infrastruttura.md`.
 - `docs/implementation-plan.md`: mappa delle fasi implementate.
 - `docs/verifica-preventivo.md`: matrice di conformità rispetto al preventivo e dipendenze ancora esterne.
 - `docs/manuale-operativo.md`: formazione base e procedure quotidiane per il personale.
