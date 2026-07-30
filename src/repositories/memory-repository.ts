@@ -3,7 +3,7 @@ import "server-only";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { checkAvailability, findBestTableAssignment } from "@/domains/availability/availability-service";
-import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableConflictError } from "@/domains/bookings/errors";
+import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNotFoundError } from "@/domains/bookings/errors";
 import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
 import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-machine";
 import { assertTransition } from "@/domains/bookings/state-machine";
@@ -11,8 +11,8 @@ import { normalizeEmail, normalizePhone } from "@/domains/customers/normalizatio
 import { dateKeyInZone, formatTimeInZone } from "@/lib/datetime";
 import { getInMemoryRestaurantSettings } from "@/domains/settings/settings-service";
 import { createDemoReservations, createDemoWaitlist, demoCalls, demoCombinations, demoCustomers, demoServices, demoTables } from "@/repositories/demo-data";
-import type { ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, VoiceEscalationInput } from "@/repositories/repository";
-import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, VoiceCall, WaitlistEntry } from "@/types/domain";
+import type { ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
+import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 interface MemoryState {
   reservations: Reservation[];
@@ -60,6 +60,20 @@ function toPublic(reservation: Reservation): PublicReservation {
   return structuredClone(safe);
 }
 
+/**
+ * In demo i tavoli erano una costante condivisa: modificarli da una sede li
+ * cambiava anche all'altra. Qui ogni sede riceve la propria copia mutabile,
+ * seminata dal demo set al primo accesso.
+ */
+const demoTablesByLocation = new Map<string, TableResource[]>();
+function tablesFor(locationId: string) {
+  const existing = demoTablesByLocation.get(locationId);
+  if (existing) return existing;
+  const seeded = structuredClone(demoTables) as TableResource[];
+  demoTablesByLocation.set(locationId, seeded);
+  return seeded;
+}
+
 function context(locationId: string) {
   const memory = state();
   const settings = getInMemoryRestaurantSettings(locationId);
@@ -82,7 +96,7 @@ function context(locationId: string) {
     isActive: window.enabled,
   })));
   return {
-    tables: demoTables,
+    tables: tablesFor(locationId),
     combinations: demoCombinations,
     servicePeriods,
     reservations: memory.reservations.filter((reservation) => reservation.locationId === locationId),
@@ -125,6 +139,68 @@ export class MemoryReservationRepository implements ReservationRepository {
   constructor(private readonly locationId: string = restaurantConfig.locationId) {}
 
   async getAvailabilityContext() { return context(this.locationId); }
+
+  async listTables() { return structuredClone(tablesFor(this.locationId)); }
+
+  async createTable(input: TableInput): Promise<TableResource> {
+    const tables = tablesFor(this.locationId);
+    if (tables.some((table) => table.code === input.code)) throw new TableCodeAlreadyUsedError(input.code);
+    const index = tables.filter((table) => table.isOutdoor === input.isOutdoor).length;
+    const created: TableResource = {
+      id: `demo-table-${randomUUID()}`,
+      code: input.code,
+      displayName: input.displayName,
+      diningAreaId: input.isOutdoor ? "demo-area-outdoor" : "demo-area-indoor",
+      diningAreaName: input.isOutdoor ? "Esterno" : "Sala interna",
+      minimumCapacity: input.minimumCapacity,
+      maximumCapacity: input.maximumCapacity,
+      shape: "round",
+      positionX: 12 + (index % 5) * 18,
+      positionY: 14 + Math.floor(index / 5) * 20,
+      width: 80,
+      height: 80,
+      isAccessible: input.isAccessible,
+      isOutdoor: input.isOutdoor,
+      isStrategic: false,
+      status: "available",
+    };
+    tables.push(created);
+    return structuredClone(created);
+  }
+
+  async updateTable(id: string, changes: TableChanges): Promise<TableResource> {
+    const tables = tablesFor(this.locationId);
+    const current = tables.find((table) => table.id === id);
+    if (!current) throw new TableNotFoundError();
+    if (changes.code && changes.code !== current.code && tables.some((table) => table.code === changes.code)) {
+      throw new TableCodeAlreadyUsedError(changes.code);
+    }
+    const isOutdoor = changes.isOutdoor ?? current.isOutdoor;
+    Object.assign(current, {
+      code: changes.code ?? current.code,
+      displayName: changes.displayName ?? current.displayName,
+      minimumCapacity: changes.minimumCapacity ?? current.minimumCapacity,
+      maximumCapacity: changes.maximumCapacity ?? current.maximumCapacity,
+      isAccessible: changes.isAccessible ?? current.isAccessible,
+      status: changes.status ?? current.status,
+      isOutdoor,
+      diningAreaId: isOutdoor ? "demo-area-outdoor" : "demo-area-indoor",
+      diningAreaName: isOutdoor ? "Esterno" : "Sala interna",
+    });
+    return structuredClone(current);
+  }
+
+  async deleteTable(id: string): Promise<void> {
+    const tables = tablesFor(this.locationId);
+    const index = tables.findIndex((table) => table.id === id);
+    if (index < 0) throw new TableNotFoundError();
+    const blocking = state().reservations.some((reservation) =>
+      reservation.locationId === this.locationId
+      && reservation.tableIds.includes(id)
+      && ["confirmed", "modified", "arriving", "late", "arrived", "seated"].includes(reservation.status));
+    if (blocking) throw new TableInUseError();
+    tables.splice(index, 1);
+  }
 
   async createHold(input: CreateHoldInput) {
     return withLock(() => {
@@ -288,7 +364,7 @@ export class MemoryReservationRepository implements ReservationRepository {
       assertTransition(reservation.status, "cancelled_by_customer");
       const before = structuredClone(reservation);
       reservation.status = "cancelled_by_customer";
-      reservation.customerNotes = [reservation.customerNotes, reason].filter(Boolean).join(" · ");
+      reservation.customerNotes = [reservation.customerNotes, reason].filter(Boolean).join(" Â· ");
       reservation.updatedAt = new Date().toISOString();
       event(reservation.id, "reservation_cancelled", "web", before, reservation);
       return toPublic(reservation);

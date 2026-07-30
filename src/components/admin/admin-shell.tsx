@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpenText, Bot, Building2, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LoaderCircle, LogOut, MapPin, Menu, PanelLeftClose, PanelLeftOpen, PhoneCall, Search, Settings2, Sparkles, UsersRound, Utensils, type LucideIcon } from "lucide-react";
+import { Armchair, BarChart3, BookOpenText, Bot, Building2, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LoaderCircle, LogOut, MapPin, Menu, PanelLeftClose, PanelLeftOpen, PhoneCall, Search, Settings2, Sparkles, UsersRound, Utensils, type LucideIcon } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { RealtimeStatus } from "@/components/admin/realtime-status";
@@ -26,6 +26,7 @@ const nav: NavItem[] = [
   { href: "/admin/dashboard", label: "Oggi", icon: LayoutDashboard, permission: "reservations:read" },
   { href: "/admin/reservations", label: "Prenotazioni", icon: CalendarRange, permission: "reservations:read" },
   { href: "/admin/waitlist", label: "Lista d'attesa", icon: UsersRound, permission: "reservations:read" },
+  { href: "/admin/floor-plan", label: "Sala e tavoli", icon: Armchair, permission: "floor:read" },
   { href: "/admin/customers", label: "Ospiti", icon: ContactRound, permission: "customers:read" },
   { href: "/admin/calls", label: "Chiamate AI", icon: PhoneCall, permission: "calls:read" },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3, permission: "analytics:read" },

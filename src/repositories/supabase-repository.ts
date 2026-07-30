@@ -5,11 +5,11 @@ import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { checkAvailability } from "@/domains/availability/availability-service";
 import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
 import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-machine";
-import { CapacityExceededError, HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableConflictError } from "@/domains/bookings/errors";
+import { CapacityExceededError, HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNotFoundError } from "@/domains/bookings/errors";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { hashManagementToken, managementTokenForIdempotency } from "@/lib/security";
 import { formatTimeInZone } from "@/lib/datetime";
-import type { ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, VoiceEscalationInput } from "@/repositories/repository";
+import type { ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
 import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableCombination, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 type Row = Record<string, unknown>;
@@ -18,6 +18,18 @@ function asString(value: unknown, fallback = "") { return typeof value === "stri
 function asNumber(value: unknown, fallback = 0) { return typeof value === "number" ? value : Number(value ?? fallback); }
 function asBoolean(value: unknown) { return value === true; }
 function asRows(value: unknown): Row[] { return Array.isArray(value) ? value.filter((row): row is Row => Boolean(row) && typeof row === "object") : []; }
+
+function mapTableRow(row: Row): TableResource {
+  const joined = row.dining_areas as { name?: unknown } | null | undefined;
+  return {
+    id: asString(row.id), code: asString(row.code), displayName: asString(row.display_name), diningAreaId: asString(row.dining_area_id),
+    diningAreaName: asString(joined?.name ?? row.dining_area_name, "Sala"),
+    minimumCapacity: asNumber(row.minimum_capacity), maximumCapacity: asNumber(row.maximum_capacity),
+    shape: asString(row.shape, "round") as TableResource["shape"], positionX: asNumber(row.position_x), positionY: asNumber(row.position_y),
+    width: asNumber(row.width, 80), height: asNumber(row.height, 80), isAccessible: asBoolean(row.is_accessible),
+    isOutdoor: asBoolean(row.is_outdoor), isStrategic: asBoolean(row.is_strategic), status: asString(row.status, "available") as TableResource["status"],
+  };
+}
 
 function mapCustomer(row: Row): Customer {
   return {
@@ -77,6 +89,89 @@ const reservationSelect = "*,customers(*),reservation_table_assignments(table_id
 
 export class SupabaseReservationRepository implements ReservationRepository {
   constructor(private readonly locationId: string = restaurantConfig.locationId) {}
+
+  private async diningAreaFor(isOutdoor: boolean) {
+    const db = getSupabaseAdmin();
+    const name = isOutdoor ? "Esterno" : "Sala interna";
+    const { data: existing } = await db.from("dining_areas").select("id").eq("location_id", this.locationId).eq("name", name).maybeSingle();
+    if (existing) return String(existing.id);
+    const { data: created, error } = await db.from("dining_areas").insert({ location_id: this.locationId, name, position: isOutdoor ? 1 : 0, is_active: true }).select("id").single();
+    if (error || !created) throw new Error(error?.message ?? "Impossibile creare la sala.");
+    return String(created.id);
+  }
+
+  private async tableById(id: string): Promise<TableResource> {
+    const { data } = await getSupabaseAdmin()
+      .from("restaurant_tables").select("*,dining_areas(name)")
+      .eq("id", id).eq("location_id", this.locationId).eq("is_active", true).maybeSingle();
+    if (!data) throw new TableNotFoundError();
+    return mapTableRow(data as Record<string, unknown>);
+  }
+
+  async listTables(): Promise<TableResource[]> {
+    const { data } = await getSupabaseAdmin()
+      .from("restaurant_tables").select("*,dining_areas(name)")
+      .eq("location_id", this.locationId).eq("is_active", true)
+      .order("is_outdoor").order("code");
+    return (data ?? []).map((row) => mapTableRow(row as Record<string, unknown>));
+  }
+
+  async createTable(input: TableInput): Promise<TableResource> {
+    const db = getSupabaseAdmin();
+    const { data: duplicate } = await db.from("restaurant_tables").select("id").eq("location_id", this.locationId).eq("code", input.code).eq("is_active", true).maybeSingle();
+    if (duplicate) throw new TableCodeAlreadyUsedError(input.code);
+    const diningAreaId = await this.diningAreaFor(input.isOutdoor);
+    const { count } = await db.from("restaurant_tables").select("id", { count: "exact", head: true }).eq("location_id", this.locationId).eq("is_outdoor", input.isOutdoor).eq("is_active", true);
+    const index = count ?? 0;
+    const { data, error } = await db.from("restaurant_tables").insert({
+      location_id: this.locationId, dining_area_id: diningAreaId, code: input.code, display_name: input.displayName,
+      minimum_capacity: input.minimumCapacity, maximum_capacity: input.maximumCapacity,
+      is_outdoor: input.isOutdoor, is_accessible: input.isAccessible,
+      position_x: 12 + (index % 5) * 18, position_y: 14 + Math.floor(index / 5) * 20,
+    }).select("id").single();
+    if (error || !data) throw new Error(error?.message ?? "Impossibile creare il tavolo.");
+    return this.tableById(String(data.id));
+  }
+
+  async updateTable(id: string, changes: TableChanges): Promise<TableResource> {
+    const db = getSupabaseAdmin();
+    const current = await this.tableById(id);
+    if (changes.code && changes.code !== current.code) {
+      const { data: duplicate } = await db.from("restaurant_tables").select("id").eq("location_id", this.locationId).eq("code", changes.code).neq("id", id).eq("is_active", true).maybeSingle();
+      if (duplicate) throw new TableCodeAlreadyUsedError(changes.code);
+    }
+    const isOutdoor = changes.isOutdoor ?? current.isOutdoor;
+    const patch: Record<string, unknown> = {
+      code: changes.code ?? current.code,
+      display_name: changes.displayName ?? current.displayName,
+      minimum_capacity: changes.minimumCapacity ?? current.minimumCapacity,
+      maximum_capacity: changes.maximumCapacity ?? current.maximumCapacity,
+      is_accessible: changes.isAccessible ?? current.isAccessible,
+      status: changes.status ?? current.status,
+      is_outdoor: isOutdoor,
+      updated_at: new Date().toISOString(),
+    };
+    if (changes.isOutdoor !== undefined && changes.isOutdoor !== current.isOutdoor) {
+      patch.dining_area_id = await this.diningAreaFor(isOutdoor);
+    }
+    const { error } = await db.from("restaurant_tables").update(patch).eq("id", id).eq("location_id", this.locationId);
+    if (error) throw new Error(error.message);
+    return this.tableById(id);
+  }
+
+  async deleteTable(id: string): Promise<void> {
+    const db = getSupabaseAdmin();
+    await this.tableById(id);
+    const { data: busy } = await db
+      .from("reservation_table_assignments")
+      .select("reservation_id,reservations!inner(status)")
+      .eq("table_id", id)
+      .in("reservations.status", ["confirmed", "modified", "arriving", "late", "arrived", "seated"])
+      .limit(1);
+    if (busy && busy.length > 0) throw new TableInUseError();
+    const { error } = await db.from("restaurant_tables").update({ is_active: false, updated_at: new Date().toISOString() }).eq("id", id).eq("location_id", this.locationId);
+    if (error) throw new Error(error.message);
+  }
 
   async getAvailabilityContext() {
     const db = getSupabaseAdmin();
