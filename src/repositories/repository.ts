@@ -1,6 +1,6 @@
 import type { AvailabilityContext } from "@/domains/availability/availability-service";
 import type { AvailabilityInput } from "@/types/api";
-import type { Customer, Reservation, ReservationEvent, ReservationHold, ReservationStatus, VoiceCall, WaitlistEntry } from "@/types/domain";
+import type { Customer, Reservation, ReservationEvent, ReservationHold, ReservationStatus, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 export type PublicReservation = Omit<Reservation, "managementTokenHash" | "internalNotes">;
 
@@ -31,8 +31,28 @@ export interface VoiceEscalationInput {
   reservationId?: string;
 }
 
+/**
+ * Campi che il ristoratore governa dalla lista tavoli. Forma, dimensione e
+ * posizione restano fuori: appartengono alla planimetria, non alla
+ * configurazione, e chiederli qui renderebbe il modulo inutilmente lungo.
+ */
+export interface TableInput {
+  code: string;
+  displayName: string;
+  minimumCapacity: number;
+  maximumCapacity: number;
+  isOutdoor: boolean;
+  isAccessible: boolean;
+}
+
+export type TableChanges = Partial<TableInput> & { status?: TableResource["status"] };
+
 export interface ReservationRepository {
   getAvailabilityContext(): Promise<AvailabilityContext>;
+  listTables(): Promise<TableResource[]>;
+  createTable(input: TableInput): Promise<TableResource>;
+  updateTable(id: string, changes: TableChanges): Promise<TableResource>;
+  deleteTable(id: string): Promise<void>;
   createHold(input: CreateHoldInput): Promise<ReservationHold>;
   releaseHold(holdId: string, sessionId?: string): Promise<void>;
   confirmHold(input: ConfirmHoldInput): Promise<ConfirmedReservation>;

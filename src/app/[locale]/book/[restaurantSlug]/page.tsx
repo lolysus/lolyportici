@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Accessibility, Building2, CalendarCheck2, Car, Clock3, ExternalLink, Leaf, MapPinned, MapPin, Phone, ShieldCheck, Sparkles, UserRound, UsersRound, Utensils } from "lucide-react";
+import { Accessibility, CalendarCheck2, Car, Clock3, ExternalLink, Leaf, MapPinned, MapPin, Phone, ShieldCheck, Sparkles, UserRound, UsersRound, Utensils } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { BookingWizard } from "@/components/public-booking/booking-wizard";
 import { RestaurantBookingJsonLd } from "@/components/seo/restaurant-booking-json-ld";
@@ -76,6 +76,7 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
   });
   if (onlineServicesToday.length > 0 && !hasTimeAfterNotice) closedDates.push(firstDate);
   const directionsUrl = getGoogleMapsDirectionsUrl(location.address);
+  const bookingPath = getBookingPath(locale, location);
   const hasPhone = Boolean(location.phoneHref);
   const bookingTrust = bookingTrustCopy[locale as keyof typeof bookingTrustCopy];
   return <div style={restaurantThemeStyle(location)} className={`dark japanese-pattern min-h-screen bg-background brand-${location.slug}`}>
@@ -83,10 +84,9 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
     <a href="#booking-content" className="sr-only fixed left-4 top-4 z-50 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only">Vai alla prenotazione</a>
     <header className="border-b border-foreground/10 bg-[#111] text-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-5 px-5 py-4">
-        <Link href={`/${locale}/book`} aria-label={`${location.name} · scegli ristorante`} className="block w-44 text-white sm:w-56"><BrandLogo priority restaurant={location} subtitle="Prenotazioni online" /></Link>
+        <Link href={bookingPath} aria-label={`${location.name} · prenotazioni online`} className="block w-36 shrink-0 text-white sm:w-44"><BrandLogo priority size="hero" restaurant={location} subtitle="Prenotazioni online" /></Link>
         <nav className="flex items-center gap-3 text-xs" aria-label="Lingua e accesso">
           <Badge variant="outline" className="hidden border-white/20 bg-white/5 text-white sm:inline-flex"><span className={`mr-1.5 size-1.5 rounded-full ${bookingStatus.dot}`} />{bookingStatus.label}</Badge>
-          <Link href={`/${locale}/book`} className="hidden items-center gap-1.5 text-white/65 hover:text-white sm:inline-flex"><Building2 className="size-3.5" />Ristoranti</Link>
           <Link href="/account" className="hidden items-center gap-1.5 text-white/65 hover:text-white sm:inline-flex"><UserRound className="size-3.5" />Area ospite</Link>
           {restaurantConfig.supportedLocales.map((language) => <Link key={language} href={`/${language}/book/${restaurantSlug}`} hrefLang={language} aria-current={language === locale ? "page" : undefined} className={language === locale ? "font-semibold text-white" : "text-white/55 hover:text-white"}>{language.toUpperCase()}</Link>)}
           <Link href="/login" className="ml-2 border border-white/20 px-3 py-1.5 text-white/75 hover:border-primary/60 hover:text-white">Staff</Link>

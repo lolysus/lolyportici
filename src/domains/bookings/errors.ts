@@ -37,6 +37,15 @@ export class ReservationCancellationNotAllowedError extends DomainError {
 export class InvalidWaitlistStateError extends DomainError {
   constructor(from: string, to: string) { super("INVALID_WAITLIST_STATE", `Transizione richiesta non consentita da ${from} a ${to}.`, 409); }
 }
+export class TableNotFoundError extends DomainError {
+  constructor() { super("TABLE_NOT_FOUND", "Tavolo non trovato.", 404); }
+}
+export class TableCodeAlreadyUsedError extends DomainError {
+  constructor(code: string) { super("TABLE_CODE_IN_USE", `Esiste già un tavolo con il numero ${code}.`, 409); }
+}
+export class TableInUseError extends DomainError {
+  constructor() { super("TABLE_IN_USE", "Il tavolo ha prenotazioni attive: spostale prima di eliminarlo.", 409); }
+}
 export class PermissionDeniedError extends DomainError {
   constructor() { super("PERMISSION_DENIED", "Non hai i permessi necessari.", 403); }
 }

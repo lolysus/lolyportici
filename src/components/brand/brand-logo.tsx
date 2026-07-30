@@ -2,6 +2,16 @@ import Image from "next/image";
 import { brandConfig, type RestaurantLocation } from "@/config/brand";
 import { cn } from "@/lib/utils";
 
+/**
+ * I tre marchi sono disegnati come banner 640×280 e portano dentro di sé
+ * il proprio fondo arrotondato e il proprio lettering. Vanno quindi resi
+ * alla loro proporzione naturale, senza contenitore: incorniciarli produce
+ * una seconda cornice sopra la prima, e ripetere il nome accanto all'arte
+ * lo scrive due volte.
+ */
+const RESTAURANT_LOGO_ASPECT = "640 / 280";
+const PLATFORM_LOGO_ASPECT = "520 / 160";
+
 type BrandLogoProps = {
   className?: string;
   priority?: boolean;
@@ -9,6 +19,7 @@ type BrandLogoProps = {
   name?: string;
   subtitle?: string;
   compact?: boolean;
+  size?: "default" | "hero";
 };
 
 export function BrandLogo({
@@ -18,24 +29,33 @@ export function BrandLogo({
   name,
   subtitle,
   compact = false,
+  size = "default",
 }: BrandLogoProps) {
   const logoPath = restaurant?.logoPath ?? brandConfig.logoPath;
   const label = name ?? restaurant?.name ?? brandConfig.platformName;
-  const supportingText = subtitle ?? (restaurant ? "Prenotazioni e area ospite" : "YUKO × KouSushi");
-  const usesRestaurantMark = Boolean(restaurant);
+  const isHero = size === "hero";
 
-  return <span aria-label={label} className={cn("inline-flex w-full items-center gap-3 text-current", className)}>
-    <span className={cn(
-      "relative shrink-0 overflow-hidden rounded-lg border border-current/10 bg-white",
-      usesRestaurantMark
-        ? (compact ? "size-9" : "size-11 sm:size-12")
-        : (compact ? "h-8 w-14" : "h-10 w-[4.35rem] sm:h-11 sm:w-20"),
-    )}>
-      <Image src={logoPath} alt="" fill sizes={usesRestaurantMark ? (compact ? "36px" : "48px") : (compact ? "56px" : "80px")} priority={priority} unoptimized className="object-contain p-0.5" />
+  return <span aria-label={label} className={cn("group inline-flex w-full flex-col", className)}>
+    <span
+      className={cn(
+        "relative block w-full overflow-hidden transition-transform duration-300",
+        isHero ? "rounded-2xl group-hover:-translate-y-0.5" : "rounded-xl",
+      )}
+      style={{ aspectRatio: restaurant ? RESTAURANT_LOGO_ASPECT : PLATFORM_LOGO_ASPECT }}
+    >
+      <Image
+        src={logoPath}
+        alt=""
+        fill
+        sizes={isHero ? "(max-width: 640px) 260px, 360px" : compact ? "200px" : "280px"}
+        priority={priority}
+        unoptimized
+        className="object-contain"
+      />
     </span>
-    <span className="min-w-0 leading-none">
-      <span className={cn("block truncate font-heading font-semibold tracking-[-0.03em]", compact ? "text-sm" : "text-[0.95rem] sm:text-[1.1rem]")}>{label}</span>
-      {!compact && <span className="mt-1.5 block truncate font-mono text-[0.43rem] uppercase tracking-[0.22em] opacity-55 sm:text-[0.5rem]">{supportingText}</span>}
-    </span>
+    {subtitle && !compact && <span className={cn(
+      "mt-2.5 block truncate font-mono uppercase tracking-[0.22em] opacity-55",
+      isHero ? "text-[0.55rem] sm:text-[0.62rem]" : "text-[0.45rem] sm:text-[0.5rem]",
+    )}>{subtitle}</span>}
   </span>;
 }

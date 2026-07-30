@@ -88,7 +88,7 @@ export function MasterRulesPanel({ restaurants }: { restaurants: ManagedSettings
   return <div className="space-y-6">
     <section className="grid gap-4 xl:grid-cols-2" aria-label="Stato dei ristoranti">
       {restaurants.map(({ location, settings }) => <article key={location.id} style={restaurantThemeStyle(location)} className="surface-3d-dark overflow-hidden rounded-2xl border border-white/8 border-t-2 border-t-primary bg-card">
-        <div className="flex items-start justify-between gap-4 p-5"><BrandLogo restaurant={location} priority compact className="max-w-52" /><Badge variant="outline" className={settings.operations.serviceMode === "live" ? "border-emerald-400/20 bg-emerald-400/8 text-emerald-300" : "border-amber-400/20 bg-amber-400/8 text-amber-300"}><RadioTower />{settings.operations.serviceMode === "live" ? "Operativa" : "Su richiesta"}</Badge></div>
+        <div className="flex items-start justify-between gap-4 p-5"><BrandLogo restaurant={location} priority compact className="w-36 shrink-0" /><Badge variant="outline" className={settings.operations.serviceMode === "live" ? "border-emerald-400/20 bg-emerald-400/8 text-emerald-300" : "border-amber-400/20 bg-amber-400/8 text-amber-300"}><RadioTower />{settings.operations.serviceMode === "live" ? "Operativa" : "Su richiesta"}</Badge></div>
         <div className="grid grid-cols-3 border-t border-white/8 bg-background/20 text-center text-xs"><Stat label="Capienza" value={`${settings.service.maximumCovers}`} /><Stat label="Anticipo" value={`${settings.policies.maximumAdvanceDays} gg`} /><Stat label="Preavviso" value={`${settings.policies.minimumNoticeMinutes} min`} /></div>
       </article>)}
     </section>

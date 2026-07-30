@@ -4,12 +4,12 @@ import { randomUUID } from "node:crypto";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { checkAvailability } from "@/domains/availability/availability-service";
 import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
-import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableConflictError } from "@/domains/bookings/errors";
+import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNotFoundError } from "@/domains/bookings/errors";
 import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-machine";
 import { formatTimeInZone } from "@/lib/datetime";
 import { getPostgres } from "@/lib/postgres";
 import { hashManagementToken, managementTokenForIdempotency } from "@/lib/security";
-import type { ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, VoiceEscalationInput } from "@/repositories/repository";
+import type { ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
 import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableCombination, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 type Row = Record<string, unknown>;
@@ -17,6 +17,16 @@ const text = (value: unknown, fallback = "") => typeof value === "string" ? valu
 const number = (value: unknown, fallback = 0) => typeof value === "number" ? value : Number(value ?? fallback);
 const bool = (value: unknown) => value === true;
 const iso = (value: unknown) => value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
+
+function tableResource(row: Row): TableResource {
+  return {
+    id: text(row.id), code: text(row.code), displayName: text(row.display_name), diningAreaId: text(row.dining_area_id),
+    diningAreaName: text(row.dining_area_name, "Sala"), minimumCapacity: number(row.minimum_capacity), maximumCapacity: number(row.maximum_capacity),
+    shape: text(row.shape) as TableResource["shape"], positionX: number(row.position_x), positionY: number(row.position_y),
+    width: number(row.width, 80), height: number(row.height, 80), isAccessible: bool(row.is_accessible), isOutdoor: bool(row.is_outdoor),
+    isStrategic: bool(row.is_strategic), status: text(row.status, "available") as TableResource["status"],
+  };
+}
 
 function customer(row: Row): Customer {
   return {
@@ -97,6 +107,105 @@ export class PostgresReservationRepository implements ReservationRepository {
     );
   }
 
+  /**
+   * Il ristoratore ragiona per "dentro o fuori", non per sale. Le due aree
+   * canoniche vengono create al primo tavolo che ne ha bisogno, così la lista
+   * resta un modulo da sei campi invece di richiedere prima una tassonomia.
+   */
+  private async diningAreaFor(isOutdoor: boolean) {
+    const sql = getPostgres();
+    const name = isOutdoor ? "Esterno" : "Sala interna";
+    const existing = await sql<Row[]>`select id from public.dining_areas where location_id=${this.locationId} and name=${name} limit 1`;
+    if (existing[0]) return text(existing[0].id);
+    const created = await sql<Row[]>`
+      insert into public.dining_areas (location_id,name,position,is_active)
+      values (${this.locationId},${name},${isOutdoor ? 1 : 0},true)
+      on conflict (location_id,name) do update set is_active=true
+      returning id`;
+    return text(created[0].id);
+  }
+
+  private async tableById(id: string) {
+    const sql = getPostgres();
+    const rows = await sql<Row[]>`
+      select t.*,a.name as dining_area_name from public.restaurant_tables t
+      join public.dining_areas a on a.id=t.dining_area_id
+      where t.id=${id} and t.location_id=${this.locationId} and t.is_active`;
+    if (!rows[0]) throw new TableNotFoundError();
+    return tableResource(rows[0]);
+  }
+
+  async listTables(): Promise<TableResource[]> {
+    const sql = getPostgres();
+    const rows = await sql<Row[]>`
+      select t.*,a.name as dining_area_name from public.restaurant_tables t
+      join public.dining_areas a on a.id=t.dining_area_id
+      where t.location_id=${this.locationId} and t.is_active
+      order by t.is_outdoor, t.code`;
+    return rows.map(tableResource);
+  }
+
+  async createTable(input: TableInput): Promise<TableResource> {
+    const sql = getPostgres();
+    const duplicate = await sql<Row[]>`select 1 from public.restaurant_tables where location_id=${this.locationId} and code=${input.code} and is_active limit 1`;
+    if (duplicate[0]) throw new TableCodeAlreadyUsedError(input.code);
+    const areaId = await this.diningAreaFor(input.isOutdoor);
+    // I nuovi tavoli entrano in planimetria su una griglia leggibile: senza
+    // coordinate finirebbero tutti impilati nell'angolo in alto a sinistra.
+    const placed = await sql<Row[]>`select count(*)::int as total from public.restaurant_tables where location_id=${this.locationId} and is_outdoor=${input.isOutdoor} and is_active`;
+    const index = number(placed[0]?.total);
+    const rows = await sql<Row[]>`
+      insert into public.restaurant_tables
+        (location_id,dining_area_id,code,display_name,minimum_capacity,maximum_capacity,is_outdoor,is_accessible,position_x,position_y)
+      values (${this.locationId},${areaId},${input.code},${input.displayName},${input.minimumCapacity},${input.maximumCapacity},${input.isOutdoor},${input.isAccessible},${12 + (index % 5) * 18},${14 + Math.floor(index / 5) * 20})
+      returning id`;
+    return this.tableById(text(rows[0].id));
+  }
+
+  async updateTable(id: string, changes: TableChanges): Promise<TableResource> {
+    const sql = getPostgres();
+    const current = await this.tableById(id);
+    if (changes.code && changes.code !== current.code) {
+      const duplicate = await sql<Row[]>`select 1 from public.restaurant_tables where location_id=${this.locationId} and code=${changes.code} and id<>${id} and is_active limit 1`;
+      if (duplicate[0]) throw new TableCodeAlreadyUsedError(changes.code);
+    }
+    const isOutdoor = changes.isOutdoor ?? current.isOutdoor;
+    // Spostare un tavolo fuori significa cambiargli area: la colonna booleana
+    // e la sala devono restare coerenti o la planimetria lo perde.
+    const areaId = changes.isOutdoor !== undefined && changes.isOutdoor !== current.isOutdoor
+      ? await this.diningAreaFor(isOutdoor)
+      : undefined;
+    await sql`
+      update public.restaurant_tables set
+        code=${changes.code ?? current.code},
+        display_name=${changes.displayName ?? current.displayName},
+        minimum_capacity=${changes.minimumCapacity ?? current.minimumCapacity},
+        maximum_capacity=${changes.maximumCapacity ?? current.maximumCapacity},
+        is_outdoor=${isOutdoor},
+        is_accessible=${changes.isAccessible ?? current.isAccessible},
+        status=${changes.status ?? current.status},
+        updated_at=now()
+      where id=${id} and location_id=${this.locationId}`;
+    if (areaId) await sql`update public.restaurant_tables set dining_area_id=${areaId} where id=${id} and location_id=${this.locationId}`;
+    return this.tableById(id);
+  }
+
+  async deleteTable(id: string): Promise<void> {
+    const sql = getPostgres();
+    await this.tableById(id);
+    const busy = await sql<Row[]>`
+      select 1 from public.reservation_table_assignments a
+      join public.reservations r on r.id=a.reservation_id
+      where a.table_id=${id}
+        and r.status = any(array['confirmed','modified','arriving','late','arrived','seated'])
+        and r.start_at > now() - interval '6 hours'
+      limit 1`;
+    if (busy[0]) throw new TableInUseError();
+    // Disattivazione, non cancellazione: le prenotazioni passate devono
+    // continuare a puntare al tavolo su cui sono state servite.
+    await sql`update public.restaurant_tables set is_active=false,updated_at=now() where id=${id} and location_id=${this.locationId}`;
+  }
+
   async getAvailabilityContext() {
     const sql = getPostgres();
     const [locations, tableRows, combinationRows, itemRows, serviceRows, reservationRows, holdRows, closureRows, ruleRows] = await Promise.all([
@@ -110,13 +219,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       sql<Row[]>`select * from public.special_openings_closures where location_id=${this.locationId}`,
       sql<Row[]>`select * from public.booking_rules where location_id=${this.locationId} and is_active order by created_at limit 1`,
     ]);
-    const tables: TableResource[] = tableRows.map((row) => ({
-      id: text(row.id), code: text(row.code), displayName: text(row.display_name), diningAreaId: text(row.dining_area_id),
-      diningAreaName: text(row.dining_area_name, "Sala"), minimumCapacity: number(row.minimum_capacity), maximumCapacity: number(row.maximum_capacity),
-      shape: text(row.shape) as TableResource["shape"], positionX: number(row.position_x), positionY: number(row.position_y),
-      width: number(row.width, 80), height: number(row.height, 80), isAccessible: bool(row.is_accessible), isOutdoor: bool(row.is_outdoor),
-      isStrategic: bool(row.is_strategic), status: text(row.status, "available") as TableResource["status"],
-    }));
+    const tables: TableResource[] = tableRows.map(tableResource);
     const combinations: TableCombination[] = combinationRows.map((row) => ({
       id: text(row.id), name: text(row.name), minimumCapacity: number(row.minimum_capacity), maximumCapacity: number(row.maximum_capacity),
       isActive: bool(row.is_active), tableIds: itemRows.filter((item) => item.table_combination_id === row.id).map((item) => text(item.table_id)),

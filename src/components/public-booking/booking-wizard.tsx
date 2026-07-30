@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Accessibility, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock3, Home, Info, LoaderCircle, LockKeyhole, Navigation, PhoneCall, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
+import { Accessibility, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock3, Info, LoaderCircle, LockKeyhole, Navigation, PhoneCall, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 import type { RestaurantLocation } from "@/config/brand";
 import { BookingDatePicker } from "@/components/public-booking/booking-date-picker";
 import { Button } from "@/components/ui/button";
@@ -226,8 +226,8 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
           <SummaryCell label={t.steps[0]} value={`${partySize} ${dictionary.common.guests}`} />
           <SummaryCell label="Intestatario" value={`${fields.firstName} ${fields.lastName}`} />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2"><Button asChild size="lg"><Link href={`/${locale}/booking/manage/${completion.token}`}>{t.manage}<ArrowRight /></Link></Button>{calendarUrl && <Button asChild size="lg" variant="outline"><a href={calendarUrl} target="_blank" rel="noreferrer"><CalendarPlus />Aggiungi al calendario</a></Button>}<Button asChild variant="outline"><a href={directionsUrl} target="_blank" rel="noreferrer"><Navigation />Indicazioni</a></Button><Button asChild variant="ghost"><Link href={`/${locale}/book`}><Home />Scegli un altro ristorante</Link></Button></div>
-      </> : <><p className="mx-auto my-8 max-w-md text-muted-foreground">Ti contatteremo appena si apre una disponibilità compatibile con la tua richiesta.</p><p className="font-mono text-xs text-muted-foreground">ID {completion.id.slice(0, 8).toUpperCase()}</p><Button asChild variant="outline" className="mt-7"><Link href={`/${locale}/book`}><Home />Torna ai ristoranti</Link></Button></>}
+        <div className="grid gap-3 sm:grid-cols-2"><Button asChild size="lg"><Link href={`/${locale}/booking/manage/${completion.token}`}>{t.manage}<ArrowRight /></Link></Button>{calendarUrl && <Button asChild size="lg" variant="outline"><a href={calendarUrl} target="_blank" rel="noreferrer"><CalendarPlus />Aggiungi al calendario</a></Button>}<Button asChild variant="outline"><a href={directionsUrl} target="_blank" rel="noreferrer"><Navigation />Indicazioni</a></Button>{hasPhone && <Button asChild variant="ghost"><a href={location.phoneHref}><PhoneCall />Chiama {location.shortName}</a></Button>}</div>
+      </> : <><p className="mx-auto my-8 max-w-md text-muted-foreground">Ti contatteremo appena si apre una disponibilità compatibile con la tua richiesta.</p><p className="font-mono text-xs text-muted-foreground">ID {completion.id.slice(0, 8).toUpperCase()}</p>{hasPhone && <Button asChild variant="outline" className="mt-7"><a href={location.phoneHref}><PhoneCall />Chiama {location.shortName}</a></Button>}</>}
       </div>
     </section>;
   }

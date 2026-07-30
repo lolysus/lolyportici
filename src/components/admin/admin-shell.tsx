@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpenText, Bot, Building2, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LoaderCircle, LogOut, MapPin, Menu, PanelLeftClose, PanelLeftOpen, PhoneCall, Search, Settings2, Sparkles, UsersRound, Utensils, type LucideIcon } from "lucide-react";
+import { Armchair, BarChart3, BookOpenText, Bot, Building2, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LoaderCircle, LogOut, MapPin, Menu, PanelLeftClose, PanelLeftOpen, PhoneCall, Search, Settings2, Sparkles, UsersRound, Utensils, type LucideIcon } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { RealtimeStatus } from "@/components/admin/realtime-status";
@@ -26,6 +26,7 @@ const nav: NavItem[] = [
   { href: "/admin/dashboard", label: "Oggi", icon: LayoutDashboard, permission: "reservations:read" },
   { href: "/admin/reservations", label: "Prenotazioni", icon: CalendarRange, permission: "reservations:read" },
   { href: "/admin/waitlist", label: "Lista d'attesa", icon: UsersRound, permission: "reservations:read" },
+  { href: "/admin/floor-plan", label: "Sala e tavoli", icon: Armchair, permission: "floor:read" },
   { href: "/admin/customers", label: "Ospiti", icon: ContactRound, permission: "customers:read" },
   { href: "/admin/calls", label: "Chiamate AI", icon: PhoneCall, permission: "calls:read" },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3, permission: "analytics:read" },
@@ -89,7 +90,7 @@ export function AdminShell({ session, locations, activeLocation, children }: { s
     const isCollapsed = collapsed && !forceExpanded;
     return <div className="relative flex h-full flex-col overflow-hidden">
       <div className={cn("relative flex h-20 items-center border-b border-white/8", isCollapsed ? "justify-center px-3" : "px-5")}>
-        {isCollapsed ? <Utensils className="size-5 text-primary" /> : <div><BrandLogo priority restaurant={isMasterAccount ? undefined : activeLocation} className="max-w-52" subtitle={isMasterAccount ? "Account master · YUKO × KouSushi" : "Pannello operatori · sede assegnata"} /><p className="mt-1 pl-14 font-mono text-[8px] uppercase tracking-[0.24em] text-white/30">{isMasterAccount ? "Regole centrali e controllo in tempo reale" : `${activeLocation.city} · dati limitati alla sede`}</p></div>}
+        {isCollapsed ? <Utensils className="size-5 text-primary" /> : <div className="min-w-0"><BrandLogo priority restaurant={isMasterAccount ? undefined : activeLocation} className="w-36" subtitle={isMasterAccount ? "Account master" : "Pannello operatori"} /><p className="mt-1 truncate font-mono text-[8px] uppercase tracking-[0.24em] text-white/30">{isMasterAccount ? "Regole centrali e controllo in tempo reale" : `${activeLocation.city} · dati limitati alla sede`}</p></div>}
       </div>
       <div className="relative flex-1 overflow-y-auto px-3 py-5">
         <NavItems items={visibleNav} pathname={pathname} collapsed={isCollapsed} onNavigate={onNavigate} />
