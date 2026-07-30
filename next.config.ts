@@ -7,8 +7,7 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
   },
-  // Keep Turbopack scoped to this repository: Montallegro lives beside it,
-  // but is a separate product with its own dependencies and build graph.
+  // Keep every build input scoped to this independent repository.
   turbopack: {
     root: path.resolve(__dirname),
   },

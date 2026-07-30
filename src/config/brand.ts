@@ -33,13 +33,15 @@ export interface ManagedRestaurant {
 // each configured location below belongs to its own restaurant entity.
 export type RestaurantLocation = ManagedRestaurant;
 
+const publicAppUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+
 export const brandConfig = {
   companyName: "YUKO × KouSushi",
   platformName: "Regia Sushi",
   logoPath: "/brands/regia-sushi-mark.svg",
-  website: "https://loly-gules.vercel.app",
-  bookingInfoUrl: "https://loly-gules.vercel.app/it/book",
-  privacyUrl: "https://loly-gules.vercel.app/it/privacy",
+  website: publicAppUrl,
+  bookingInfoUrl: `${publicAppUrl}/it/book`,
+  privacyUrl: `${publicAppUrl}/it/privacy`,
   email: "",
   phone: "Contatti in aggiornamento",
   phoneHref: "",
@@ -61,9 +63,9 @@ export const restaurantLocations = [
     shortName: "YUKO",
     legalName: "YUKO Sushi & Fusion",
     vatNumber: "In aggiornamento",
-    website: "https://loly-gules.vercel.app/it/book/yuko",
-    bookingInfoUrl: "https://loly-gules.vercel.app/it/book/yuko",
-    privacyUrl: "https://loly-gules.vercel.app/it/privacy",
+    website: `${publicAppUrl}/it/book/yuko`,
+    bookingInfoUrl: `${publicAppUrl}/it/book/yuko`,
+    privacyUrl: `${publicAppUrl}/it/privacy`,
     logoPath: "/brands/yuko-logo.svg",
     accentColor: "#D5AF55",
     reservationCodePrefix: "YK",
@@ -91,9 +93,9 @@ export const restaurantLocations = [
     shortName: "KouSushi",
     legalName: "KouSushi",
     vatNumber: "In aggiornamento",
-    website: "https://loly-gules.vercel.app/it/book/kousushi",
-    bookingInfoUrl: "https://loly-gules.vercel.app/it/book/kousushi",
-    privacyUrl: "https://loly-gules.vercel.app/it/privacy",
+    website: `${publicAppUrl}/it/book/kousushi`,
+    bookingInfoUrl: `${publicAppUrl}/it/book/kousushi`,
+    privacyUrl: `${publicAppUrl}/it/privacy`,
     logoPath: "/brands/kousushi-logo.svg",
     accentColor: "#E60012",
     reservationCodePrefix: "KS",

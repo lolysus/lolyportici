@@ -27,18 +27,20 @@ select
 from public.organizations o
 join public.restaurants r on r.organization_id = o.id
 join public.locations l on l.restaurant_id = r.id
-where r.slug = 'ristorante-sushi-centro'
+where r.slug = 'yuko'
 on conflict (auth_user_id) do update
 set status = 'active', updated_at = now();
 
 insert into public.staff_user_roles (staff_user_id, role_id, location_id)
-select su.id, ro.id, su.default_location_id
+select su.id, ro.id, null
 from public.staff_users su
 cross join public.roles ro
 where su.auth_user_id = '<AUTH_USER_UUID>'::uuid
   and ro.name = 'owner'
 on conflict do nothing;
 ```
+
+Il ruolo `owner` con `location_id = null` è l'account CEO centrale e può operare su entrambi i ristoranti. Per gli operatori usa `manager` o `receptionist` e assegna esclusivamente l'ID della sede YUKO oppure KouSushi.
 
 ## 3. Variabili Vercel
 
@@ -56,7 +58,7 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE ROLE KEY>
 
 Genera il pepper con `openssl rand -base64 32`. Non esporre service role, API key o secret in variabili `NEXT_PUBLIC_*`.
 
-Aggiungi le variabili dei provider da `.env.example`. Imposta `DEFAULT_LOCATION_ID` sul ristorante predefinito; il pannello consente poi di passare tra i due ristoranti mantenendo dati e configurazioni separati.
+Aggiungi le variabili dei provider da `.env.example`. Il pannello seleziona la sede consentita dalla sessione e mantiene dati e configurazioni separati.
 
 ## 4. Deploy
 
@@ -97,3 +99,7 @@ Controlla `https://<dominio>/api/health`, poi registra i webhook descritti in `d
 ## Ripristino
 
 Le migrazioni sono additive. Prima di una modifica distruttiva, crea un backup Supabase e prova la query in staging. Per un rollback applicativo, promuovi il deployment Vercel precedente; non cancellare righe di prenotazione. Usa `deleted_at` o una transizione di stato per conservare l'audit.
+
+## Topologia di produzione
+
+La topologia completa e il ruolo futuro di Railway sono descritti in `docs/production-topology.md`.

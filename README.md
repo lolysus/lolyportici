@@ -1,4 +1,4 @@
-# Loly — Regia Sushi YUKO × KouSushi
+# Loly Portici — Regia Sushi YUKO × KouSushi
 
 Regia Ristoranti riunisce prenotazioni web e telefoniche, sala, lista d'attesa, CRM, chiamate AI e report di due ristoranti indipendenti in un'app Next.js. Il repository parte in modalità demo senza servizi esterni. Collegando Supabase e i provider elencati in `.env.example`, gli stessi flussi usano dati persistenti e notifiche reali.
 
@@ -75,6 +75,8 @@ npm run build
 5. Inserisci le stesse variabili nel progetto Vercel, poi esegui `vercel --prod`.
 6. Configura i webhook dei provider dopo che il dominio HTTPS risponde su `/api/health`.
 
+La topologia consigliata è Vercel per l'applicazione e le Route Handler, Supabase per Postgres/Auth/RLS/Realtime e Railway, in una fase successiva, soltanto per worker persistenti e retry asincroni. Vedi `docs/production-topology.md`.
+
 Il seed contiene solo dati fittizi. Non usarlo in un database che contiene prenotazioni reali.
 
 ## Configurazione multi-ristorante
@@ -113,6 +115,7 @@ Prompt, payload, escalation e test sandbox sono descritti in `docs/voice-agent.m
 - `docs/api.md`: endpoint pubblici, amministrativi, vocali ed errori.
 - `docs/voice-agent.md`: configurazione Retell, Telnyx e regole dell'assistente.
 - `docs/deployment.md`: Supabase, primo amministratore, Vercel e checklist di rilascio.
+- `docs/production-topology.md`: confini tra Vercel, Supabase, Railway, ambienti e domini.
 - `docs/implementation-plan.md`: mappa delle fasi implementate.
 - `docs/verifica-preventivo.md`: matrice di conformità rispetto al preventivo e dipendenze ancora esterne.
 - `docs/manuale-operativo.md`: formazione base e procedure quotidiane per il personale.
