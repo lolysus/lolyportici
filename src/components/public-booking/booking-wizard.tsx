@@ -141,8 +141,8 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
   async function loadSlots() {
     if (!date) return;
     if (holdId) await releaseCurrentHold();
-    setStep(3); setSlots([]); setSelected(null); setHoldId(null); setError(null); setRestrictions([]); setManualReviewRequired(false);
-    setLoading(true); setError(null); setSelected(null); setHoldId(null);
+    setSlots([]); setSelected(null); setHoldId(null); setError(null); setRestrictions([]); setManualReviewRequired(false);
+    setLoading(true);
     try {
       const response = await fetch("/api/public/v1/availability", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, date, partySize, source: "web" }) });
       const payload = await response.json() as { success: boolean; data?: PublicAvailabilityResult; error?: { message: string } };
@@ -162,7 +162,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
       const response = await fetch("/api/public/v1/holds", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, date, partySize, source: "web", startAt: slot.startAt, sessionId }) });
       const payload = await response.json() as { success: boolean; data?: { id: string }; error?: { message: string } };
       if (!response.ok || !payload.data) throw new Error(payload.error?.message ?? t.error);
-      setSelected(slot); setHoldId(payload.data.id); setWaitlistMode(false); setStep(4);
+      setSelected(slot); setHoldId(payload.data.id); setWaitlistMode(false); setStep(2);
     } catch (cause) { setError(cause instanceof Error ? cause.message : t.error); }
     finally { setLoading(false); }
   }
@@ -204,6 +204,17 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
 
   function setField<K extends keyof Fields>(key: K, value: Fields[K]) { setFields((current) => ({ ...current, [key]: value })); }
 
+  // Persone e data sono le uniche due informazioni che servono per sapere cosa
+  // è libero: appena ci sono, gli orari arrivano da soli. Chiedere due click su
+  // "Continua" per ottenerli erano due passaggi a vuoto.
+  const availabilityKey = partySizeSelected && date ? `${partySize}|${date}` : null;
+  const lastLoadedKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!availabilityKey || lastLoadedKey.current === availabilityKey) return;
+    lastLoadedKey.current = availabilityKey;
+    void loadSlots();
+  });
+
   if (!features.onlineBookingEnabled) {
     return <section id="booking-content" className="mx-auto max-w-2xl px-5 py-16 text-center sm:py-24"><div className="surface-3d rounded-3xl border bg-card p-8 sm:p-12"><span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"><PhoneCall className="size-6" /></span><p className="mt-6 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Prenotazioni online sospese</p><h2 className="mt-3 font-heading text-4xl">Siamo a tua disposizione.</h2><p className="mx-auto mt-4 max-w-md text-sm leading-6 text-muted-foreground">Per questa data o fascia il ristorante gestisce le richieste direttamente con il personale.</p>{hasPhone ? <Button asChild size="lg" className="mt-7"><a href={location.phoneHref}><PhoneCall />Chiama {location.phone}</a></Button> : <p className="mt-7 text-sm text-muted-foreground">I recapiti del ristorante saranno disponibili a breve.</p>}</div></section>;
   }
@@ -221,9 +232,9 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
         <div className="my-7 border border-primary/35 bg-primary/8 px-5 py-4"><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">Codice prenotazione</p><p className="mt-2 font-mono text-3xl font-semibold tracking-[0.14em] text-foreground">{completion.code}</p></div>
         <div className="mx-auto mb-7 max-w-md divide-y divide-white/8 border border-white/10 bg-[#0d0e0d] text-left">
           <SummaryCell label="Ristorante" value={location.name} />
-          <SummaryCell label={t.steps[1]} value={selectedDateLabel} />
-          <SummaryCell label={t.steps[2]} value={selected ? formatTimeInZone(selected.startAt) : requestedTime} />
-          <SummaryCell label={t.steps[0]} value={`${partySize} ${dictionary.common.guests}`} />
+          <SummaryCell label={t.fieldDate} value={selectedDateLabel} />
+          <SummaryCell label={t.fieldTime} value={selected ? formatTimeInZone(selected.startAt) : requestedTime} />
+          <SummaryCell label={t.fieldParty} value={`${partySize} ${dictionary.common.guests}`} />
           <SummaryCell label="Intestatario" value={`${fields.firstName} ${fields.lastName}`} />
         </div>
         <div className="grid gap-3 sm:grid-cols-2"><Button asChild size="lg"><Link href={`/${locale}/booking/manage/${completion.token}`}>{t.manage}<ArrowRight /></Link></Button>{calendarUrl && <Button asChild size="lg" variant="outline"><a href={calendarUrl} target="_blank" rel="noreferrer"><CalendarPlus />Aggiungi al calendario</a></Button>}<Button asChild variant="outline"><a href={directionsUrl} target="_blank" rel="noreferrer"><Navigation />Indicazioni</a></Button>{hasPhone && <Button asChild variant="ghost"><a href={location.phoneHref}><PhoneCall />Chiama {location.shortName}</a></Button>}</div>
@@ -241,9 +252,9 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
         </div>
         <div className="mt-2 h-1 overflow-hidden bg-border sm:hidden"><span className="block h-full bg-primary transition-[width] duration-300" style={{ width: `${(step / t.steps.length) * 100}%` }} /></div>
       </div>
-      <ol className="relative mb-10 grid grid-cols-5 gap-2 sm:mb-12" aria-label="Progresso prenotazione">
-        <div aria-hidden className="absolute left-[10%] right-[10%] top-4 h-px bg-border" />
-        <div aria-hidden className="absolute left-[10%] top-4 h-px bg-primary transition-[width] duration-500" style={{ width: `${Math.max(0, step - 1) * 20}%` }} />
+      <ol className="relative mb-10 grid gap-2 sm:mb-12" style={{ gridTemplateColumns: `repeat(${t.steps.length}, minmax(0, 1fr))` }} aria-label="Progresso prenotazione">
+        <div aria-hidden className="absolute left-[16%] right-[16%] top-4 h-px bg-border" />
+        <div aria-hidden className="absolute left-[16%] top-4 h-px bg-primary transition-[width] duration-500" style={{ width: `${(Math.max(0, step - 1) / Math.max(1, t.steps.length - 1)) * 68}%` }} />
         {t.steps.map((label, index) => { const number = index + 1; const done = number < step; return <li key={label} aria-current={number === step ? "step" : undefined} className="relative z-10 min-w-0 text-center">
           <span className={cn("mx-auto flex size-8 items-center justify-center rounded-full border bg-background font-mono text-[10px] transition-colors", number === step ? "border-primary bg-primary text-primary-foreground ring-4 ring-primary/10" : done ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground")}>{done ? <Check className="size-3.5" /> : number}</span>
           <span className={cn("mt-3 hidden truncate text-[11px] sm:block", number === step ? "font-semibold text-foreground" : "text-muted-foreground")}>{label}</span>
@@ -251,42 +262,45 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
         </li>; })}
       </ol>
 
-      {step === 1 && <Step title={t.partyTitle} icon={<UsersRound />}>
+      {step === 1 && <Step title={t.bookingTitle} icon={<CalendarDays />}>
         <p id="party-size-hint" className="-mt-4 mb-5 text-sm text-muted-foreground">{flow.partySizeRequired}</p>
+        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{t.fieldParty}</p>
         <div role="group" aria-label={t.partyTitle} aria-describedby="party-size-hint" className="grid grid-cols-5 gap-2 sm:grid-cols-6">
           {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => <button key={value} type="button" disabled={value < features.minimumPartySize} onClick={() => { setPartySize(value); setPartySizeSelected(true); }} aria-pressed={partySizeSelected && partySize === value} className={cn("surface-3d flex aspect-square items-center justify-center rounded-xl border text-lg font-semibold transition-[transform,border-color,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px disabled:cursor-not-allowed disabled:opacity-35", partySizeSelected && partySize === value ? "-translate-y-0.5 border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5 hover:border-primary/50")}>{value}</button>)}
           <button type="button" onClick={() => { setPartySize(11); setPartySizeSelected(true); }} aria-pressed={partySizeSelected && partySize > 10} className={cn("surface-3d col-span-5 min-h-12 rounded-xl border px-4 text-sm font-semibold transition-transform active:translate-y-px sm:col-span-2", partySizeSelected && partySize > 10 ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5")}>{t.partyMore}</button>
         </div>
         {partySizeSelected && partySize > 10 && <div className="mt-5 max-w-xs"><Label htmlFor="large-party-size">{flow.exactPartySize}</Label><Input id="large-party-size" type="number" min={11} max={100} value={partySize} onChange={(event) => { setPartySize(Math.max(11, Number(event.target.value))); setPartySizeSelected(true); }} className="mt-2 h-12 bg-card"/></div>}
         {requiresManualHandling && <p className="mt-5 flex items-start gap-2 rounded-xl border border-accent/35 bg-accent/15 p-4 text-sm"><Info className="mt-0.5 size-4 shrink-0" />{partySize > features.maximumPartySize ? flow.largeParty(features.maximumPartySize) : features.requiresDeposit ? flow.deposit(depositAmount) : flow.staffReview}</p>}
-        <StepActions next={() => setStep(2)} nextLabel={t.continue} disabled={!partySizeSelected} />
-      </Step>}
 
-      {step === 2 && <Step title={t.dateTitle} icon={<CalendarDays />}>
-        {date ? <><BookingDatePicker value={date} onChange={setDate} locale={locale} rules={features.calendarRules} minimumNoticeMinutes={features.minimumNoticeMinutes} />
-        <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="size-3.5" />{flow.realtimeCheck}</p></> : <div className="surface-3d max-w-xl rounded-3xl border border-dashed bg-card p-6 text-center sm:p-8"><span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><PhoneCall className="size-5" /></span><h3 className="mt-5 font-heading text-2xl">{flow.noBookableDateTitle}</h3><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">{flow.noBookableDateDescription}</p>{hasPhone ? <Button asChild variant="outline" className="mt-6"><a href={location.phoneHref}><PhoneCall />{flow.callRestaurant}</a></Button> : <p className="mt-6 text-sm text-muted-foreground">I recapiti saranno disponibili a breve.</p>}</div>}
-        <StepActions back={() => setStep(1)} next={date ? () => void loadSlots() : undefined} nextLabel={t.continue} backLabel={t.back} disabled={!date} />
-      </Step>}
+        {date ? <div className="mt-9 border-t pt-8">
+          <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{t.fieldDate}</p>
+          <BookingDatePicker value={date} onChange={setDate} locale={locale} rules={features.calendarRules} minimumNoticeMinutes={features.minimumNoticeMinutes} />
+        </div> : <div className="surface-3d mt-9 max-w-xl rounded-3xl border border-dashed bg-card p-6 text-center sm:p-8"><span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><PhoneCall className="size-5" /></span><h3 className="mt-5 font-heading text-2xl">{flow.noBookableDateTitle}</h3><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">{flow.noBookableDateDescription}</p>{hasPhone ? <Button asChild variant="outline" className="mt-6"><a href={location.phoneHref}><PhoneCall />{flow.callRestaurant}</a></Button> : <p className="mt-6 text-sm text-muted-foreground">I recapiti saranno disponibili a breve.</p>}</div>}
 
-      {step === 3 && <Step title={t.timeTitle} icon={<Clock3 />}><p className="-mt-5 mb-7 text-sm text-muted-foreground">{t.timeHint}</p>
+        {date && <div className="mt-9 border-t pt-8" aria-live="polite">
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{t.fieldTime}</p>
+          {!partySizeSelected
+            ? <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><Clock3 className="size-3.5 shrink-0" />{flow.partySizeRequired}</p>
+            : <><p className="mb-6 text-sm text-muted-foreground">{t.timeHint}</p>
         {loading && <div className="flex h-36 items-center justify-center text-muted-foreground"><LoaderCircle className="mr-2 size-5 animate-spin" />{t.loading}</div>}
         {!loading && slots.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{slots.map((slot) => <button type="button" key={slot.startAt} onClick={() => chooseSlot(slot)} className="surface-3d group rounded-2xl border bg-card px-4 py-4 text-left transition-[transform,border-color] hover:-translate-y-0.5 hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px"><span className="flex items-center justify-between gap-2"><span className="font-mono text-xl font-semibold">{formatTimeInZone(slot.startAt)}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" /></span><span className="mt-2 block text-xs font-medium">Orario disponibile</span><span className="mt-1 block text-[11px] text-muted-foreground">{slot.durationMinutes} min · {flow.instantConfirmation}</span></button>)}</div>}
-        {!loading && slots.length === 0 && <div className="surface-3d rounded-2xl border border-dashed bg-card/70 p-6"><p className="font-medium">{requiresManualHandling || manualReviewRequired ? flow.staffReviewTitle : t.unavailable}</p><p className="mt-2 text-sm text-muted-foreground">{requiresManualHandling || manualReviewRequired ? flow.staffReviewDescription : features.waitlistEnabled ? flow.waitlistDescription : flow.waitlistDisabled}</p>{restrictions.length > 0 && <ul className="mt-4 space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">{restrictions.map((restriction) => <li key={restriction} className="flex gap-2"><Info className="mt-0.5 size-4 shrink-0 text-amber-600" />{restriction}</li>)}</ul>}<div className="mt-5 flex flex-wrap items-end gap-3">{features.waitlistEnabled ? <><div><Label htmlFor="requested-time" className="text-xs">{flow.preferredTime}</Label><Input id="requested-time" type="time" value={requestedTime} onChange={(event) => setRequestedTime(event.target.value)} className="mt-2 w-36 bg-background" /></div><Button variant="outline" onClick={() => { setWaitlistMode(true); setStep(4); }}>{requiresManualHandling || manualReviewRequired ? flow.sendStaffRequest : t.waitlist}</Button></> : hasPhone ? <Button asChild variant="outline"><a href={location.phoneHref}><PhoneCall />{flow.callRestaurant}</a></Button> : <p className="text-sm text-muted-foreground">I recapiti saranno disponibili a breve.</p>}</div></div>}
-        <StepActions back={() => setStep(2)} backLabel={t.back} />
+        {!loading && slots.length === 0 && <div className="surface-3d rounded-2xl border border-dashed bg-card/70 p-6"><p className="font-medium">{requiresManualHandling || manualReviewRequired ? flow.staffReviewTitle : t.unavailable}</p><p className="mt-2 text-sm text-muted-foreground">{requiresManualHandling || manualReviewRequired ? flow.staffReviewDescription : features.waitlistEnabled ? flow.waitlistDescription : flow.waitlistDisabled}</p>{restrictions.length > 0 && <ul className="mt-4 space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">{restrictions.map((restriction) => <li key={restriction} className="flex gap-2"><Info className="mt-0.5 size-4 shrink-0 text-amber-600" />{restriction}</li>)}</ul>}<div className="mt-5 flex flex-wrap items-end gap-3">{features.waitlistEnabled ? <><div><Label htmlFor="requested-time" className="text-xs">{flow.preferredTime}</Label><Input id="requested-time" type="time" value={requestedTime} onChange={(event) => setRequestedTime(event.target.value)} className="mt-2 w-36 bg-background" /></div><Button variant="outline" onClick={() => { setWaitlistMode(true); setStep(2); }}>{requiresManualHandling || manualReviewRequired ? flow.sendStaffRequest : t.waitlist}</Button></> : hasPhone ? <Button asChild variant="outline"><a href={location.phoneHref}><PhoneCall />{flow.callRestaurant}</a></Button> : <p className="text-sm text-muted-foreground">I recapiti saranno disponibili a breve.</p>}</div></div>}
+            </>}
+        </div>}
       </Step>}
 
-      {step === 4 && <Step title={t.detailsTitle} icon={<ShieldCheck />}>
+      {step === 2 && <Step title={t.detailsTitle} icon={<ShieldCheck />}>
         {!waitlistMode && selected && <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-700/20 bg-emerald-700/8 p-4 text-sm"><span className="signal-pulse mt-1 size-2 shrink-0 rounded-full bg-emerald-600" /><div><p className="font-semibold">Orario temporaneamente riservato</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Completa i dati per confermare l’orario delle {formatTimeInZone(selected.startAt)}.</p></div></div>}
         <div className="rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><LockKeyhole className="size-4 text-primary" />Contatto della prenotazione</p><div className="grid gap-5 sm:grid-cols-2"><Field id="firstName" label={t.firstName} value={fields.firstName} onChange={(value) => setField("firstName", value)} autoComplete="given-name" required /><Field id="lastName" label={t.lastName} value={fields.lastName} onChange={(value) => setField("lastName", value)} autoComplete="family-name" required /><Field id="phone" label={t.phone} value={fields.phone} onChange={(value) => setField("phone", value)} type="tel" autoComplete="tel" required /><Field id="email" label={t.email} value={fields.email} onChange={(value) => setField("email", value)} type="email" autoComplete="email" /></div></div>
         <div className="mt-4 rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4 text-primary" />Preferenze per il servizio</p><div><Label htmlFor="notes">{details.notes} <span className="font-normal text-muted-foreground">({details.optional})</span></Label><Textarea id="notes" value={fields.notes} onChange={(event) => setField("notes", event.target.value)} className="mt-2 min-h-24 bg-background" placeholder="Es. compleanno, seggiolone o richiesta particolare…" /></div><div className="mt-5 grid gap-5 sm:grid-cols-2"><Field id="allergies" label={`${details.allergies} (${details.optional})`} value={fields.allergies} onChange={(value) => setField("allergies", value)} /><Field id="accessibilityNeeds" label={`${details.accessibility} (${details.optional})`} value={fields.accessibilityNeeds} onChange={(value) => setField("accessibilityNeeds", value)} /></div></div>
         <div className="mt-6 space-y-4"><CheckRow id="privacy" checked={fields.privacyConsent} onCheckedChange={(value) => setField("privacyConsent", value)} label={t.privacy} required /><CheckRow id="marketing" checked={fields.marketingConsent} onCheckedChange={(value) => setField("marketingConsent", value)} label={t.marketing} /></div>
-        <StepActions back={() => { setStep(3); void releaseCurrentHold(); }} next={() => { if (validateDetails()) setStep(5); }} nextLabel={t.continue} backLabel={t.back} />
+        <StepActions back={() => { setStep(1); void releaseCurrentHold(); }} next={() => { if (validateDetails()) setStep(3); }} nextLabel={t.continue} backLabel={t.back} />
       </Step>}
 
-      {step === 5 && <Step title={t.reviewTitle} icon={<Sparkles />}>
+      {step === 3 && <Step title={t.reviewTitle} icon={<Sparkles />}>
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/8 p-4 text-sm"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><div><p className="font-semibold">Ultimo controllo</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Confermando, la prenotazione entra subito nella regia operativa.</p></div></div>
         <dl className="surface-3d divide-y rounded-2xl border bg-card px-5">{[
-          [t.steps[0], `${partySize} ${dictionary.common.guests}`], [t.steps[1], selectedDateLabel], [t.steps[2], selected ? formatTimeInZone(selected.startAt) : requestedTime], [t.firstName, `${fields.firstName} ${fields.lastName}`], [t.phone, fields.phone], ...(fields.allergies ? [[details.allergies, fields.allergies]] : []), ...(fields.accessibilityNeeds ? [[details.accessibility, fields.accessibilityNeeds]] : []),
+          [t.fieldParty, `${partySize} ${dictionary.common.guests}`], [t.fieldDate, selectedDateLabel], [t.fieldTime, selected ? formatTimeInZone(selected.startAt) : requestedTime], [t.firstName, `${fields.firstName} ${fields.lastName}`], [t.phone, fields.phone], ...(fields.allergies ? [[details.allergies, fields.allergies]] : []), ...(fields.accessibilityNeeds ? [[details.accessibility, fields.accessibilityNeeds]] : []),
         ].map(([label, value]) => <div key={label} className="grid grid-cols-[120px_1fr] gap-4 py-4 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>
         <StepActions back={() => setStep(4)} next={finish} nextLabel={t.confirm} backLabel={t.back} loading={loading} />
       </Step>}
@@ -295,7 +309,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
 
     <aside className="hidden lg:block"><div className="surface-3d sticky top-8 overflow-hidden rounded-xl border bg-card">
       <div className="relative overflow-hidden bg-[#111311] p-6 text-white"><div aria-hidden className="absolute -right-16 -top-20 size-48 rounded-full bg-primary/12 blur-2xl" /><div className="relative"><div className="flex items-center justify-between"><p className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/45">{location.shortName}</p><span className="flex items-center gap-1.5 text-[10px] text-emerald-300"><span className="signal-pulse size-1.5 rounded-full bg-emerald-400" />Live</span></div><h2 className="mt-3 font-heading text-2xl font-semibold tracking-tight">{location.name}</h2><p className="mt-2 text-xs text-white/45">Riepilogo aggiornato automaticamente</p></div></div>
-      <div className="space-y-5 p-6 text-sm"><SummaryLine icon={<UsersRound />} label={t.steps[0]} value={partySizeSelected ? `${partySize} ${dictionary.common.guests}` : flow.dateNotSelected} active={partySizeSelected} /><SummaryLine icon={<CalendarDays />} label={t.steps[1]} value={selectedDateLabel} active={step >= 2} /><SummaryLine icon={<Clock3 />} label={t.steps[2]} value={selected ? formatTimeInZone(selected.startAt) : flow.dateNotSelected} active={Boolean(selected)} /><SummaryLine icon={<ShieldCheck />} label="Stato" value={selected ? "Orario riservato" : "In attesa di scelta"} active={Boolean(selected)} />
+      <div className="space-y-5 p-6 text-sm"><SummaryLine icon={<UsersRound />} label={t.fieldParty} value={partySizeSelected ? `${partySize} ${dictionary.common.guests}` : flow.dateNotSelected} active={partySizeSelected} /><SummaryLine icon={<CalendarDays />} label={t.fieldDate} value={selectedDateLabel} active={Boolean(date)} /><SummaryLine icon={<Clock3 />} label={t.fieldTime} value={selected ? formatTimeInZone(selected.startAt) : flow.dateNotSelected} active={Boolean(selected)} /><SummaryLine icon={<ShieldCheck />} label="Stato" value={selected ? "Orario riservato" : "In attesa di scelta"} active={Boolean(selected)} />
         <div className="border-t pt-5 text-xs leading-5 text-muted-foreground"><Accessibility className="mb-2 size-4 text-primary" />Allergie e accessibilità arrivano evidenziate nella scheda operativa dello staff.</div>
       </div>
     </div></aside>
