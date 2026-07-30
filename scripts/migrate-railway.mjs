@@ -29,8 +29,11 @@ const files = [
 ];
 
 for (const file of files) {
+  const migrationName = path.basename(file);
   const [alreadyApplied] = await sql`
-    select name from public.schema_migrations where name = ${file}
+    select name
+    from public.schema_migrations
+    where name = ${migrationName} or name like ${`%${migrationName}`}
   `;
   if (alreadyApplied) {
     console.log(`skip ${file}`);
@@ -40,7 +43,7 @@ for (const file of files) {
     await sql.begin(async (transaction) => {
       await transaction.unsafe(source);
       await transaction`
-        insert into public.schema_migrations (name) values (${file})
+        insert into public.schema_migrations (name) values (${migrationName})
       `;
     });
   }
