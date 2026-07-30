@@ -3,7 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpenText, Bot, Building2, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LoaderCircle, MapPin, Menu, PanelLeftClose, PanelLeftOpen, PhoneCall, Search, Settings2, Sparkles, UsersRound, Utensils, type LucideIcon } from "lucide-react";
+import { BarChart3, BookOpenText, Bot, Building2, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LoaderCircle, LogOut, MapPin, Menu, PanelLeftClose, PanelLeftOpen, PhoneCall, Search, Settings2, Sparkles, UsersRound, Utensils, type LucideIcon } from "lucide-react";
+import { logoutAction } from "@/app/login/actions";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { RealtimeStatus } from "@/components/admin/realtime-status";
 import { OperationalNotifications } from "@/components/admin/operational-notifications";
@@ -94,7 +95,7 @@ export function AdminShell({ session, locations, activeLocation, children }: { s
         <NavItems items={visibleNav} pathname={pathname} collapsed={isCollapsed} onNavigate={onNavigate} />
         {visibleUtilityNav.length > 0 && <><div className="my-5 h-px bg-white/8" /><NavItems items={visibleUtilityNav} pathname={pathname} collapsed={isCollapsed} onNavigate={onNavigate} /></>}
       </div>
-      <div className="relative border-t border-white/8 p-3"><div className={cn("flex items-center gap-3 rounded-xl p-2", isCollapsed ? "justify-center" : "bg-white/[0.025]")}><div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">{initials}</div>{!isCollapsed && <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{session.name}</p><p className="truncate text-xs capitalize text-muted-foreground">{session.role.replace("_", " ")}</p></div>}</div></div>
+      <div className="relative border-t border-white/8 p-3"><div className={cn("flex items-center gap-2 rounded-xl p-2", isCollapsed ? "flex-col justify-center" : "bg-white/[0.025]")}><div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">{initials}</div>{!isCollapsed && <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{session.name}</p><p className="truncate text-xs capitalize text-muted-foreground">{session.role.replace("_", " ")}</p></div>}<form action={logoutAction}><button type="submit" title="Esci" aria-label="Esci dall’area riservata" className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"><LogOut className="size-4" /></button></form></div></div>
     </div>;
   }
 
