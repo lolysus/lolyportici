@@ -88,11 +88,11 @@ const reservationSelect = `
 export class PostgresReservationRepository implements ReservationRepository {
   constructor(private readonly locationId: string = restaurantConfig.locationId) {}
 
-  private async reservationRows(where: string, parameters: unknown[] = []) {
+  private async reservationRows(where: string, parameters: unknown[] = [], orderBy = "") {
     const sql = getPostgres();
     return await sql.unsafe<Row[]>(
       `${reservationSelect} where r.location_id = $1 and r.deleted_at is null ${where}
-       group by r.id, c.id`,
+       group by r.id, c.id ${orderBy}`,
       [this.locationId, ...parameters] as never[],
     );
   }
@@ -218,7 +218,7 @@ export class PostgresReservationRepository implements ReservationRepository {
     }
   }
 
-  async listReservations() { return (await this.reservationRows("order by r.start_at")).map(publicReservation); }
+  async listReservations() { return (await this.reservationRows("", [], "order by r.start_at")).map(publicReservation); }
 
   private async byToken(token: string) {
     const rows = await this.reservationRows(`and r.management_token_hash=$2`, [hashManagementToken(token)]);
