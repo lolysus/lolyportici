@@ -7,6 +7,7 @@ import { restaurantLocations } from "@/config/brand";
 import { PermissionDeniedError } from "@/domains/bookings/errors";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { StaffSession } from "@/types/domain";
+import { getNativeStaffSession, isNativeAuthConfigured } from "@/lib/auth/native";
 
 const demoSession: StaffSession = {
   id: "90000000-0000-0000-0000-000000000001",
@@ -32,8 +33,10 @@ const rolePriority: Record<Role, number> = {
 };
 
 export const getCurrentStaffSession = cache(async (): Promise<StaffSession | null> => {
-  const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (isNativeAuthConfigured()) return getNativeStaffSession();
+  const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   if (demoMode) return demoSession;
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return null;
   const supabase = await getSupabaseServerClient();
   if (!supabase) return null;
   const { data: { user } } = await supabase.auth.getUser();
@@ -82,6 +85,7 @@ export async function requireStaffSession() {
 
 export async function requirePermission(permission: Permission) {
   const session = await getCurrentStaffSession();
-  if (!session || !session.permissions.includes(permission)) throw new PermissionDeniedError();
+  if (!session) redirect("/login");
+  if (!session.permissions.includes(permission)) throw new PermissionDeniedError();
   return session;
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AudioWaveform, CalendarCheck2, DatabaseZap, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { LoginForm } from "@/components/admin/login-form";
+import { isNativeAuthConfigured } from "@/lib/auth/native";
 
 export const metadata: Metadata = { title: "Accesso staff" };
 
@@ -12,7 +13,7 @@ const systemSignals = [
 ];
 
 export default function LoginPage() {
-  const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const demoMode = !isNativeAuthConfigured() && process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   return <main className="grid min-h-screen bg-[#111] lg:grid-cols-[minmax(0,1.15fr)_minmax(430px,.85fr)]">
     <div className="relative hidden overflow-hidden border-r border-white/10 lg:flex lg:flex-col lg:justify-between lg:p-12">
       <div aria-hidden className="ambient-drift absolute -right-40 -top-48 size-[40rem] rounded-full bg-[radial-gradient(circle,rgba(228,98,77,.18),transparent_66%)]" />

@@ -22,6 +22,20 @@ export function validationFailure(details: unknown) {
 export function assertSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return;
-  if (new URL(origin).host !== new URL(request.url).host) throw new DomainError("CSRF_CHECK_FAILED", "Origine della richiesta non valida.", 403);
+  const requestOrigin = new URL(request.url).origin;
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https";
+  const trustedOrigins = (process.env.TRUSTED_ORIGINS ?? "")
+    .split(",")
+    .map((value) => value.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+  const allowedOrigins = new Set([
+    requestOrigin,
+    ...(forwardedHost ? [`${forwardedProtocol}://${forwardedHost}`] : []),
+    ...trustedOrigins,
+  ]);
+  if (!allowedOrigins.has(origin.replace(/\/+$/, ""))) {
+    throw new DomainError("CSRF_CHECK_FAILED", "Origine della richiesta non valida.", 403);
+  }
 }
 
