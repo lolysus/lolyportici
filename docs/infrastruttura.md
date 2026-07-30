@@ -70,12 +70,15 @@ Le due risposte devono coincidere. Se differiscono, il proxy o uno dei due deplo
 Railway impiega ~5 minuti (build completo con `npm ci`), Vercel ~45 secondi. È normale che per
 qualche minuto il frontend sia già aggiornato e le API no.
 
-I `watchPatterns` in `railway.json` fanno saltare il rebuild del backend quando un commit tocca
-**solo** documentazione (`*.md` in radice e `docs/**`). Qualsiasi modifica al codice lo fa partire
-normalmente. Sono pattern in stile gitignore, e la negazione funziona solo dopo una regola che
-include: per questo la lista comincia da `**`. Se aggiungi esclusioni, ricordati che un pattern
-troppo largo blocca in silenzio tutti i deploy del backend — l'esatto guasto che questa
-configurazione serve a evitare.
+⚠️ **Non usare `watchPatterns` in `railway.json`.** Sono stati provati il 30/07/2026 per saltare il
+rebuild sui commit di sola documentazione: il risultato è stato che Railway ha smesso del tutto di
+deployare, **senza segnalare nulla**. Vercel pubblicava il frontend, il backend restava al commit
+precedente, e le `/api/*` continuavano a servire il codice vecchio. Il guasto è silenzioso e si
+nota solo confrontando il commit del deploy Railway con `main`.
+
+Se qualcuno vuole riprovarci, verifichi con `railway deployment list --service loly-api --json`
+che dopo il push compaia un deployment con il `commitHash` giusto. Cinque minuti di build sprecati
+valgono molto meno di un backend fermo di cui nessuno si accorge.
 
 ## Migrazioni database
 
