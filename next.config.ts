@@ -12,7 +12,9 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname),
   },
   async rewrites() {
-    const backendOrigin = process.env.BACKEND_ORIGIN?.replace(/\/+$/, "");
+    const configuredBackend = process.env.BACKEND_ORIGIN
+      ?? (process.env.VERCEL ? "https://loly-api-production.up.railway.app" : undefined);
+    const backendOrigin = configuredBackend?.replace(/\/+$/, "");
     if (!backendOrigin) return [];
     return [
       {
