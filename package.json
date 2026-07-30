@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "db:railway:migrate": "node scripts/migrate-railway.mjs",
     "db:migrate": "npx supabase db push",
     "db:seed": "npx supabase db reset"
   },
@@ -28,6 +29,7 @@
     "lucide-react": "^1.24.0",
     "next": "16.2.12",
     "next-themes": "^0.4.6",
+    "postgres": "^3.4.9",
     "radix-ui": "^1.6.2",
     "react": "19.2.4",
     "react-day-picker": "^10.0.1",

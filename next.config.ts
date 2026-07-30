@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  async rewrites() {
+    const backendOrigin = process.env.BACKEND_ORIGIN?.replace(/\/+$/, "");
+    if (!backendOrigin) return [];
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${backendOrigin}/api/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {
