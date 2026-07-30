@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
  * una seconda cornice sopra la prima, e ripetere il nome accanto all'arte
  * lo scrive due volte.
  */
-const LOGO_ASPECT = "640 / 280";
+const RESTAURANT_LOGO_ASPECT = "640 / 280";
+const PLATFORM_LOGO_ASPECT = "520 / 160";
 
 type BrandLogoProps = {
   className?: string;
@@ -40,7 +41,7 @@ export function BrandLogo({
         "relative block w-full overflow-hidden transition-transform duration-300",
         isHero ? "rounded-2xl group-hover:-translate-y-0.5" : "rounded-xl",
       )}
-      style={{ aspectRatio: LOGO_ASPECT }}
+      style={{ aspectRatio: restaurant ? RESTAURANT_LOGO_ASPECT : PLATFORM_LOGO_ASPECT }}
     >
       <Image
         src={logoPath}
