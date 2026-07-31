@@ -6,6 +6,10 @@ export interface ManagedRestaurant {
   legalName: string;
   vatNumber: string;
   website: string;
+  /** Sito ufficiale del ristorante, distinto dal link di prenotazione. */
+  officialWebsite: string;
+  /** Profilo Instagram pubblico, vuoto se non gestito. */
+  instagramUrl: string;
   bookingInfoUrl: string;
   privacyUrl: string;
   logoPath: string;
@@ -62,15 +66,21 @@ export const restaurantLocations = [
     name: "YUKO Sushi & Fusion",
     shortName: "YUKO",
     legalName: "YUKO Sushi & Fusion",
+    // ATTENZIONE: la partita IVA comunicata per YUKO è identica a quella di
+    // KouSushi. Due attività distinte non possono condividerla e il dato
+    // compare nel footer pubblico: va confermato dal titolare prima del
+    // go-live. Finché non è confermato resta fuori.
     vatNumber: "In aggiornamento",
     website: `${publicAppUrl}/it/book/yuko`,
+    officialWebsite: "",
+    instagramUrl: "",
     bookingInfoUrl: `${publicAppUrl}/it/book/yuko`,
     privacyUrl: `${publicAppUrl}/it/privacy`,
     logoPath: "/brands/yuko-logo.svg",
     accentColor: "#D5AF55",
     reservationCodePrefix: "YK",
     slug: "yuko",
-    address: "Via Severiana, 00040 Ardea RM, Italia",
+    address: "Via Severiana 60, 00040 Ardea RM, Italia",
     city: "Ardea · RM",
     phone: "Contatti in aggiornamento",
     phoneHref: "",
@@ -92,8 +102,10 @@ export const restaurantLocations = [
     name: "KouSushi",
     shortName: "KouSushi",
     legalName: "KouSushi",
-    vatNumber: "In aggiornamento",
+    vatNumber: "09944081216",
     website: `${publicAppUrl}/it/book/kousushi`,
+    officialWebsite: "https://kousushiportici.com",
+    instagramUrl: "https://www.instagram.com/kousushiportici/",
     bookingInfoUrl: `${publicAppUrl}/it/book/kousushi`,
     privacyUrl: `${publicAppUrl}/it/privacy`,
     logoPath: "/brands/kousushi-logo.svg",
@@ -102,8 +114,8 @@ export const restaurantLocations = [
     slug: "kousushi",
     address: "Corso Giuseppe Garibaldi, 130, 80055 Portici NA, Italia",
     city: "Portici · NA",
-    phone: "Contatti in aggiornamento",
-    phoneHref: "",
+    phone: "+39 081 271258",
+    phoneHref: "tel:+39081271258",
     email: "",
     timezone: "Europe/Rome",
     capacity: 48,
