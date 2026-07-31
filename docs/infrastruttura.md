@@ -80,6 +80,47 @@ Se qualcuno vuole riprovarci, verifichi con `railway deployment list --service l
 che dopo il push compaia un deployment con il `commitHash` giusto. Cinque minuti di build sprecati
 valgono molto meno di un backend fermo di cui nessuno si accorge.
 
+## Domini dedicati per ristorante
+
+YUKO e KouSushi sono due attività separate. Su un dominio dedicato l'altra non
+deve esistere: né link, né pagina raggiungibile.
+
+La mappa dominio → ristorante sta in una sola variabile, su **Vercel** (è lì che
+girano le pagine):
+
+```
+NEXT_PUBLIC_RESTAURANT_DOMAINS="yuko.it=yuko,www.yuko.it=yuko,kousushi.it=kousushi,www.kousushi.it=kousushi"
+```
+
+Ogni voce è `host=slug`. Gli slug validi sono quelli in `src/config/brand.ts`:
+`yuko` e `kousushi`. Vanno elencati anche i `www.`, sono host diversi.
+
+Con la variabile impostata, `src/proxy.ts` applica queste regole:
+
+| Richiesta su `yuko.it` | Esito |
+| --- | --- |
+| `/` | redirect a `/it/book/yuko` |
+| `/it/book` (scelta fra i due) | redirect a `/it/book/yuko` |
+| `/it/book/yuko` | pagina del ristorante |
+| `/it/book/kousushi` | **404** |
+
+Le API restano fuori dal proxy: sono servite da Railway e non dipendono dal
+dominio. Login e area amministrativa non vengono toccati.
+
+**Se la variabile non è impostata il proxy non fa nulla** e l'applicazione serve
+entrambi i ristoranti sotto lo stesso host, come su `lolyportici.vercel.app`.
+
+Passi per collegare un dominio:
+
+1. Aggiungi il dominio al progetto Vercel `loly5/lolyportici` e configura il DNS
+   come indicato lì.
+2. Aggiungi l'host alla variabile qui sopra, con e senza `www`.
+3. Ridistribuisci il frontend, poi verifica che `https://dominio/` porti alla
+   pagina giusta e che l'altro ristorante risponda 404.
+
+Aggiorna anche `NEXT_PUBLIC_APP_URL` se il dominio principale cambia: alimenta
+i link canonici e i dati strutturati.
+
 ## Migrazioni database
 
 `railway.json` esegue `npm run db:railway:migrate` come `preDeployCommand`: **le migrazioni

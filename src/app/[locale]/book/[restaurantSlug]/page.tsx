@@ -11,6 +11,7 @@ import { getDictionary, hasLocale } from "@/lib/i18n";
 import { dateKeyInZone, localDateTimeToUtc } from "@/lib/datetime";
 import { getBookingPath, getGoogleMapsDirectionsUrl } from "@/lib/public-url";
 import { restaurantThemeStyle } from "@/lib/brand-theme";
+import { cn } from "@/lib/utils";
 import { buildServiceTimeSlots, dayOfWeekForDateKey } from "@/lib/service-calendar";
 import { getRestaurantSettings } from "@/domains/settings/settings-service";
 import { getRepository } from "@/repositories";
@@ -78,6 +79,8 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
   const directionsUrl = getGoogleMapsDirectionsUrl(location.address);
   const bookingPath = getBookingPath(locale, location);
   const hasPhone = Boolean(location.phoneHref);
+  // Meglio nessuna partita IVA che una scritta "In aggiornamento" nel footer.
+  const hasVatNumber = /^\d{11}$/.test(location.vatNumber.replace(/\s/g, ""));
   const bookingTrust = bookingTrustCopy[locale as keyof typeof bookingTrustCopy];
   return <div style={restaurantThemeStyle(location)} className={`dark japanese-pattern min-h-screen bg-background brand-${location.slug}`}>
     <RestaurantBookingJsonLd restaurant={location} locale={locale} />
@@ -85,11 +88,11 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
     <header className="border-b border-foreground/10 bg-[#111] text-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-5 px-5 py-4">
         <Link href={bookingPath} aria-label={`${location.name} · prenotazioni online`} className="block w-36 shrink-0 text-white sm:w-44"><BrandLogo priority size="hero" restaurant={location} subtitle="Prenotazioni online" /></Link>
-        <nav className="flex items-center gap-3 text-xs" aria-label="Lingua e accesso">
+        <nav className="flex items-center gap-1 text-xs sm:gap-3" aria-label="Lingua e accesso">
           <Badge variant="outline" className="hidden border-white/20 bg-white/5 text-white sm:inline-flex"><span className={`mr-1.5 size-1.5 rounded-full ${bookingStatus.dot}`} />{bookingStatus.label}</Badge>
-          <Link href="/account" className="hidden items-center gap-1.5 text-white/65 hover:text-white sm:inline-flex"><UserRound className="size-3.5" />Area ospite</Link>
-          {restaurantConfig.supportedLocales.map((language) => <Link key={language} href={`/${language}/book/${restaurantSlug}`} hrefLang={language} aria-current={language === locale ? "page" : undefined} className={language === locale ? "font-semibold text-white" : "text-white/55 hover:text-white"}>{language.toUpperCase()}</Link>)}
-          <Link href="/login" className="ml-2 border border-white/20 px-3 py-1.5 text-white/75 hover:border-primary/60 hover:text-white">Staff</Link>
+          <Link href="/account" className="hidden min-h-11 items-center gap-1.5 px-2 text-white/65 hover:text-white sm:inline-flex"><UserRound className="size-3.5" />Area ospite</Link>
+          {restaurantConfig.supportedLocales.map((language) => <Link key={language} href={`/${language}/book/${restaurantSlug}`} hrefLang={language} aria-current={language === locale ? "page" : undefined} className={cn("inline-flex min-h-11 items-center justify-center rounded-md px-2 transition-colors sm:px-3", language === locale ? "bg-white/10 font-semibold text-white" : "text-white/55 hover:bg-white/5 hover:text-white")}>{language.toUpperCase()}</Link>)}
+          <Link href="/login" className="ml-1 inline-flex min-h-11 items-center border border-white/20 px-3 text-white/75 hover:border-primary/60 hover:text-white">Staff</Link>
         </nav>
       </div>
     </header>
@@ -113,11 +116,11 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
           <div className="booking-trust-rail mt-8 grid max-w-xl grid-cols-3 gap-2" aria-label="Prenotazione semplice e sicura">
             {bookingTrust.map((item) => <div key={item.label} className="booking-trust-card"><item.icon className="size-4 text-primary" /><p>{item.label}</p><span>{item.detail}</span></div>)}
           </div>
-          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/60">
-            <span className="inline-flex items-center gap-2"><MapPin className="size-4 text-primary" />{location.city} · {location.address}</span>
-            <span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-primary" />{location.serviceNote}</span>
-            {hasPhone ? <a href={location.phoneHref} className="inline-flex items-center gap-2 font-medium text-white hover:text-primary"><Phone className="size-4 text-primary" />{location.phone}</a> : null}
-            <a href={directionsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-medium text-white hover:text-primary"><MapPinned className="size-4 text-primary" />Google Maps<ExternalLink className="size-3" /></a>
+          <div className="mt-8 flex flex-col gap-x-6 gap-y-1 text-sm text-white/60 sm:flex-row sm:flex-wrap sm:items-center">
+            <span className="inline-flex items-start gap-2 py-1.5"><MapPin className="mt-0.5 size-4 shrink-0 text-primary" />{location.city} · {location.address}</span>
+            <span className="inline-flex items-center gap-2 py-1.5"><Clock3 className="size-4 shrink-0 text-primary" />{location.serviceNote}</span>
+            {hasPhone ? <a href={location.phoneHref} className="inline-flex min-h-11 items-center gap-2 font-medium text-white hover:text-primary"><Phone className="size-4 shrink-0 text-primary" />{location.phone}</a> : null}
+            <a href={directionsUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 font-medium text-white hover:text-primary"><MapPinned className="size-4 shrink-0 text-primary" />Google Maps<ExternalLink className="size-3" /></a>
           </div>
         </div>
 
@@ -149,7 +152,7 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
       </div>
     </section>
     <BookingWizard dictionary={dictionary} locale={locale} location={location} features={{ onlineBookingEnabled: settings.operations.serviceMode !== "paused" && settings.service.onlineBookingEnabled && availabilityContext.locationAvailable !== false, waitlistEnabled: settings.features.waitlistEnabled, minimumPartySize: settings.rules.minimumPartySize, maximumPartySize: settings.rules.maximumPartySize, requiresManualApproval: settings.rules.requiresManualApproval || settings.operations.serviceMode === "approval", requiresDeposit: settings.rules.requiresDeposit, depositAmount: settings.rules.depositAmount, minimumNoticeMinutes: settings.policies.minimumNoticeMinutes, calendarRules: { firstDate, maximumAdvanceDays: settings.policies.maximumAdvanceDays, enabledWeekdays, closedDates: [...new Set(closedDates)] } }} />
-    <footer className="border-t border-foreground/10"><div className="mx-auto grid max-w-6xl gap-6 px-5 pb-28 pt-8 text-xs text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-end sm:py-8"><div><p className="font-medium text-foreground">© {new Date().getFullYear()} {location.legalName}</p><p className="mt-2">{location.address} · P.IVA {location.vatNumber}</p></div><div className="flex flex-wrap gap-x-5 gap-y-2 sm:justify-end">{hasPhone ? <a href={location.phoneHref}>{location.phone}</a> : null}<a href={location.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">Link prenotazione<ExternalLink className="size-3" /></a><Link href={`/${locale}/privacy`}>Privacy</Link><Link href={`/${locale}/terms`}>Condizioni</Link></div></div></footer>
+    <footer className="border-t border-foreground/10"><div className="mx-auto grid max-w-6xl gap-6 px-5 pb-28 pt-8 text-xs text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-end sm:py-8"><div><p className="font-medium text-foreground">© {new Date().getFullYear()} {location.legalName}</p><p className="mt-2">{location.address}{hasVatNumber ? ` · P.IVA ${location.vatNumber}` : ""}</p></div><div className="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 sm:justify-end">{hasPhone ? <a href={location.phoneHref} className="inline-flex min-h-11 items-center px-2">{location.phone}</a> : null}{location.officialWebsite ? <a href={location.officialWebsite} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 px-2">Sito ufficiale<ExternalLink className="size-3" /></a> : null}{location.instagramUrl ? <a href={location.instagramUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 px-2">Instagram<ExternalLink className="size-3" /></a> : null}<Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center px-2">Privacy</Link><Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center px-2">Condizioni</Link></div></div></footer>
   </div>;
 }
 

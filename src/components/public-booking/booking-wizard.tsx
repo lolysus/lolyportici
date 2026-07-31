@@ -254,7 +254,10 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
     </section>;
   }
 
-  return <div id="booking-content" tabIndex={-1} className="mx-auto grid max-w-6xl scroll-mt-14 gap-12 px-5 py-10 outline-none lg:grid-cols-[minmax(0,1fr)_340px] lg:py-16">
+  // La barra di avanzamento va a filo schermo con un margine negativo fisso di
+  // 20px, ma il padding effettivo del contenitore non è sempre esattamente
+  // quello: la differenza usciva dallo schermo come scroll orizzontale.
+  return <div id="booking-content" tabIndex={-1} className="mx-auto grid max-w-6xl scroll-mt-14 gap-12 overflow-x-clip px-5 py-10 outline-none lg:grid-cols-[minmax(0,1fr)_340px] lg:py-16">
     <main className="pb-24 sm:pb-0">
       <div className="sticky top-[59px] z-30 -mx-5 mb-5 border-y border-border/70 bg-background/95 px-5 py-3 text-xs shadow-[0_8px_18px_-18px_rgba(0,0,0,.8)] backdrop-blur sm:static sm:mx-0 sm:mb-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none" aria-live="polite">
         <div className="flex items-center justify-between gap-4">

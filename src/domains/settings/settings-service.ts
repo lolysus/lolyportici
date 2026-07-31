@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
+import { getPostgres, isPostgresConfigured } from "@/lib/postgres";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import type { DayScheduleSettings, RestaurantSettings, ServiceWindowSettings } from "@/types/settings";
 
@@ -161,10 +162,93 @@ export function getInMemoryRestaurantSettings(locationId: string = restaurantCon
   return structuredClone(globalSettings.__sushiSettings.get(locationId)!);
 }
 
-export async function getRestaurantSettings(locationId: string = restaurantConfig.locationId): Promise<RestaurantSettings> {
-  if (!isSupabaseConfigured() || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-    return getInMemoryRestaurantSettings(locationId);
+async function readSettingsFromPostgres(locationId: string): Promise<RestaurantSettings> {
+  const sql = getPostgres();
+  const [services, rules, locations] = await Promise.all([
+    sql<ServiceRow[]>`select * from public.service_periods where location_id=${locationId} order by day_of_week, start_time`,
+    sql<RuleRow[]>`select * from public.booking_rules where location_id=${locationId} and is_active order by created_at limit 1`,
+    sql<{ booking_enabled: boolean }[]>`select booking_enabled from public.locations where id=${locationId}`,
+  ]);
+  return settingsFromRows(locationId, [...services], rules[0] ?? null, locations[0]?.booking_enabled);
+}
+
+async function writeSettingsToPostgres(settings: RestaurantSettings, locationId: string) {
+  const sql = getPostgres();
+  const conditions = storedConditions(settings);
+
+  for (const day of settings.schedule) {
+    for (const { name, window } of [
+      { name: "Pranzo" as const, window: day.lunch },
+      { name: "Cena" as const, window: day.dinner },
+    ]) {
+      const payload = servicePayload(settings, name, day.dayOfWeek, window);
+      // Un servizio è identificato da sede, nome e giorno: se esiste si
+      // aggiorna, altrimenti nasce. Senza questo controllo ogni salvataggio
+      // creerebbe un doppione e la disponibilità verrebbe contata due volte.
+      const existing = await sql<{ id: string }[]>`
+        select id from public.service_periods
+        where location_id=${locationId} and name=${name} and day_of_week=${day.dayOfWeek}
+        limit 1`;
+      if (existing[0]) {
+        await sql`
+          update public.service_periods set
+            start_time=${payload.start_time}, end_time=${payload.end_time},
+            slot_interval_minutes=${payload.slot_interval_minutes},
+            default_duration_minutes=${payload.default_duration_minutes},
+            turnaround_minutes=${payload.turnaround_minutes},
+            maximum_covers=${payload.maximum_covers},
+            maximum_arrivals_per_slot=${payload.maximum_arrivals_per_slot},
+            online_booking_enabled=${payload.online_booking_enabled},
+            phone_booking_enabled=${payload.phone_booking_enabled},
+            is_active=${payload.is_active}
+          where id=${existing[0].id}`;
+      } else {
+        await sql`
+          insert into public.service_periods
+            (location_id,name,day_of_week,start_time,end_time,slot_interval_minutes,default_duration_minutes,turnaround_minutes,maximum_covers,maximum_arrivals_per_slot,online_booking_enabled,phone_booking_enabled,is_active)
+          values (${locationId},${name},${day.dayOfWeek},${payload.start_time},${payload.end_time},${payload.slot_interval_minutes},${payload.default_duration_minutes},${payload.turnaround_minutes},${payload.maximum_covers},${payload.maximum_arrivals_per_slot},${payload.online_booking_enabled},${payload.phone_booking_enabled},${payload.is_active})`;
+      }
+    }
   }
+
+  await sql`update public.locations set booking_enabled=${settings.operations.serviceMode !== "paused"} where id=${locationId}`;
+  await sql`
+    update public.booking_rules set
+      minimum_party_size=${settings.rules.minimumPartySize},
+      maximum_party_size=${settings.rules.maximumPartySize},
+      default_duration_minutes=${settings.durations.party3To4},
+      turnaround_minutes=${settings.service.turnaroundMinutes},
+      requires_manual_approval=${settings.rules.requiresManualApproval || settings.operations.serviceMode === "approval"},
+      requires_deposit=${settings.rules.requiresDeposit},
+      deposit_amount=${settings.rules.requiresDeposit ? settings.rules.depositAmount : null},
+      minimum_notice_minutes=${settings.policies.minimumNoticeMinutes},
+      maximum_advance_days=${settings.policies.maximumAdvanceDays},
+      late_tolerance_minutes=${settings.policies.lateToleranceMinutes},
+      no_show_after_minutes=${settings.policies.noShowAfterMinutes},
+      cancellation_deadline_hours=${settings.policies.cancellationDeadlineHours},
+      conditions=${sql.json(conditions as never)}
+    where location_id=${locationId} and is_active`;
+}
+
+function storedConditions(settings: RestaurantSettings): StoredConditions {
+  return {
+    durationByParty: settings.durations,
+    features: settings.features,
+    notifications: settings.notifications,
+    guestExperience: settings.guestExperience,
+    operations: settings.operations,
+    voiceAI: settings.voiceAI,
+    explicitManualApproval: settings.rules.requiresManualApproval,
+  };
+}
+
+export async function getRestaurantSettings(locationId: string = restaurantConfig.locationId): Promise<RestaurantSettings> {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") return getInMemoryRestaurantSettings(locationId);
+  // In produzione il database è PostgreSQL su Railway. Prima questo ramo non
+  // esisteva e le impostazioni tornavano sempre da una mappa in memoria: gli
+  // orari salvati dal ristoratore sparivano al primo deploy.
+  if (isPostgresConfigured()) return readSettingsFromPostgres(locationId);
+  if (!isSupabaseConfigured()) return getInMemoryRestaurantSettings(locationId);
 
   const db = getSupabaseAdmin();
   const [servicesResult, rulesResult, locationResult] = await Promise.all([
@@ -176,15 +260,47 @@ export async function getRestaurantSettings(locationId: string = restaurantConfi
   if (rulesResult.error) throw rulesResult.error;
   if (locationResult.error) throw locationResult.error;
 
+  return settingsFromRows(
+    locationId,
+    (servicesResult.data ?? []) as ServiceRow[],
+    rulesResult.data as RuleRow | null,
+    locationResult.data?.booking_enabled as boolean | undefined,
+  );
+}
+
+type RuleRow = {
+  minimum_party_size: number;
+  maximum_party_size: number;
+  requires_manual_approval: boolean;
+  requires_deposit: boolean;
+  deposit_amount: number | string | null;
+  minimum_notice_minutes: number;
+  maximum_advance_days: number;
+  late_tolerance_minutes: number;
+  no_show_after_minutes: number;
+  cancellation_deadline_hours: number;
+  conditions: unknown;
+};
+
+/**
+ * Riga per riga il database non descrive le impostazioni come le vede il
+ * ristoratore: gli orari stanno nei periodi di servizio, le regole in
+ * booking_rules e il resto in un blob JSON. La ricomposizione è la stessa
+ * qualunque sia il motore, quindi vive qui una volta sola.
+ */
+function settingsFromRows(
+  locationId: string,
+  services: ServiceRow[],
+  rule: RuleRow | null,
+  bookingEnabled: boolean | undefined,
+): RestaurantSettings {
   const locationDefaults = defaultSettingsForLocation(locationId);
-  const services = (servicesResult.data ?? []) as ServiceRow[];
   const primaryService = services.find((service) => service.name.toLocaleLowerCase("it").includes("cena") && service.is_active)
     ?? services.find((service) => service.is_active);
-  const rule = rulesResult.data;
   const conditions = (rule?.conditions ?? {}) as StoredConditions;
   const storedOperations = conditions.operations ?? {};
   const serviceMode = storedOperations.serviceMode
-    ?? (locationResult.data?.booking_enabled === false ? "paused" : "live");
+    ?? (bookingEnabled === false ? "paused" : "live");
 
   return {
     operations: { ...locationDefaults.operations, ...storedOperations, serviceMode },
@@ -250,6 +366,10 @@ export async function updateRestaurantSettings(
   settings: RestaurantSettings,
   locationId: string = restaurantConfig.locationId,
 ) {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE !== "true" && isPostgresConfigured()) {
+    await writeSettingsToPostgres(settings, locationId);
+    return structuredClone(settings);
+  }
   if (!isSupabaseConfigured() || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
     globalSettings.__sushiSettings ??= new Map();
     globalSettings.__sushiSettings.set(locationId, structuredClone(settings));
