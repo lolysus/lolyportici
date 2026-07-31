@@ -66,11 +66,10 @@ export const restaurantLocations = [
     name: "YUKO Sushi & Fusion",
     shortName: "YUKO",
     legalName: "YUKO Sushi & Fusion",
-    // ATTENZIONE: la partita IVA comunicata per YUKO è identica a quella di
-    // KouSushi. Due attività distinte non possono condividerla e il dato
-    // compare nel footer pubblico: va confermato dal titolare prima del
-    // go-live. Finché non è confermato resta fuori.
-    vatNumber: "In aggiornamento",
+    // Stessa partita IVA di KouSushi: i due ristoranti sono marchi distinti
+    // della stessa società, quindi il numero è della società e non del locale.
+    // Confermato due volte dal titolare il 31/07/2026.
+    vatNumber: "09944081216",
     website: `${publicAppUrl}/it/book/yuko`,
     officialWebsite: "",
     instagramUrl: "",
