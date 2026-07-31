@@ -44,6 +44,17 @@ export const reservationCreateSchema = z.object({
   specialOccasion: z.string().trim().max(120).optional(),
 });
 
+/**
+ * Il canale web è l'unico in cui possiamo pretendere un'email, ed è anche
+ * l'unico in cui serve davvero: la conferma al cliente parte per email, quindi
+ * senza indirizzo la prenotazione va a buon fine ma l'ospite non riceve nulla.
+ * Al telefono l'indirizzo spesso non è ottenibile, perciò l'agente vocale
+ * continua a usare lo schema permissivo.
+ */
+export const webReservationCreateSchema = reservationCreateSchema.extend({
+  customer: customerSchema.extend({ email: z.email() }),
+});
+
 export const reservationUpdateSchema = z.object({
   partySize: z.number().int().min(1).max(100).optional(),
   date: z.iso.date().optional(),

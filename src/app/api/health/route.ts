@@ -12,6 +12,7 @@ export async function GET() {
   if (postgresReady) {
     try { await getPostgres()`select 1`; databaseReady = true; } catch { databaseReady = false; }
   } else if (isSupabaseConfigured()) databaseReady = true;
+  const guestEmailReady = Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
   const ready = !demoMode && managementTokensReady && databaseReady;
   return Response.json({
     status: ready || demoMode ? "ok" : "degraded",
@@ -21,6 +22,9 @@ export async function GET() {
     checks: {
       database: demoMode ? "sandbox" : databaseReady ? "ready" : "unavailable",
       managementTokens: managementTokensReady ? "ready" : demoMode ? "sandbox" : "configuration_required",
+      // Senza provider email la prenotazione va a buon fine e il cliente non
+      // riceve nulla: è un guasto invisibile dall'esterno, quindi va esposto.
+      guestConfirmationEmail: guestEmailReady ? "ready" : demoMode ? "sandbox" : "configuration_required",
     },
     timestamp: new Date().toISOString(),
   });

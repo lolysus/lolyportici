@@ -2,14 +2,14 @@ import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { failure, success, validationFailure } from "@/lib/api/response";
 import { getRepository } from "@/repositories";
 import { sendReservationConfirmation } from "@/domains/notifications/notification-service";
-import { reservationCreateSchema } from "@/validators/booking";
+import { webReservationCreateSchema } from "@/validators/booking";
 import { getRestaurantSettings } from "@/domains/settings/settings-service";
 import { getRestaurantLocationById, defaultRestaurantLocation } from "@/config/brand";
 
 export async function POST(request: Request) {
   try {
     enforceRateLimit(request, "reservations", 20);
-    const parsed = reservationCreateSchema.safeParse(await request.json());
+    const parsed = webReservationCreateSchema.safeParse(await request.json());
     if (!parsed.success) return validationFailure(parsed.error.flatten());
     const location = parsed.data.locationId ? getRestaurantLocationById(parsed.data.locationId) : defaultRestaurantLocation;
     if (!location) return validationFailure({ locationId: ["Sede non valida"] });

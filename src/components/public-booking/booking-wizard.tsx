@@ -44,6 +44,8 @@ const flowCopy = {
     sendStaffRequest: "Invia richiesta allo staff",
     dateNotSelected: "Da scegliere",
     partySizeRequired: "Seleziona il numero di persone: è obbligatorio per mostrarti solo gli orari disponibili.",
+    emailRequired: "Inserisci un indirizzo email valido: ci serve per inviarti la conferma della prenotazione.",
+    emailReason: "Ti inviamo qui la conferma con il codice per modificare o annullare.",
   },
   en: {
     exactPartySize: "Exact number of guests",
@@ -63,6 +65,8 @@ const flowCopy = {
     sendStaffRequest: "Send request to the team",
     dateNotSelected: "To be selected",
     partySizeRequired: "Choose the number of guests: this is required to show only available times.",
+    emailRequired: "Enter a valid email address: we need it to send your booking confirmation.",
+    emailReason: "We send your confirmation here, with the code to change or cancel it.",
   },
   es: {
     exactPartySize: "Número exacto de comensales",
@@ -82,6 +86,8 @@ const flowCopy = {
     sendStaffRequest: "Enviar solicitud al equipo",
     dateNotSelected: "Por elegir",
     partySizeRequired: "Selecciona el numero de personas: es obligatorio para mostrar solo los horarios disponibles.",
+    emailRequired: "Introduce un email válido: lo necesitamos para enviarte la confirmación.",
+    emailReason: "Te enviamos aquí la confirmación, con el código para cambiarla o anularla.",
   },
 } as const;
 
@@ -178,6 +184,11 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
   function validateDetails() {
     if (fields.firstName.trim().length < 2 || fields.lastName.trim().length < 2 || fields.phone.trim().length < 6 || !fields.privacyConsent) {
       setError(locale === "it" ? "Completa i campi obbligatori e accetta l'informativa privacy." : t.error); return false;
+    }
+    // La conferma al cliente viaggia per email: senza indirizzo la prenotazione
+    // andrebbe a buon fine ma l'ospite resterebbe senza nulla in mano.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(fields.email.trim())) {
+      setError(flow.emailRequired); return false;
     }
     setError(null); return true;
   }
@@ -291,7 +302,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
 
       {step === 2 && <Step title={t.detailsTitle} icon={<ShieldCheck />}>
         {!waitlistMode && selected && <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-700/20 bg-emerald-700/8 p-4 text-sm"><span className="signal-pulse mt-1 size-2 shrink-0 rounded-full bg-emerald-600" /><div><p className="font-semibold">Orario temporaneamente riservato</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Completa i dati per confermare l’orario delle {formatTimeInZone(selected.startAt)}.</p></div></div>}
-        <div className="rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><LockKeyhole className="size-4 text-primary" />Contatto della prenotazione</p><div className="grid gap-5 sm:grid-cols-2"><Field id="firstName" label={t.firstName} value={fields.firstName} onChange={(value) => setField("firstName", value)} autoComplete="given-name" required /><Field id="lastName" label={t.lastName} value={fields.lastName} onChange={(value) => setField("lastName", value)} autoComplete="family-name" required /><Field id="phone" label={t.phone} value={fields.phone} onChange={(value) => setField("phone", value)} type="tel" autoComplete="tel" required /><Field id="email" label={t.email} value={fields.email} onChange={(value) => setField("email", value)} type="email" autoComplete="email" /></div></div>
+        <div className="rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><LockKeyhole className="size-4 text-primary" />Contatto della prenotazione</p><div className="grid gap-5 sm:grid-cols-2"><Field id="firstName" label={t.firstName} value={fields.firstName} onChange={(value) => setField("firstName", value)} autoComplete="given-name" required /><Field id="lastName" label={t.lastName} value={fields.lastName} onChange={(value) => setField("lastName", value)} autoComplete="family-name" required /><Field id="phone" label={t.phone} value={fields.phone} onChange={(value) => setField("phone", value)} type="tel" autoComplete="tel" required /><Field id="email" label={t.email} value={fields.email} onChange={(value) => setField("email", value)} type="email" autoComplete="email" required /></div><p className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><Info className="mt-0.5 size-3.5 shrink-0 text-primary" />{flow.emailReason}</p></div>
         <div className="mt-4 rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4 text-primary" />Preferenze per il servizio</p><div><Label htmlFor="notes">{details.notes} <span className="font-normal text-muted-foreground">({details.optional})</span></Label><Textarea id="notes" value={fields.notes} onChange={(event) => setField("notes", event.target.value)} className="mt-2 min-h-24 bg-background" placeholder="Es. compleanno, seggiolone o richiesta particolare…" /></div><div className="mt-5 grid gap-5 sm:grid-cols-2"><Field id="allergies" label={`${details.allergies} (${details.optional})`} value={fields.allergies} onChange={(value) => setField("allergies", value)} /><Field id="accessibilityNeeds" label={`${details.accessibility} (${details.optional})`} value={fields.accessibilityNeeds} onChange={(value) => setField("accessibilityNeeds", value)} /></div></div>
         <div className="mt-6 space-y-4"><CheckRow id="privacy" checked={fields.privacyConsent} onCheckedChange={(value) => setField("privacyConsent", value)} label={t.privacy} required /><CheckRow id="marketing" checked={fields.marketingConsent} onCheckedChange={(value) => setField("marketingConsent", value)} label={t.marketing} /></div>
         <StepActions back={() => { setStep(1); void releaseCurrentHold(); }} next={() => { if (validateDetails()) setStep(3); }} nextLabel={t.continue} backLabel={t.back} />
