@@ -13,6 +13,6 @@ export default async function ManagePage({ params }: { params: Promise<{ locale:
   const { locale, token } = await params; if (!hasLocale(locale)) notFound();
   const match = await findReservationForManagementToken(token);
   const location = match?.location ?? defaultRestaurantLocation;
-  return <div style={restaurantThemeStyle(location)} className="dark min-h-screen bg-background"><header className="bg-[var(--brand-surface)] px-5 py-4 text-white"><div className="mx-auto w-36 sm:w-40"><BrandLogo priority restaurant={location} subtitle="Area ospite" /></div></header><ManageBooking token={token} locale={locale} /></div>;
+  return <div style={restaurantThemeStyle(location)} className="dark min-h-screen bg-background"><header className="bg-[var(--brand-surface)] px-5 py-4 text-white"><div className="mx-auto flex max-w-4xl"><BrandLogo priority restaurant={location} subtitle="Area ospite" /></div></header><ManageBooking token={token} locale={locale} /></div>;
 }
 

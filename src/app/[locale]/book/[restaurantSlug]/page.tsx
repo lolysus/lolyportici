@@ -87,7 +87,7 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
     <a href="#booking-content" className="sr-only fixed left-4 top-4 z-50 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only">Vai alla prenotazione</a>
     <header className="border-b border-foreground/10 bg-[#111] text-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-5 px-5 py-4">
-        <Link href={bookingPath} aria-label={`${location.name} · prenotazioni online`} className="block w-36 shrink-0 text-white sm:w-44"><BrandLogo priority size="hero" restaurant={location} subtitle="Prenotazioni online" /></Link>
+        <Link href={bookingPath} aria-label={`${location.name} · prenotazioni online`} className="block shrink-0 text-white"><BrandLogo priority size="hero" restaurant={location} subtitle="Prenotazioni online" /></Link>
         <nav className="flex items-center gap-1 text-xs sm:gap-3" aria-label="Lingua e accesso">
           <Badge variant="outline" className="hidden border-white/20 bg-white/5 text-white sm:inline-flex"><span className={`mr-1.5 size-1.5 rounded-full ${bookingStatus.dot}`} />{bookingStatus.label}</Badge>
           <Link href="/account" className="hidden min-h-11 items-center gap-1.5 px-2 text-white/65 hover:text-white sm:inline-flex"><UserRound className="size-3.5" />Area ospite</Link>

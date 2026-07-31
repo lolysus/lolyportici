@@ -13,6 +13,12 @@ export interface ManagedRestaurant {
   bookingInfoUrl: string;
   privacyUrl: string;
   logoPath: string;
+  /**
+   * Proporzione nativa del marchio, larghezza / altezza. I due loghi reali
+   * hanno formati diversi fra loro: senza questo valore uno dei due verrebbe
+   * schiacciato o circondato di vuoto.
+   */
+  logoAspect: number;
   accentColor: string;
   reservationCodePrefix: string;
   slug: string;
@@ -75,7 +81,8 @@ export const restaurantLocations = [
     instagramUrl: "",
     bookingInfoUrl: `${publicAppUrl}/it/book/yuko`,
     privacyUrl: `${publicAppUrl}/it/privacy`,
-    logoPath: "/brands/yuko-logo.svg",
+    logoPath: "/brands/yuko-logo.jpg",
+    logoAspect: 1295 / 1270,
     accentColor: "#D5AF55",
     reservationCodePrefix: "YK",
     slug: "yuko",
@@ -107,7 +114,8 @@ export const restaurantLocations = [
     instagramUrl: "https://www.instagram.com/kousushiportici/",
     bookingInfoUrl: `${publicAppUrl}/it/book/kousushi`,
     privacyUrl: `${publicAppUrl}/it/privacy`,
-    logoPath: "/brands/kousushi-logo.svg",
+    logoPath: "/brands/kousushi-logo.png",
+    logoAspect: 250 / 276,
     accentColor: "#E60012",
     reservationCodePrefix: "KS",
     slug: "kousushi",

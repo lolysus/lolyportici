@@ -52,7 +52,7 @@ export function LocationCards({ summaries, activeLocationId }: { summaries: Loca
         <div className="relative border-b border-white/8 p-6 sm:p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-4">
-              <BrandLogo restaurant={location} priority={index === 0} compact className="w-36 shrink-0" />
+              <BrandLogo restaurant={location} priority={index === 0} compact className="shrink-0" />
               <div>
                 <div className="flex flex-wrap items-center gap-2"><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Ristorante 0{index + 1}</p>{active && <Badge className="gap-1 rounded-sm bg-primary/12 text-primary"><Check className="size-3" />Selezionato</Badge>}</div>
                 <h2 className="mt-2 font-heading text-3xl font-semibold tracking-tight">{location.name}</h2>
