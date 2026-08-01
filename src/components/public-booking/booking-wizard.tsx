@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Accessibility, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock3, Info, LoaderCircle, LockKeyhole, Navigation, PhoneCall, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
+import { Accessibility, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Camera, Check, CheckCircle2, Clock3, Info, LoaderCircle, LockKeyhole, Navigation, PhoneCall, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 import type { RestaurantLocation } from "@/config/brand";
 import { BookingDatePicker } from "@/components/public-booking/booking-date-picker";
 import { Button } from "@/components/ui/button";
@@ -44,8 +44,11 @@ const flowCopy = {
     sendStaffRequest: "Invia richiesta allo staff",
     dateNotSelected: "Da scegliere",
     partySizeRequired: "Seleziona il numero di persone: è obbligatorio per mostrarti solo gli orari disponibili.",
-    emailRequired: "Inserisci un indirizzo email valido: ci serve per inviarti la conferma della prenotazione.",
-    emailReason: "Ti inviamo qui la conferma con il codice per modificare o annullare.",
+    emailRequired: "Inserisci un indirizzo email valido: il ristorante lo usa per ricontattarti.",
+    emailReason: "Serve al ristorante per contattarti se cambia qualcosa nel servizio.",
+    saveCodeTitle: "Salva questo codice adesso",
+    saveCodeBody: "Non riceverai email di conferma. Fai uno screenshot di questa schermata: il codice ti serve per modificare o annullare la prenotazione.",
+    noEmailNotice: "Non riceverai un'email di conferma: al passaggio successivo salva il codice che ti mostriamo.",
   },
   en: {
     exactPartySize: "Exact number of guests",
@@ -65,8 +68,11 @@ const flowCopy = {
     sendStaffRequest: "Send request to the team",
     dateNotSelected: "To be selected",
     partySizeRequired: "Choose the number of guests: this is required to show only available times.",
-    emailRequired: "Enter a valid email address: we need it to send your booking confirmation.",
-    emailReason: "We send your confirmation here, with the code to change or cancel it.",
+    emailRequired: "Enter a valid email address: the restaurant uses it to reach you.",
+    emailReason: "The restaurant uses it to reach you if anything about the service changes.",
+    saveCodeTitle: "Save this code now",
+    saveCodeBody: "You will not receive a confirmation email. Take a screenshot of this screen: the code is what lets you change or cancel the booking.",
+    noEmailNotice: "You will not receive a confirmation email: on the next step, save the code we show you.",
   },
   es: {
     exactPartySize: "Número exacto de comensales",
@@ -86,8 +92,11 @@ const flowCopy = {
     sendStaffRequest: "Enviar solicitud al equipo",
     dateNotSelected: "Por elegir",
     partySizeRequired: "Selecciona el numero de personas: es obligatorio para mostrar solo los horarios disponibles.",
-    emailRequired: "Introduce un email válido: lo necesitamos para enviarte la confirmación.",
-    emailReason: "Te enviamos aquí la confirmación, con el código para cambiarla o anularla.",
+    emailRequired: "Introduce un email válido: el restaurante lo usa para contactarte.",
+    emailReason: "El restaurante lo usa para contactarte si cambia algo del servicio.",
+    saveCodeTitle: "Guarda este código ahora",
+    saveCodeBody: "No recibirás un email de confirmación. Haz una captura de esta pantalla: el código es lo que te permite cambiar o anular la reserva.",
+    noEmailNotice: "No recibirás un email de confirmación: en el siguiente paso, guarda el código que te mostramos.",
   },
 } as const;
 
@@ -239,8 +248,17 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
       <p className="mb-3 font-mono text-xs uppercase tracking-[0.24em] text-primary">{completion.type === "reservation" ? t.code : t.waitlist}</p>
       <h1 className="font-heading text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">{completion.type === "reservation" ? t.confirmed : t.waitlist}</h1>
       {completion.type === "reservation" ? <>
-        <p className="mx-auto mt-6 max-w-md text-sm leading-6 text-muted-foreground">La prenotazione è entrata nella regia di <span className="font-medium text-foreground">{location.name}</span>. Conserva il codice per ogni modifica.</p>
+        <p className="mx-auto mt-6 max-w-md text-sm leading-6 text-muted-foreground">La prenotazione è entrata nella regia di <span className="font-medium text-foreground">{location.name}</span>.</p>
         <div className="my-7 border border-primary/35 bg-primary/8 px-5 py-4"><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">Codice prenotazione</p><p className="mt-2 font-mono text-3xl font-semibold tracking-[0.14em] text-foreground">{completion.code}</p></div>
+        {/* Senza email di conferma il codice esiste solo su questo schermo:
+            l'avviso deve essere impossibile da scavalcare distrattamente. */}
+        <div role="alert" className="mb-7 flex items-start gap-3 rounded-xl border-2 border-amber-400/50 bg-amber-400/10 p-4 text-left">
+          <Camera className="mt-0.5 size-5 shrink-0 text-amber-300" />
+          <div>
+            <p className="text-sm font-semibold text-amber-100">{flow.saveCodeTitle}</p>
+            <p className="mt-1 text-xs leading-5 text-amber-100/75">{flow.saveCodeBody}</p>
+          </div>
+        </div>
         <div className="mx-auto mb-7 max-w-md divide-y divide-white/8 border border-white/10 bg-[#0d0e0d] text-left">
           <SummaryCell label="Ristorante" value={location.name} />
           <SummaryCell label={t.fieldDate} value={selectedDateLabel} />
@@ -313,6 +331,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
 
       {step === 3 && <Step title={t.reviewTitle} icon={<Sparkles />}>
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/8 p-4 text-sm"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><div><p className="font-semibold">Ultimo controllo</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Confermando, la prenotazione entra subito nella regia operativa.</p></div></div>
+        <div className="mb-5 flex items-start gap-3 rounded-xl border border-amber-400/35 bg-amber-400/10 p-4 text-sm"><Camera className="mt-0.5 size-4 shrink-0 text-amber-300" /><p className="text-xs leading-5 text-amber-100/85">{flow.noEmailNotice}</p></div>
         <dl className="surface-3d divide-y rounded-2xl border bg-card px-5">{[
           [t.fieldParty, `${partySize} ${dictionary.common.guests}`], [t.fieldDate, selectedDateLabel], [t.fieldTime, selected ? formatTimeInZone(selected.startAt) : requestedTime], [t.firstName, `${fields.firstName} ${fields.lastName}`], [t.phone, fields.phone], ...(fields.allergies ? [[details.allergies, fields.allergies]] : []), ...(fields.accessibilityNeeds ? [[details.accessibility, fields.accessibilityNeeds]] : []),
         ].map(([label, value]) => <div key={label} className="grid grid-cols-[120px_1fr] gap-4 py-4 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>
