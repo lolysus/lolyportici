@@ -47,7 +47,8 @@ const flowCopy = {
     emailRequired: "Inserisci un indirizzo email valido: il ristorante lo usa per ricontattarti.",
     emailReason: "Serve al ristorante per contattarti se cambia qualcosa nel servizio.",
     saveCodeTitle: "Salva questo codice adesso",
-    saveCodeBody: "Non riceverai email di conferma. Fai uno screenshot di questa schermata: il codice ti serve per modificare o annullare la prenotazione.",
+    saveCodeBody: "Non riceverai email di conferma. Fai uno screenshot di questa schermata o annota data, ora e codice: ti servono per presentarti e per modificare o annullare.",
+    saveCodeEarly: "Non inviamo email di conferma: a fine prenotazione salva uno screenshot con data, ora e codice.",
     noEmailNotice: "Non riceverai un'email di conferma: al passaggio successivo salva il codice che ti mostriamo.",
   },
   en: {
@@ -71,7 +72,8 @@ const flowCopy = {
     emailRequired: "Enter a valid email address: the restaurant uses it to reach you.",
     emailReason: "The restaurant uses it to reach you if anything about the service changes.",
     saveCodeTitle: "Save this code now",
-    saveCodeBody: "You will not receive a confirmation email. Take a screenshot of this screen: the code is what lets you change or cancel the booking.",
+    saveCodeBody: "You will not receive a confirmation email. Take a screenshot of this screen, or write down the date, time and code: you need them to turn up and to change or cancel.",
+    saveCodeEarly: "We do not send confirmation emails: at the end, save a screenshot with the date, time and code.",
     noEmailNotice: "You will not receive a confirmation email: on the next step, save the code we show you.",
   },
   es: {
@@ -95,7 +97,8 @@ const flowCopy = {
     emailRequired: "Introduce un email válido: el restaurante lo usa para contactarte.",
     emailReason: "El restaurante lo usa para contactarte si cambia algo del servicio.",
     saveCodeTitle: "Guarda este código ahora",
-    saveCodeBody: "No recibirás un email de confirmación. Haz una captura de esta pantalla: el código es lo que te permite cambiar o anular la reserva.",
+    saveCodeBody: "No recibirás un email de confirmación. Haz una captura de esta pantalla o anota fecha, hora y código: los necesitas para presentarte y para cambiar o anular.",
+    saveCodeEarly: "No enviamos emails de confirmación: al final, guarda una captura con la fecha, la hora y el código.",
     noEmailNotice: "No recibirás un email de confirmación: en el siguiente paso, guarda el código que te mostramos.",
   },
 } as const;
@@ -323,6 +326,9 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
 
       {step === 2 && <Step title={t.detailsTitle} icon={<ShieldCheck />}>
         {!waitlistMode && selected && <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-700/20 bg-emerald-700/8 p-4 text-sm"><span className="signal-pulse mt-1 size-2 shrink-0 rounded-full bg-emerald-600" /><div><p className="font-semibold">Orario temporaneamente riservato</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Completa i dati per confermare l’orario delle {formatTimeInZone(selected.startAt)}.</p></div></div>}
+        {/* Detto qui, prima che il cliente compili: a fine flusso il codice
+            esiste solo sullo schermo e va salvato da lui. */}
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-400/35 bg-amber-400/10 p-4"><Camera className="mt-0.5 size-4 shrink-0 text-amber-300" /><p className="text-xs leading-5 text-amber-100/85">{flow.saveCodeEarly}</p></div>
         <div className="rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><LockKeyhole className="size-4 text-primary" />Contatto della prenotazione</p><div className="grid gap-5 sm:grid-cols-2"><Field id="firstName" label={t.firstName} value={fields.firstName} onChange={(value) => setField("firstName", value)} autoComplete="given-name" required /><Field id="lastName" label={t.lastName} value={fields.lastName} onChange={(value) => setField("lastName", value)} autoComplete="family-name" required /><Field id="phone" label={t.phone} value={fields.phone} onChange={(value) => setField("phone", value)} type="tel" autoComplete="tel" required /><Field id="email" label={t.email} value={fields.email} onChange={(value) => setField("email", value)} type="email" autoComplete="email" required /></div><p className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><Info className="mt-0.5 size-3.5 shrink-0 text-primary" />{flow.emailReason}</p></div>
         <div className="mt-4 rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4 text-primary" />Preferenze per il servizio</p><div><Label htmlFor="notes">{details.notes} <span className="font-normal text-muted-foreground">({details.optional})</span></Label><Textarea id="notes" value={fields.notes} onChange={(event) => setField("notes", event.target.value)} className="mt-2 min-h-24 bg-background" placeholder="Es. compleanno, seggiolone o richiesta particolare…" /></div><div className="mt-5 grid gap-5 sm:grid-cols-2"><Field id="allergies" label={`${details.allergies} (${details.optional})`} value={fields.allergies} onChange={(value) => setField("allergies", value)} /><Field id="accessibilityNeeds" label={`${details.accessibility} (${details.optional})`} value={fields.accessibilityNeeds} onChange={(value) => setField("accessibilityNeeds", value)} /></div></div>
         <div className="mt-6 space-y-4"><CheckRow id="privacy" checked={fields.privacyConsent} onCheckedChange={(value) => setField("privacyConsent", value)} label={t.privacy} required /><CheckRow id="marketing" checked={fields.marketingConsent} onCheckedChange={(value) => setField("marketingConsent", value)} label={t.marketing} /></div>
