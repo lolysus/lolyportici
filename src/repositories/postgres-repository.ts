@@ -114,6 +114,16 @@ export class PostgresReservationRepository implements ReservationRepository {
    */
   private async diningAreaFor(isOutdoor: boolean) {
     const sql = getPostgres();
+    // Ogni sede ha già le proprie sale, con nomi suoi: "Terrazza" da una parte,
+    // "Terrazza porto" dall'altra. Un tavolo nuovo deve entrare in quella che
+    // esiste, non far nascere un doppione chiamato "Esterno".
+    const inUso = await sql<Row[]>`
+      select a.id from public.dining_areas a
+      join public.restaurant_tables t on t.dining_area_id=a.id and t.is_active
+      where a.location_id=${this.locationId} and a.is_active and t.is_outdoor=${isOutdoor}
+      group by a.id order by count(t.id) desc limit 1`;
+    if (inUso[0]) return text(inUso[0].id);
+
     const name = isOutdoor ? "Esterno" : "Sala interna";
     const existing = await sql<Row[]>`select id from public.dining_areas where location_id=${this.locationId} and name=${name} limit 1`;
     if (existing[0]) return text(existing[0].id);

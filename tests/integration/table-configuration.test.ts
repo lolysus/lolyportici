@@ -28,7 +28,7 @@ describe("table configuration", () => {
 
     expect(created.maximumCapacity).toBe(6);
     expect(created.isOutdoor).toBe(true);
-    expect(created.diningAreaName).toBe("Esterno");
+    expect(created.diningAreaName).toBe(before.find((table) => table.isOutdoor)?.diningAreaName);
 
     const after = await repository.listTables();
     expect(after).toHaveLength(before.length + 1);
@@ -37,6 +37,22 @@ describe("table configuration", () => {
     // restare un record decorativo.
     const context = await repository.getAvailabilityContext();
     expect(context.tables.some((table) => table.id === created.id)).toBe(true);
+  });
+
+  it("puts a new table in the area the restaurant already uses", async () => {
+    // Le due sedi chiamano le proprie sale in modo diverso. Un tavolo nuovo
+    // deve entrare in quella esistente, non far nascere un doppione.
+    const repository = getRepository(yuko.id);
+    const esistenti = await repository.listTables();
+    const esterno = esistenti.find((table) => table.isOutdoor);
+    expect(esterno).toBeDefined();
+
+    const creato = await repository.createTable({
+      code: uniqueCode("A"), displayName: "Tavolo dehors", minimumCapacity: 2, maximumCapacity: 4, isOutdoor: true, isAccessible: false,
+    });
+
+    expect(creato.diningAreaId).toBe(esterno!.diningAreaId);
+    expect(creato.diningAreaName).toBe(esterno!.diningAreaName);
   });
 
   it("refuses two tables with the same number", async () => {
@@ -50,12 +66,18 @@ describe("table configuration", () => {
 
   it("moves a table between indoor and outdoor keeping the area consistent", async () => {
     const repository = getRepository(yuko.id);
-    const created = await repository.createTable({ code: uniqueCode("M"), displayName: "Tavolo mobile", minimumCapacity: 2, maximumCapacity: 4, isOutdoor: false, isAccessible: false });
-    expect(created.diningAreaName).toBe("Sala interna");
+    const esistenti = await repository.listTables();
+    const salaInterna = esistenti.find((table) => !table.isOutdoor)!;
+    const salaEsterna = esistenti.find((table) => table.isOutdoor)!;
 
+    const created = await repository.createTable({ code: uniqueCode("M"), displayName: "Tavolo mobile", minimumCapacity: 2, maximumCapacity: 4, isOutdoor: false, isAccessible: false });
+    expect(created.diningAreaId).toBe(salaInterna.diningAreaId);
+
+    // Spostandolo fuori deve entrare nella sala esterna che il ristorante usa
+    // già, qualunque nome le abbia dato.
     const moved = await repository.updateTable(created.id, { isOutdoor: true });
     expect(moved.isOutdoor).toBe(true);
-    expect(moved.diningAreaName).toBe("Esterno");
+    expect(moved.diningAreaId).toBe(salaEsterna.diningAreaId);
   });
 
   it("keeps each restaurant's tables private", async () => {

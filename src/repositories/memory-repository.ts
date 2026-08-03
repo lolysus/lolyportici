@@ -66,6 +66,18 @@ function toPublic(reservation: Reservation): PublicReservation {
  * seminata dal demo set al primo accesso.
  */
 const demoTablesByLocation = new Map<string, TableResource[]>();
+/**
+ * Riusa la sala che già ospita tavoli con questo orientamento: ogni sede ha
+ * nomi propri e un tavolo nuovo non deve far nascere un doppione.
+ */
+function areaFor(tables: TableResource[], isOutdoor: boolean) {
+  const esistente = tables.find((table) => table.isOutdoor === isOutdoor);
+  if (esistente) return { id: esistente.diningAreaId, name: esistente.diningAreaName };
+  return isOutdoor
+    ? { id: "demo-area-outdoor", name: "Esterno" }
+    : { id: "demo-area-indoor", name: "Sala interna" };
+}
+
 function tablesFor(locationId: string) {
   const existing = demoTablesByLocation.get(locationId);
   if (existing) return existing;
@@ -146,12 +158,13 @@ export class MemoryReservationRepository implements ReservationRepository {
     const tables = tablesFor(this.locationId);
     if (tables.some((table) => table.code === input.code)) throw new TableCodeAlreadyUsedError(input.code);
     const index = tables.filter((table) => table.isOutdoor === input.isOutdoor).length;
+    const area = areaFor(tables, input.isOutdoor);
     const created: TableResource = {
       id: `demo-table-${randomUUID()}`,
       code: input.code,
       displayName: input.displayName,
-      diningAreaId: input.isOutdoor ? "demo-area-outdoor" : "demo-area-indoor",
-      diningAreaName: input.isOutdoor ? "Esterno" : "Sala interna",
+      diningAreaId: area.id,
+      diningAreaName: area.name,
       minimumCapacity: input.minimumCapacity,
       maximumCapacity: input.maximumCapacity,
       shape: "round",
@@ -176,6 +189,9 @@ export class MemoryReservationRepository implements ReservationRepository {
       throw new TableCodeAlreadyUsedError(changes.code);
     }
     const isOutdoor = changes.isOutdoor ?? current.isOutdoor;
+    const area = isOutdoor === current.isOutdoor
+      ? { id: current.diningAreaId, name: current.diningAreaName }
+      : areaFor(tables.filter((table) => table.id !== id), isOutdoor);
     Object.assign(current, {
       code: changes.code ?? current.code,
       displayName: changes.displayName ?? current.displayName,
@@ -184,8 +200,8 @@ export class MemoryReservationRepository implements ReservationRepository {
       isAccessible: changes.isAccessible ?? current.isAccessible,
       status: changes.status ?? current.status,
       isOutdoor,
-      diningAreaId: isOutdoor ? "demo-area-outdoor" : "demo-area-indoor",
-      diningAreaName: isOutdoor ? "Esterno" : "Sala interna",
+      diningAreaId: area.id,
+      diningAreaName: area.name,
     });
     return structuredClone(current);
   }

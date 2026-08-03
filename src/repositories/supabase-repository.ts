@@ -92,6 +92,14 @@ export class SupabaseReservationRepository implements ReservationRepository {
 
   private async diningAreaFor(isOutdoor: boolean) {
     const db = getSupabaseAdmin();
+    // Riusa la sala che già ospita tavoli con questo orientamento: ogni sede
+    // ha nomi propri ("Terrazza", "Terrazza porto") e non va creato un doppione.
+    const { data: inUso } = await db
+      .from("restaurant_tables").select("dining_area_id")
+      .eq("location_id", this.locationId).eq("is_outdoor", isOutdoor).eq("is_active", true)
+      .limit(1).maybeSingle();
+    if (inUso?.dining_area_id) return String(inUso.dining_area_id);
+
     const name = isOutdoor ? "Esterno" : "Sala interna";
     const { data: existing } = await db.from("dining_areas").select("id").eq("location_id", this.locationId).eq("name", name).maybeSingle();
     if (existing) return String(existing.id);
