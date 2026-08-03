@@ -4,7 +4,22 @@ export function success<T>(data: T, init?: ResponseInit) {
   return Response.json({ success: true, data }, init);
 }
 
+/**
+ * `requirePermission` protegge sia le pagine sia le API, e senza sessione
+ * chiama `redirect("/login")`. In una pagina è il comportamento giusto; dentro
+ * un route handler quel redirect è un'eccezione che finiva nel catch e usciva
+ * come 500, cioè "il server è rotto" invece di "non sei autenticato".
+ */
+function isRedirect(error: unknown) {
+  return typeof error === "object" && error !== null
+    && typeof (error as { digest?: unknown }).digest === "string"
+    && (error as { digest: string }).digest.startsWith("NEXT_REDIRECT");
+}
+
 export function failure(error: unknown) {
+  if (isRedirect(error)) {
+    return Response.json({ success: false, error: { code: "UNAUTHENTICATED", message: "Sessione assente o scaduta.", details: {} } }, { status: 401 });
+  }
   if (error instanceof DomainError) {
     return Response.json({ success: false, error: { code: error.code, message: error.message, details: error.details } }, { status: error.status });
   }
