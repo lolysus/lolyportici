@@ -10,10 +10,12 @@ import { PermissionDeniedError } from "@/domains/bookings/errors";
 const updateSchema = z.object({ id: databaseIdSchema, status: z.enum(reservationStatuses).optional(), tableIds: z.array(databaseIdSchema).min(1).optional(), customerNotes: z.string().trim().max(1000).optional() })
   .refine((value) => value.status !== undefined || value.tableIds !== undefined || value.customerNotes !== undefined, { message: "Nessuna modifica richiesta." });
 
-export async function GET(request?: Request) {
+// Next passa sempre la richiesta a un route handler: dichiararla opzionale
+// faceva fallire il typecheck contro i tipi di rotta generati.
+export async function GET(request: Request) {
   try {
     const session = await requirePermission("reservations:read");
-    const scope = request ? new URL(request.url).searchParams.get("scope") : null;
+    const scope = new URL(request.url).searchParams.get("scope");
     if (scope === "all") {
       if (!session.centralAccess) throw new PermissionDeniedError();
       const reservations = (await Promise.all(

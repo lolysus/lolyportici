@@ -204,7 +204,7 @@ export function OperationalNotifications({ location, locations }: { location: Re
   return <>
     <Popover open={open} onOpenChange={(next) => { setOpen(next); if (next) { setUnread(0); void loadReservations(false); } }}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="notification-bell-trigger relative size-11 touch-manipulation sm:size-9" data-sound-status={!soundEnabled ? "muted" : audioReady ? "armed" : "pending"} aria-label="Apri notifiche operative">
+        <Button variant="ghost" size="icon" className="notification-bell-trigger relative size-11 touch-manipulation lg:size-9" data-sound-status={!soundEnabled ? "muted" : audioReady ? "armed" : "pending"} aria-label="Apri notifiche operative">
           {unread > 0 ? <BellRing /> : <Bell />}
           {unread > 0 && <span className="absolute right-0.5 top-0.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 font-mono text-[9px] font-semibold text-primary-foreground">{Math.min(unread, 9)}{unread > 9 ? "+" : ""}</span>}
         </Button>
