@@ -1,8 +1,12 @@
 import type { RestaurantLocation } from "@/config/brand";
-import { getGoogleMapsDirectionsUrl, getPublicBookingUrl } from "@/lib/public-url";
+import { getGoogleMapsDirectionsUrl } from "@/lib/public-url";
 
-export function RestaurantBookingJsonLd({ restaurant, locale }: { restaurant: RestaurantLocation; locale: string }) {
-  const bookingUrl = getPublicBookingUrl(locale, restaurant);
+/**
+ * bookingUrl comes in as a prop, already resolved against the request's real
+ * host by the page — not recomputed here from a static base, or the
+ * @id/url/target fields would point at the wrong domain on a dedicated site.
+ */
+export function RestaurantBookingJsonLd({ restaurant, bookingUrl }: { restaurant: RestaurantLocation; bookingUrl: string }) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Restaurant",

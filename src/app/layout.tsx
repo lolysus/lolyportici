@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { brandConfig } from "@/config/brand";
-import { getPublicAppUrl } from "@/lib/public-url";
+import { getRequestOrigin } from "@/lib/public-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,11 +15,18 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(getPublicAppUrl()),
-  title: { default: `${brandConfig.platformName} · ${brandConfig.companyName}`, template: `%s · ${brandConfig.platformName}` },
-  description: "Prenotazioni e operatività di due ristoranti indipendenti, gestiti da un'unica regia.",
-};
+// metadataBase resolves every relative canonical/og URL in the app. YUKO and
+// KouSushi live on separate domains, so it has to reflect the domain the
+// request actually arrived on rather than one fixed value — otherwise every
+// page canonicalizes to the same host regardless of which one Google is
+// actually crawling.
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    metadataBase: new URL(await getRequestOrigin()),
+    title: { default: `${brandConfig.platformName} · ${brandConfig.companyName}`, template: `%s · ${brandConfig.platformName}` },
+    description: "Prenotazioni e operatività di due ristoranti indipendenti, gestiti da un'unica regia.",
+  };
+}
 
 export default function RootLayout({
   children,

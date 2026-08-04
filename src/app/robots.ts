@@ -1,13 +1,16 @@
 import type { MetadataRoute } from "next";
-import { getPublicUrl } from "@/lib/public-url";
+import { getRequestUrl } from "@/lib/public-url";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
   return {
     rules: {
       userAgent: "*",
       allow: "/",
       disallow: ["/admin/", "/api/", "/auth/", "/login", "/it/booking/manage/", "/en/booking/manage/", "/es/booking/manage/"],
     },
-    sitemap: getPublicUrl("/sitemap.xml"),
+    // La sitemap dichiarata qui deve essere quella dello stesso dominio: un
+    // crawler su kousushiportici.it che trova un rimando alla sitemap di
+    // yukoardea.it la ignora, e comunque non è quello l'indirizzo giusto.
+    sitemap: await getRequestUrl("/sitemap.xml"),
   };
 }

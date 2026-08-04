@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { brandConfig, getRestaurantLocationBySlug, restaurantConfig } from "@/config/brand";
 import { getDictionary, hasLocale } from "@/lib/i18n";
 import { dateKeyInZone, localDateTimeToUtc } from "@/lib/datetime";
-import { getBookingPath, getGoogleMapsDirectionsUrl } from "@/lib/public-url";
+import { getBookingPath, getGoogleMapsDirectionsUrl, getRequestUrl } from "@/lib/public-url";
 import { restaurantThemeStyle } from "@/lib/brand-theme";
 import { buildPhoneHref, buildWhatsappHref } from "@/lib/contact";
 import { cn } from "@/lib/utils";
@@ -39,18 +39,22 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const { locale, restaurantSlug } = await params;
   const location = getRestaurantLocationBySlug(restaurantSlug);
   if (!location || !hasLocale(locale)) return {};
-  const path = getBookingPath(locale, location);
   const title = `Prenota ${location.name}`;
   const description = `Prenota online da ${location.name}, ${location.city}. Disponibilità aggiornata in tempo reale e conferma sicura.`;
+  // Absolute, built from the request's real host: on a dedicated domain this
+  // must point at that domain, not at whichever URL happens to be configured
+  // as the shared fallback.
+  const canonical = await getRequestUrl(getBookingPath(locale, location));
+  const languages = await Promise.all(restaurantConfig.supportedLocales.map(async (language) => [language, await getRequestUrl(getBookingPath(language, location))] as const));
 
   return {
     title,
     description,
     alternates: {
-      canonical: path,
-      languages: Object.fromEntries(restaurantConfig.supportedLocales.map((language) => [language, getBookingPath(language, location)])),
+      canonical,
+      languages: Object.fromEntries(languages),
     },
-    openGraph: { type: "website", title, description, siteName: brandConfig.platformName, url: path },
+    openGraph: { type: "website", title, description, siteName: brandConfig.platformName, url: canonical },
   };
 }
 
@@ -85,6 +89,7 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
   const contactPhone = settings.contact.phone || location.phone;
   const contactPhoneHref = buildPhoneHref(settings.contact.phone) || location.phoneHref;
   const contactWhatsappHref = buildWhatsappHref(settings.contact.whatsapp, settings.contact.whatsappMessage, location.shortName) || location.whatsappHref;
+  const bookingUrl = await getRequestUrl(bookingPath);
   const officialWebsite = settings.contact.officialWebsite || location.officialWebsite;
   const instagramUrl = settings.contact.instagramUrl || location.instagramUrl;
   const hasPhone = Boolean(contactPhoneHref);
@@ -92,7 +97,7 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
   const hasVatNumber = /^\d{11}$/.test(location.vatNumber.replace(/\s/g, ""));
   const bookingTrust = bookingTrustCopy[locale as keyof typeof bookingTrustCopy];
   return <div style={restaurantThemeStyle(location)} className={`dark japanese-pattern min-h-screen bg-background brand-${location.slug}`}>
-    <RestaurantBookingJsonLd restaurant={location} locale={locale} />
+    <RestaurantBookingJsonLd restaurant={location} bookingUrl={bookingUrl} />
     <a href="#booking-content" className="sr-only fixed left-4 top-4 z-50 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only">Vai alla prenotazione</a>
     <header className="border-b border-foreground/10 bg-[#111] text-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-5 px-5 py-4">
