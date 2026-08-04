@@ -26,7 +26,12 @@ export interface ManagedRestaurant {
   city: string;
   phone: string;
   phoneHref: string;
+  /** Numero WhatsApp in formato internazionale, vuoto se non attivo. */
+  whatsapp: string;
+  whatsappHref: string;
   email: string;
+  /** Posti a sedere dichiarati dal ristorante, per sala. */
+  seating: { indoor: number; outdoor: number };
   timezone: string;
   capacity: number;
   tables: number;
@@ -88,11 +93,16 @@ export const restaurantLocations = [
     slug: "yuko",
     address: "Via Severiana 60, 00040 Ardea RM, Italia",
     city: "Ardea · RM",
-    phone: "Contatti in aggiornamento",
-    phoneHref: "",
+    phone: "06 98871100",
+    phoneHref: "tel:+390698871100",
+    // WhatsApp comunicato come +3933915436: 8 cifre dopo il prefisso, un
+    // cellulare italiano ne ha 10. Resta fuori finché non arriva completo.
+    whatsapp: "",
+    whatsappHref: "",
     email: "",
+    seating: { indoor: 130, outdoor: 70 },
     timezone: "Europe/Rome",
-    capacity: 62,
+    capacity: 200,
     tables: 15,
     serviceNote: "Sushi & Fusion · prenotazioni online",
     theme: {
@@ -121,11 +131,14 @@ export const restaurantLocations = [
     slug: "kousushi",
     address: "Corso Giuseppe Garibaldi, 130, 80055 Portici NA, Italia",
     city: "Portici · NA",
-    phone: "+39 081 271258",
+    phone: "081 271258",
     phoneHref: "tel:+39081271258",
+    whatsapp: "+39 329 9881193",
+    whatsappHref: "https://wa.me/393299881193",
     email: "",
+    seating: { indoor: 70, outdoor: 0 },
     timezone: "Europe/Rome",
-    capacity: 48,
+    capacity: 70,
     tables: 12,
     serviceNote: "Sushi giapponese · prenotazioni online",
     theme: {
