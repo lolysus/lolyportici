@@ -8,11 +8,14 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock3,
+  ExternalLink,
   Gauge,
   LoaderCircle,
   MapPin,
+  MessageCircle,
   MessageCircleMore,
   PauseCircle,
+  Phone,
   PlayCircle,
   Save,
   ShieldCheck,
@@ -30,6 +33,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { RestaurantLocation } from "@/config/brand";
+import { buildPhoneHref, buildWhatsappHref } from "@/lib/contact";
 import { cn } from "@/lib/utils";
 import type { RestaurantSettings, ServiceMode, ServiceWindowSettings } from "@/types/settings";
 
@@ -149,8 +153,9 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
       </div>
     </section>
 
-    <Tabs defaultValue="operations">
+    <Tabs defaultValue="contact">
       <TabsList className="mb-5 h-auto w-full justify-start overflow-x-auto rounded-xl bg-card p-1">
+        <TabsTrigger value="contact"><Phone />Contatti e sala</TabsTrigger>
         <TabsTrigger value="operations"><Gauge />Operatività</TabsTrigger>
         <TabsTrigger value="schedule"><Clock3 />Orari</TabsTrigger>
         <TabsTrigger value="booking"><SlidersHorizontal />Prenotazioni</TabsTrigger>
@@ -158,6 +163,44 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
         <TabsTrigger value="notifications"><BellRing />Avvisi</TabsTrigger>
         <TabsTrigger value="voice"><AudioWaveform />AI voce</TabsTrigger>
       </TabsList>
+
+      <TabsContent value="contact">
+        <div className="grid gap-6 xl:grid-cols-2">
+          <SettingsCard title="Recapiti pubblici" description="Compaiono sulla pagina di prenotazione e nel footer, solo per questo ristorante.">
+            <div>
+              <Field id="contact-phone" label="Telefono" type="tel" value={settings.contact.phone} setValue={(value) => updateSection("contact", { phone: value })} />
+              <p className={cn("mt-1.5 text-xs", buildPhoneHref(settings.contact.phone) ? "text-emerald-300" : settings.contact.phone.trim() ? "text-amber-300" : "text-muted-foreground")}>
+                {buildPhoneHref(settings.contact.phone) ? "Pulsante Chiama attivo." : settings.contact.phone.trim() ? "Troppo corto: il pulsante Chiama resta nascosto." : "Senza numero il pulsante Chiama resta nascosto."}
+              </p>
+            </div>
+            <Field id="contact-whatsapp" label="WhatsApp" type="tel" value={settings.contact.whatsapp} setValue={(value) => updateSection("contact", { whatsapp: value })} />
+            <div className="sm:col-span-2"><TextareaField id="contact-whatsapp-message" label="Messaggio precompilato" value={settings.contact.whatsappMessage} setValue={(value) => updateSection("contact", { whatsappMessage: value })} /><p className="mt-1.5 text-xs text-muted-foreground">Usa <code className="rounded bg-white/10 px-1 py-0.5">{"{ristorante}"}</code> per inserire il nome — oggi diventa &ldquo;{location.shortName}&rdquo;.</p></div>
+            <Field id="contact-website" label="Sito ufficiale" type="url" value={settings.contact.officialWebsite} setValue={(value) => updateSection("contact", { officialWebsite: value })} />
+            <Field id="contact-instagram" label="Instagram" type="url" value={settings.contact.instagramUrl} setValue={(value) => updateSection("contact", { instagramUrl: value })} />
+            <WhatsappPreview whatsapp={settings.contact.whatsapp} message={settings.contact.whatsappMessage} restaurantName={location.shortName} />
+          </SettingsCard>
+
+          <SettingsCard title="Posti a sedere" description="Il totale dichiarato per sala. È il tetto pratico entro cui i coperti per servizio hanno senso: se lo alzi senza aggiungere tavoli in Sala e tavoli, il motore continuerà comunque a fermarsi ai tavoli configurati.">
+            <Field id="seating-indoor" label="Sala interna" type="number" min={0} max={2000} value={String(settings.contact.seatingIndoor)} setValue={(value) => updateSection("contact", { seatingIndoor: Number(value) })} suffix="posti" />
+            <Field id="seating-outdoor" label="Sala esterna" type="number" min={0} max={2000} value={String(settings.contact.seatingOutdoor)} setValue={(value) => updateSection("contact", { seatingOutdoor: Number(value) })} suffix="posti" />
+            <div className="rounded-xl border border-white/8 bg-background/20 p-4 sm:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Totale dichiarato: {settings.contact.seatingIndoor + settings.contact.seatingOutdoor} posti</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">Capienza simultanea usata dal motore: {settings.service.maximumCovers} coperti.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={settings.service.maximumCovers === settings.contact.seatingIndoor + settings.contact.seatingOutdoor}
+                  onClick={() => updateSection("service", { maximumCovers: settings.contact.seatingIndoor + settings.contact.seatingOutdoor })}
+                >Allinea la capienza al totale</Button>
+              </div>
+            </div>
+          </SettingsCard>
+        </div>
+      </TabsContent>
 
       <TabsContent value="operations">
         <SettingsCard title="Stato operativo" description="Il profilo attivo governa contemporaneamente booking web, API, voce AI e motore di disponibilità.">
@@ -341,6 +384,27 @@ function Field({ id, label, type, value, setValue, suffix, min, max }: { id: str
 
 function TextareaField({ id, label, value, setValue }: { id: string; label: string; value: string; setValue: (value: string) => void }) {
   return <div><Label htmlFor={id}>{label}</Label><Textarea id={id} value={value} onChange={(event) => setValue(event.target.value)} className="mt-2 min-h-24 resize-y" /></div>;
+}
+
+/**
+ * Non basta salvare un numero: bisogna sapere se il link che ne esce
+ * funziona davvero. Costruisce lo stesso href che vedrà il cliente e lo
+ * rende cliccabile, così chi configura può aprirlo prima di pubblicarlo.
+ */
+function WhatsappPreview({ whatsapp, message, restaurantName }: { whatsapp: string; message: string; restaurantName: string }) {
+  const href = buildWhatsappHref(whatsapp, message, restaurantName);
+  const digits = whatsapp.replace(/\D/g, "");
+  const national = digits.startsWith("39") ? digits.slice(2) : digits;
+  return <div className={cn("flex items-start gap-3 rounded-xl border p-4 text-xs leading-5 sm:col-span-2", href ? "border-emerald-500/25 bg-emerald-500/8 text-emerald-200" : digits.length === 0 ? "border-white/8 bg-background/20 text-muted-foreground" : "border-amber-400/30 bg-amber-400/8 text-amber-100")}>
+    <MessageCircle className="mt-0.5 size-4 shrink-0" />
+    <div>
+      {href
+        ? <><p className="font-semibold text-foreground">Link WhatsApp attivo</p><a href={href} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 underline underline-offset-2">Apri la chat di prova<ExternalLink className="size-3" /></a></>
+        : digits.length === 0
+          ? <p>Inserisci un numero per generare il link: senza, il pulsante WhatsApp resta nascosto al cliente.</p>
+          : <p><span className="font-semibold text-foreground">Numero incompleto</span> — servono almeno 9 cifre dopo il prefisso 39, oggi ce ne sono {national.length}. Il pulsante resta nascosto finché non è completo, per non mostrare un link rotto.</p>}
+    </div>
+  </div>;
 }
 
 function SwitchRow({ id, label, description, checked, setChecked }: { id: string; label: string; description: string; checked: boolean; setChecked: (value: boolean) => void }) {

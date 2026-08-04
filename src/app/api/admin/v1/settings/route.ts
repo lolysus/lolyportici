@@ -15,7 +15,20 @@ const serviceWindowSchema = z.object({
   message: "La fine del servizio deve seguire l'inizio.",
 });
 
+// Un href valido o vuoto: niente di più severo, sono link a servizi esterni
+// (WhatsApp, sito, Instagram) che il ristoratore incolla da altrove.
+const optionalUrl = z.union([z.url(), z.literal("")]);
+
 const settingsSchema = z.object({
+  contact: z.object({
+    phone: z.string().trim().max(40),
+    whatsapp: z.string().trim().max(40),
+    whatsappMessage: z.string().trim().max(300),
+    officialWebsite: optionalUrl,
+    instagramUrl: optionalUrl,
+    seatingIndoor: z.number().int().min(0).max(2000),
+    seatingOutdoor: z.number().int().min(0).max(2000),
+  }),
   operations: z.object({
     serviceMode: z.enum(["live", "approval", "paused"]),
     capacityWarningPercent: z.number().int().min(50).max(100),
@@ -94,7 +107,9 @@ const settingsSchema = z.object({
   }),
 });
 
-export async function GET(request?: Request) {
+// Next passa sempre la richiesta a un route handler: dichiararla opzionale
+// fa fallire il typecheck contro i tipi di rotta generati.
+export async function GET(request: Request) {
   try {
     const session = await requirePermission("settings:write");
     const location = getAdminLocationFromRequest(request, session);

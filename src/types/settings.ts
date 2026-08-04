@@ -12,7 +12,25 @@ export type DayScheduleSettings = {
   dinner: ServiceWindowSettings;
 };
 
+export type ContactSettings = {
+  phone: string;
+  whatsapp: string;
+  /** Testo precompilato del messaggio WhatsApp. {ristorante} viene sostituito col nome. */
+  whatsappMessage: string;
+  officialWebsite: string;
+  instagramUrl: string;
+  /**
+   * Posti a sedere dichiarati dal ristorante: sono l'informazione mostrata al
+   * cliente e allo staff. Non sono lo stesso numero dei coperti per servizio
+   * (quello scala in base alle prenotazioni), ma la loro somma è il tetto
+   * pratico entro cui i coperti hanno senso.
+   */
+  seatingIndoor: number;
+  seatingOutdoor: number;
+};
+
 export type RestaurantSettings = {
+  contact: ContactSettings;
   operations: {
     serviceMode: ServiceMode;
     capacityWarningPercent: number;

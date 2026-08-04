@@ -59,6 +59,40 @@ describe("admin configuration APIs", () => {
     await updateRestaurantSettings(original);
   });
 
+  it("persists contact details and seating per restaurant", async () => {
+    const original = await getRestaurantSettings();
+    const next = {
+      ...original,
+      contact: {
+        phone: "081 271258",
+        whatsapp: "+39 329 9881193",
+        whatsappMessage: "Ciao! Vorrei prenotare un tavolo da {ristorante}.",
+        officialWebsite: "https://example.test",
+        instagramUrl: "https://www.instagram.com/example",
+        seatingIndoor: 70,
+        seatingOutdoor: 0,
+      },
+    };
+    const response = await patchSettings(new Request("http://localhost/api/admin/v1/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json", origin: "http://localhost" },
+      body: JSON.stringify(next),
+    }));
+    expect(response.status).toBe(200);
+    expect((await getRestaurantSettings()).contact).toEqual(next.contact);
+    await updateRestaurantSettings(original);
+  });
+
+  it("rejects a contact payload with an empty required field", async () => {
+    const original = await getRestaurantSettings();
+    const response = await patchSettings(new Request("http://localhost/api/admin/v1/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json", origin: "http://localhost" },
+      body: JSON.stringify({ ...original, contact: { ...original.contact, officialWebsite: "not-a-url" } }),
+    }));
+    expect(response.status).toBe(422);
+  });
+
   it("persists feature switches and voice AI policy together", async () => {
     const original = await getRestaurantSettings();
     const next = {

@@ -52,6 +52,20 @@ describe("multi-location administration", () => {
     expect((await getRestaurantSettings(restaurantLocations[0].id)).service.maximumCovers).toBe(originalCentro.service.maximumCovers);
   });
 
+  it("keeps contact details independent between the two restaurants", async () => {
+    // Le due sedi partono con recapiti diversi (seminati da brand.ts): prima
+    // ancora di scrivere, non devono già essere uguali per un bug di lettura.
+    expect(originalCentro.contact.phone).not.toBe(originalMare.contact.phone);
+
+    await updateRestaurantSettings({
+      ...originalMare,
+      contact: { ...originalMare.contact, whatsapp: "+39 000 0000000" },
+    }, restaurantLocations[1].id);
+
+    expect((await getRestaurantSettings(restaurantLocations[1].id)).contact.whatsapp).toBe("+39 000 0000000");
+    expect((await getRestaurantSettings(restaurantLocations[0].id)).contact.whatsapp).toBe(originalCentro.contact.whatsapp);
+  });
+
   it("pauses bookings only for the selected location", async () => {
     await updateRestaurantSettings({
       ...originalMare,

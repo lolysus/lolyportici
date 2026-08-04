@@ -4,7 +4,10 @@ import { getRepository } from "@/repositories";
 import { getAdminLocationFromRequest } from "@/lib/admin/location";
 import { formatTimeInZone } from "@/lib/datetime";
 
-export async function GET(request?: Request) {
+// Next passa sempre la richiesta a un route handler: dichiararla opzionale
+// fa fallire il typecheck contro i tipi di rotta generati (visto già su
+// /api/admin/v1/reservations).
+export async function GET(request: Request) {
   try {
     const session = await requirePermission("analytics:read");
     const location = getAdminLocationFromRequest(request, session);

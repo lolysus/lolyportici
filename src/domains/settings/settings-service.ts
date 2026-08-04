@@ -3,7 +3,7 @@ import "server-only";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { getPostgres, isPostgresConfigured } from "@/lib/postgres";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
-import type { DayScheduleSettings, RestaurantSettings, ServiceWindowSettings } from "@/types/settings";
+import type { ContactSettings, DayScheduleSettings, RestaurantSettings, ServiceWindowSettings } from "@/types/settings";
 
 type ServiceRow = {
   id: string;
@@ -21,6 +21,7 @@ type ServiceRow = {
 };
 
 type StoredConditions = {
+  contact?: Partial<ContactSettings>;
   durationByParty?: Partial<RestaurantSettings["durations"]>;
   features?: Partial<RestaurantSettings["features"]>;
   notifications?: Partial<RestaurantSettings["notifications"]>;
@@ -43,6 +44,15 @@ function createDefaultSchedule(): DayScheduleSettings[] {
 }
 
 const defaults: RestaurantSettings = {
+  contact: {
+    phone: "",
+    whatsapp: "",
+    whatsappMessage: "Ciao! Vorrei prenotare un tavolo da {ristorante}.",
+    officialWebsite: "",
+    instagramUrl: "",
+    seatingIndoor: 0,
+    seatingOutdoor: 0,
+  },
   operations: {
     serviceMode: "live",
     capacityWarningPercent: 80,
@@ -120,6 +130,15 @@ function defaultSettingsForLocation(locationId: string) {
   settings.voiceAI.assistantName = `Assistente ${location.name}`;
   settings.voiceAI.greeting = `Buongiorno, sono l’assistente virtuale di ${location.name}. Come posso aiutarla?`;
   settings.service.maximumCovers = location.capacity;
+  settings.contact = {
+    phone: location.phone,
+    whatsapp: location.whatsapp,
+    whatsappMessage: `Ciao! Vorrei prenotare un tavolo da ${location.shortName}.`,
+    officialWebsite: location.officialWebsite,
+    instagramUrl: location.instagramUrl,
+    seatingIndoor: location.seating.indoor,
+    seatingOutdoor: location.seating.outdoor,
+  };
   settings.operations.capacityWarningPercent = location.slug === "kousushi" ? 78 : 82;
   settings.operations.waitlistAlertCount = location.slug === "kousushi" ? 3 : 4;
   if (location.slug === "kousushi") {
@@ -232,6 +251,7 @@ async function writeSettingsToPostgres(settings: RestaurantSettings, locationId:
 
 function storedConditions(settings: RestaurantSettings): StoredConditions {
   return {
+    contact: settings.contact,
     durationByParty: settings.durations,
     features: settings.features,
     notifications: settings.notifications,
@@ -303,6 +323,7 @@ function settingsFromRows(
     ?? (bookingEnabled === false ? "paused" : "live");
 
   return {
+    contact: { ...locationDefaults.contact, ...conditions.contact },
     operations: { ...locationDefaults.operations, ...storedOperations, serviceMode },
     service: primaryService ? {
       startTime: timeValue(primaryService.start_time, locationDefaults.service.startTime),
@@ -393,15 +414,7 @@ export async function updateRestaurantSettings(
     if (mutation.error) throw mutation.error;
   }));
 
-  const conditions: StoredConditions = {
-    durationByParty: settings.durations,
-    features: settings.features,
-    notifications: settings.notifications,
-    guestExperience: settings.guestExperience,
-    operations: settings.operations,
-    voiceAI: settings.voiceAI,
-    explicitManualApproval: settings.rules.requiresManualApproval,
-  };
+  const conditions: StoredConditions = storedConditions(settings);
 
   const [locationMutation, ruleMutation] = await Promise.all([
     db.from("locations").update({ booking_enabled: settings.operations.serviceMode !== "paused" }).eq("id", locationId),

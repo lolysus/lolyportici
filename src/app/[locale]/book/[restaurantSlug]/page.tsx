@@ -11,6 +11,7 @@ import { getDictionary, hasLocale } from "@/lib/i18n";
 import { dateKeyInZone, localDateTimeToUtc } from "@/lib/datetime";
 import { getBookingPath, getGoogleMapsDirectionsUrl } from "@/lib/public-url";
 import { restaurantThemeStyle } from "@/lib/brand-theme";
+import { buildPhoneHref, buildWhatsappHref } from "@/lib/contact";
 import { cn } from "@/lib/utils";
 import { buildServiceTimeSlots, dayOfWeekForDateKey } from "@/lib/service-calendar";
 import { getRestaurantSettings } from "@/domains/settings/settings-service";
@@ -78,7 +79,15 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
   if (onlineServicesToday.length > 0 && !hasTimeAfterNotice) closedDates.push(firstDate);
   const directionsUrl = getGoogleMapsDirectionsUrl(location.address);
   const bookingPath = getBookingPath(locale, location);
-  const hasPhone = Boolean(location.phoneHref);
+  // I recapiti vengono dalle impostazioni della sede (modificabili dal
+  // ristoratore), con il valore di partenza come rete di sicurezza se il
+  // campo non è mai stato compilato.
+  const contactPhone = settings.contact.phone || location.phone;
+  const contactPhoneHref = buildPhoneHref(settings.contact.phone) || location.phoneHref;
+  const contactWhatsappHref = buildWhatsappHref(settings.contact.whatsapp, settings.contact.whatsappMessage, location.shortName) || location.whatsappHref;
+  const officialWebsite = settings.contact.officialWebsite || location.officialWebsite;
+  const instagramUrl = settings.contact.instagramUrl || location.instagramUrl;
+  const hasPhone = Boolean(contactPhoneHref);
   // Meglio nessuna partita IVA che una scritta "In aggiornamento" nel footer.
   const hasVatNumber = /^\d{11}$/.test(location.vatNumber.replace(/\s/g, ""));
   const bookingTrust = bookingTrustCopy[locale as keyof typeof bookingTrustCopy];
@@ -119,8 +128,8 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
           <div className="mt-8 flex flex-col gap-x-6 gap-y-1 text-sm text-white/60 sm:flex-row sm:flex-wrap sm:items-center">
             <span className="inline-flex items-start gap-2 py-1.5"><MapPin className="mt-0.5 size-4 shrink-0 text-primary" />{location.city} · {location.address}</span>
             <span className="inline-flex items-center gap-2 py-1.5"><Clock3 className="size-4 shrink-0 text-primary" />{location.serviceNote}</span>
-            {hasPhone ? <a href={location.phoneHref} className="inline-flex min-h-11 items-center gap-2 font-medium text-white hover:text-primary"><Phone className="size-4 shrink-0 text-primary" />{location.phone}</a> : null}
-            {location.whatsappHref ? <a href={location.whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 font-medium text-white hover:text-primary"><MessageCircle className="size-4 shrink-0 text-primary" />WhatsApp</a> : null}
+            {hasPhone ? <a href={contactPhoneHref} className="inline-flex min-h-11 items-center gap-2 font-medium text-white hover:text-primary"><Phone className="size-4 shrink-0 text-primary" />{contactPhone}</a> : null}
+            {contactWhatsappHref ? <a href={contactWhatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 font-medium text-white hover:text-primary"><MessageCircle className="size-4 shrink-0 text-primary" />WhatsApp</a> : null}
             <a href={directionsUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 font-medium text-white hover:text-primary"><MapPinned className="size-4 shrink-0 text-primary" />Google Maps<ExternalLink className="size-3" /></a>
           </div>
         </div>
@@ -152,8 +161,8 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
         <GuestInfo icon={Leaf} label="Allergie" text={settings.guestExperience.dietaryNotice} />
       </div>
     </section>
-    <BookingWizard dictionary={dictionary} locale={locale} location={location} features={{ onlineBookingEnabled: settings.operations.serviceMode !== "paused" && settings.service.onlineBookingEnabled && availabilityContext.locationAvailable !== false, waitlistEnabled: settings.features.waitlistEnabled, minimumPartySize: settings.rules.minimumPartySize, maximumPartySize: settings.rules.maximumPartySize, requiresManualApproval: settings.rules.requiresManualApproval || settings.operations.serviceMode === "approval", requiresDeposit: settings.rules.requiresDeposit, depositAmount: settings.rules.depositAmount, minimumNoticeMinutes: settings.policies.minimumNoticeMinutes, calendarRules: { firstDate, maximumAdvanceDays: settings.policies.maximumAdvanceDays, enabledWeekdays, closedDates: [...new Set(closedDates)] } }} />
-    <footer className="border-t border-foreground/10"><div className="mx-auto grid max-w-6xl gap-6 px-5 pb-28 pt-8 text-xs text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-end sm:py-8"><div><p className="font-medium text-foreground">© {new Date().getFullYear()} {location.legalName}</p><p className="mt-2">{location.address}{hasVatNumber ? ` · P.IVA ${location.vatNumber}` : ""}</p></div><div className="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 sm:justify-end">{hasPhone ? <a href={location.phoneHref} className="inline-flex min-h-11 items-center px-2">{location.phone}</a> : null}{location.whatsappHref ? <a href={location.whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-2">WhatsApp</a> : null}{location.officialWebsite ? <a href={location.officialWebsite} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 px-2">Sito ufficiale<ExternalLink className="size-3" /></a> : null}{location.instagramUrl ? <a href={location.instagramUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 px-2">Instagram<ExternalLink className="size-3" /></a> : null}<Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center px-2">Privacy</Link><Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center px-2">Condizioni</Link></div></div></footer>
+    <BookingWizard dictionary={dictionary} locale={locale} location={{ ...location, phone: contactPhone, phoneHref: contactPhoneHref, whatsappHref: contactWhatsappHref }} features={{ onlineBookingEnabled: settings.operations.serviceMode !== "paused" && settings.service.onlineBookingEnabled && availabilityContext.locationAvailable !== false, waitlistEnabled: settings.features.waitlistEnabled, minimumPartySize: settings.rules.minimumPartySize, maximumPartySize: settings.rules.maximumPartySize, requiresManualApproval: settings.rules.requiresManualApproval || settings.operations.serviceMode === "approval", requiresDeposit: settings.rules.requiresDeposit, depositAmount: settings.rules.depositAmount, minimumNoticeMinutes: settings.policies.minimumNoticeMinutes, calendarRules: { firstDate, maximumAdvanceDays: settings.policies.maximumAdvanceDays, enabledWeekdays, closedDates: [...new Set(closedDates)] } }} />
+    <footer className="border-t border-foreground/10"><div className="mx-auto grid max-w-6xl gap-6 px-5 pb-28 pt-8 text-xs text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-end sm:py-8"><div><p className="font-medium text-foreground">© {new Date().getFullYear()} {location.legalName}</p><p className="mt-2">{location.address}{hasVatNumber ? ` · P.IVA ${location.vatNumber}` : ""}</p></div><div className="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 sm:justify-end">{hasPhone ? <a href={contactPhoneHref} className="inline-flex min-h-11 items-center px-2">{contactPhone}</a> : null}{contactWhatsappHref ? <a href={contactWhatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-2">WhatsApp</a> : null}{officialWebsite ? <a href={officialWebsite} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 px-2">Sito ufficiale<ExternalLink className="size-3" /></a> : null}{instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 px-2">Instagram<ExternalLink className="size-3" /></a> : null}<Link href={`/${locale}/privacy`} className="inline-flex min-h-11 items-center px-2">Privacy</Link><Link href={`/${locale}/terms`} className="inline-flex min-h-11 items-center px-2">Condizioni</Link></div></div></footer>
   </div>;
 }
 
