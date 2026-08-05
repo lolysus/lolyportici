@@ -100,6 +100,7 @@ const defaults: RestaurantSettings = {
   },
   guestExperience: {
     arrivalMessage: "Ti aspettiamo cinque minuti prima dell’orario di prenotazione.",
+    highlight: "",
     directions: "Raggiungi il ristorante seguendo le indicazioni di Google Maps.",
     parkingInfo: "Parcheggi pubblici disponibili nelle vicinanze.",
     accessibilityInfo: "Accesso senza barriere disponibile su richiesta.",
@@ -147,7 +148,10 @@ function defaultSettingsForLocation(locationId: string) {
     settings.guestExperience.accessibilityInfo = "Segnala in prenotazione eventuali esigenze di accesso: il team KouSushi ti assisterà.";
   } else {
     settings.guestExperience.directions = "Raggiungi Via Severiana, Ardea, seguendo Google Maps.";
-    settings.guestExperience.parkingInfo = "Controlla la disponibilità dei parcheggi pubblici nelle vicinanze prima della partenza.";
+    // Il parcheggio è il vantaggio che YUKO vuole far vedere per primo: sta
+    // anche in evidenza in cima alla pagina, non solo nella scheda arrivo.
+    settings.guestExperience.parkingInfo = "Ampio parcheggio privato di 1.000 m² riservato agli ospiti: arrivi e posteggi senza pensieri.";
+    settings.guestExperience.highlight = "Ampio parcheggio privato di 1.000 m²";
   }
   return settings;
 }

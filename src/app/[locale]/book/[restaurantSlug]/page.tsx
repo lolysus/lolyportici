@@ -96,6 +96,7 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
   // Meglio nessuna partita IVA che una scritta "In aggiornamento" nel footer.
   const hasVatNumber = /^\d{11}$/.test(location.vatNumber.replace(/\s/g, ""));
   const bookingTrust = bookingTrustCopy[locale as keyof typeof bookingTrustCopy];
+  const highlight = settings.guestExperience.highlight.trim();
   return <div style={restaurantThemeStyle(location)} className={`dark japanese-pattern min-h-screen bg-background brand-${location.slug}`}>
     <RestaurantBookingJsonLd restaurant={location} bookingUrl={bookingUrl} />
     <a href="#booking-content" className="sr-only fixed left-4 top-4 z-50 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only">Vai alla prenotazione</a>
@@ -106,7 +107,6 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
           <Badge variant="outline" className="hidden border-white/20 bg-white/5 text-white sm:inline-flex"><span className={`mr-1.5 size-1.5 rounded-full ${bookingStatus.dot}`} />{bookingStatus.label}</Badge>
           <Link href="/account" className="hidden min-h-11 items-center gap-1.5 px-2 text-white/65 hover:text-white sm:inline-flex"><UserRound className="size-3.5" />Area ospite</Link>
           {restaurantConfig.supportedLocales.map((language) => <Link key={language} href={`/${language}/book/${restaurantSlug}`} hrefLang={language} aria-current={language === locale ? "page" : undefined} className={cn("inline-flex min-h-11 items-center justify-center rounded-md px-2 transition-colors sm:px-3", language === locale ? "bg-white/10 font-semibold text-white" : "text-white/55 hover:bg-white/5 hover:text-white")}>{language.toUpperCase()}</Link>)}
-          <Link href="/login" className="ml-1 inline-flex min-h-11 items-center border border-white/20 px-3 text-white/75 hover:border-primary/60 hover:text-white">Staff</Link>
         </nav>
       </div>
     </header>
@@ -121,8 +121,15 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
             {bookingStatus.message}
           </div>
           <p className="mb-4 font-mono text-xs uppercase tracking-[0.22em] text-primary">{dictionary.booking.eyebrow}</p>
-          <h1 className="max-w-3xl text-balance font-heading text-5xl font-semibold leading-[1.02] tracking-[-0.045em] sm:text-7xl">{dictionary.booking.title}</h1>
-          <p className="mt-5 max-w-xl text-base leading-7 text-white/58 sm:text-lg">{settings.guestExperience.arrivalMessage}</p>
+          {/* Su telefono il titolo occupava quasi tutto il primo schermo e il
+              modulo restava fuori vista: qui pesa meno e lascia salire il
+              resto. */}
+          <h1 className="max-w-3xl text-balance font-heading text-[2.15rem] font-semibold leading-[1.06] tracking-[-0.04em] sm:text-6xl sm:leading-[1.02] lg:text-7xl">{dictionary.booking.title}</h1>
+          <p className="mt-4 max-w-xl text-[15px] leading-6 text-white/58 sm:mt-5 sm:text-lg sm:leading-7">{settings.guestExperience.arrivalMessage}</p>
+          {highlight ? <p className="mt-5 flex max-w-xl items-center gap-3 border-l-[3px] border-primary bg-primary/10 py-3 pl-3.5 pr-4 text-[15px] font-semibold leading-6 text-white sm:mt-6 sm:pl-4 sm:pr-5 sm:text-lg">
+            <Car className="size-5 shrink-0 text-primary" aria-hidden />
+            <span className="underline decoration-primary decoration-2 underline-offset-4">{highlight}</span>
+          </p> : null}
           <div className="mt-7 hidden flex-wrap gap-3 lg:flex">
             <a href="#booking-content" className="inline-flex min-h-12 items-center gap-2 bg-primary px-5 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#111]"><CalendarCheck2 className="size-4" />Inizia la prenotazione</a>
             <a href={directionsUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center gap-2 border border-white/15 bg-white/[0.03] px-5 text-sm font-medium text-white transition-colors hover:border-primary/55 hover:bg-white/[0.07]"><MapPinned className="size-4 text-primary" />Come arrivare<ExternalLink className="size-3" /></a>

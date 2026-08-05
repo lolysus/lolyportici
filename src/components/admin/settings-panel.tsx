@@ -293,6 +293,7 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
           </SettingsCard>
 
           <SettingsCard title="Informazioni prima dell’arrivo" description="Questi testi vengono mostrati nel booking e passati all’assistente telefonico.">
+            <div className="sm:col-span-2"><Field id="guest-highlight" type="text" label="In evidenza sul sito" placeholder="Es. Ampio parcheggio privato di 1.000 m²" hint="Compare sottolineato in cima alla pagina di prenotazione. Lascia vuoto per non mostrarlo." value={settings.guestExperience.highlight} setValue={(value) => updateSection("guestExperience", { highlight: value })} /></div>
             <TextareaField id="arrival-message" label="Messaggio di accoglienza" value={settings.guestExperience.arrivalMessage} setValue={(value) => updateSection("guestExperience", { arrivalMessage: value })} />
             <TextareaField id="directions" label="Come arrivare" value={settings.guestExperience.directions} setValue={(value) => updateSection("guestExperience", { directions: value })} />
             <TextareaField id="parking-info" label="Parcheggio" value={settings.guestExperience.parkingInfo} setValue={(value) => updateSection("guestExperience", { parkingInfo: value })} />
@@ -378,8 +379,8 @@ function StatusCard({ icon: Icon, label, value, note }: { icon: typeof CalendarC
   return <div className="bg-card p-5 sm:p-6"><p className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground"><Icon className="size-3.5 text-primary" />{label}</p><p className="mt-3 text-sm font-semibold">{value}</p><p className="mt-1 text-xs text-muted-foreground">{note}</p></div>;
 }
 
-function Field({ id, label, type, value, setValue, suffix, min, max }: { id: string; label: string; type: string; value: string; setValue: (value: string) => void; suffix?: string; min?: number; max?: number }) {
-  return <div><Label htmlFor={id}>{label}</Label><div className="mt-2 flex items-center gap-2"><Input id={id} type={type} min={min} max={max} value={value} onChange={(event) => setValue(event.target.value)} />{suffix && <span className="min-w-fit text-xs text-muted-foreground">{suffix}</span>}</div></div>;
+function Field({ id, label, type, value, setValue, suffix, min, max, hint, placeholder }: { id: string; label: string; type: string; value: string; setValue: (value: string) => void; suffix?: string; min?: number; max?: number; hint?: string; placeholder?: string }) {
+  return <div><Label htmlFor={id}>{label}</Label><div className="mt-2 flex items-center gap-2"><Input id={id} type={type} min={min} max={max} placeholder={placeholder} aria-describedby={hint ? `${id}-hint` : undefined} value={value} onChange={(event) => setValue(event.target.value)} />{suffix && <span className="min-w-fit text-xs text-muted-foreground">{suffix}</span>}</div>{hint && <p id={`${id}-hint`} className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}</div>;
 }
 
 function TextareaField({ id, label, value, setValue }: { id: string; label: string; value: string; setValue: (value: string) => void }) {

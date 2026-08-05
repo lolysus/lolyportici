@@ -66,6 +66,17 @@ export function normalizeStoredPermissions(role: Role, stored?: string[] | null)
   return [...expanded];
 }
 
+/**
+ * Chi comanda dentro il proprio ristorante.
+ *
+ * Prima "amministratore" era un ruolo che stava sopra i due locali e lo
+ * assegnava solo la regia centrale. Ora la regia centrale non c'è più: un
+ * amministratore è di una sede, e a nominarlo è chi quella sede la guida.
+ */
+export function isRestaurantLead(role: Role) {
+  return role === "owner" || role === "administrator";
+}
+
 export function hasPermission(role: Role, permission: Permission, stored?: string[] | null) {
   return normalizeStoredPermissions(role, stored).includes(permission);
 }

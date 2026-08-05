@@ -189,9 +189,13 @@ export interface StaffSession {
   role: Role;
   permissions: Permission[];
   organizationId: string;
+  /** L'unico ristorante a cui questo account appartiene. */
   locationId: string;
+  /**
+   * Le sedi che l'account può aprire. Normalmente è una sola: non esiste più
+   * un profilo che sta sopra i due ristoranti e li guarda insieme.
+   */
   accessibleLocationIds: string[];
-  centralAccess: boolean;
   demo: boolean;
 }
 

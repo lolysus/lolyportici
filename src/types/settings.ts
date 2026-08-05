@@ -83,6 +83,11 @@ export type RestaurantSettings = {
   };
   guestExperience: {
     arrivalMessage: string;
+    /**
+     * Il vantaggio che il locale vuole far vedere per primo, in cima alla
+     * pagina di prenotazione. Vuoto = nessun riquadro in evidenza.
+     */
+    highlight: string;
     directions: string;
     parkingInfo: string;
     accessibilityInfo: string;

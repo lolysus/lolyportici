@@ -167,38 +167,48 @@
     box-shadow: 0 0 14px color-mix(in oklab, var(--primary) 70%, transparent);
     animation: route-scan 3.6s ease-in-out infinite;
   }
-  .ceo-command-deck {
+  /* ── Pannello del ristorante ───────────────────────────────────────────
+     Il colore del marchio non è una rifinitura: è come si riconosce, in un
+     secondo e da lontano, in quale dei due locali si sta lavorando. */
+  .admin-rail {
     background:
-      radial-gradient(circle at 82% 18%, rgb(213 175 85 / 20%), transparent 28%),
-      radial-gradient(circle at 20% 110%, rgb(230 0 18 / 18%), transparent 34%),
-      linear-gradient(135deg, #13120f 0%, #181412 52%, #100d0e 100%);
+      radial-gradient(120% 55% at 0% 0%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 62%),
+      linear-gradient(180deg, color-mix(in oklab, var(--primary) 5%, transparent), transparent 34%);
   }
-  .ceo-command-deck::before {
-    content: "";
-    position: absolute;
-    inset: -45%;
-    pointer-events: none;
-    background: conic-gradient(from 220deg, transparent 0deg, rgb(213 175 85 / 15%) 36deg, transparent 74deg, rgb(230 0 18 / 13%) 136deg, transparent 190deg);
-    animation: ceo-orbit 22s linear infinite;
+  .admin-sede-spine {
+    align-self: stretch;
+    width: 3px;
+    margin: 1.15rem 0;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--primary), color-mix(in oklab, var(--primary) 12%, transparent));
+    box-shadow: 0 0 18px -4px color-mix(in oklab, var(--primary) 75%, transparent);
   }
-  .ceo-location-link {
+  .admin-sede-mark {
     display: flex;
-    min-width: 152px;
+    width: 2.25rem;
+    height: 2.25rem;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    border: 1px solid rgb(255 255 255 / 12%);
-    background: rgb(255 255 255 / 4%);
-    padding: 0.8rem 0.9rem;
-    color: white;
-    transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+    justify-content: center;
+    border: 1px solid color-mix(in oklab, var(--primary) 40%, transparent);
+    border-radius: 0.7rem;
+    background: color-mix(in oklab, var(--primary) 14%, transparent);
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.9rem;
   }
-  .ceo-location-link strong, .ceo-location-link small { display: block; }
-  .ceo-location-link strong { font-size: 0.85rem; }
-  .ceo-location-link small { margin-top: 0.16rem; color: rgb(255 255 255 / 55%); font-size: 0.68rem; }
-  .ceo-location-link:hover { transform: translateY(-2px) rotateX(2deg); }
-  .ceo-location-yuko:hover { border-color: rgb(213 175 85 / 80%); background: rgb(213 175 85 / 12%); }
-  .ceo-location-kousushi:hover { border-color: rgb(230 0 18 / 80%); background: rgb(230 0 18 / 12%); }
+  .admin-topbar {
+    background: color-mix(in oklab, var(--background) 88%, transparent);
+    backdrop-filter: blur(18px);
+  }
+  .admin-nav-link.is-active {
+    background: linear-gradient(90deg, color-mix(in oklab, var(--primary) 18%, transparent), transparent 88%);
+    box-shadow: inset 2px 0 0 var(--primary);
+  }
+  .admin-mobile-nav {
+    background: color-mix(in oklab, var(--background) 92%, transparent);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 -18px 40px -30px rgb(0 0 0 / 90%);
+  }
   .booking-trust-card {
     min-height: 5.4rem;
     border: 1px solid rgb(255 255 255 / 10%);
@@ -240,6 +250,84 @@
   }
   .control-rail {
     border-left: 2px solid var(--primary);
+  }
+  /* ── Prenotazione: superfici laccate ───────────────────────────────────
+     Angoli netti e spigoli invece delle solite schede arrotondate: è il
+     linguaggio della laccatura giapponese, e distingue queste pagine da
+     qualunque pannello generico. La profondità viene dagli strati — riflesso
+     in alto, ombra sotto — non da un bordo più spesso. */
+  .lacquer {
+    position: relative;
+    border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--primary) 4%, transparent), transparent 22%),
+      color-mix(in oklab, var(--card) 92%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 7%),
+      0 26px 60px -42px rgb(0 0 0 / 95%);
+  }
+  .lacquer-spine::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    width: 3px;
+    height: 4.5rem;
+    background: linear-gradient(180deg, var(--primary), transparent);
+  }
+  .ghost-numeral {
+    position: absolute;
+    top: -0.35em;
+    right: 0.12em;
+    z-index: 0;
+    font-weight: 700;
+    font-size: 8rem;
+    line-height: 1;
+    letter-spacing: -0.06em;
+    color: color-mix(in oklab, var(--primary) 8%, transparent);
+    pointer-events: none;
+    user-select: none;
+  }
+  /* Piastrelle: coperti e orari. Il "premuto" è un affondamento vero, non un
+     semplice cambio di colore — su schermo touch è l'unico riscontro che
+     l'utente riceve. */
+  .tile {
+    border: 1px solid color-mix(in oklab, var(--foreground) 14%, transparent);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--foreground) 5%, transparent), transparent);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%), 0 10px 22px -20px rgb(0 0 0 / 90%);
+    transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease;
+  }
+  .tile:hover:not(:disabled) { border-color: color-mix(in oklab, var(--primary) 55%, transparent); transform: translateY(-2px); }
+  .tile:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 2px 6px rgb(0 0 0 / 45%); }
+  .tile[aria-pressed="true"] {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent), inset 0 1px 0 rgb(255 255 255 / 22%);
+  }
+  /* La barra d'azione resta sotto il pollice per tutto il modulo: su telefono
+     il pulsante "continua" in fondo alla pagina non si trova. */
+  .step-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin: 2rem -1.25rem 0;
+    border-top: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+    background: color-mix(in oklab, var(--background) 94%, transparent);
+    backdrop-filter: blur(16px);
+    padding: 0.75rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -20px 40px -34px rgb(0 0 0 / 95%);
+  }
+  @media (min-width: 640px) {
+    .step-actions {
+      position: static;
+      margin: 2.25rem 0 0;
+      border-top-width: 1px;
+      background: transparent;
+      backdrop-filter: none;
+      padding: 1.5rem 0 0;
+      box-shadow: none;
+    }
   }
   .booking-hero::before {
     content: "";
@@ -304,11 +392,6 @@
     @apply font-sans;
     scroll-behavior: smooth;
   }
-}
-
-@keyframes ceo-orbit {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 @keyframes constellation-orbit {

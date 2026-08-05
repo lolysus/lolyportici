@@ -1,18 +1,12 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { defaultRestaurantLocation, getRestaurantLocationBySlug, restaurantLocations } from "@/config/brand";
+import { adminLocationCookie, adminLocationCookieOptions, adminRestaurantHeader } from "@/lib/admin/location-cookie";
 import { getCurrentStaffSession } from "@/lib/auth/dal";
 import type { StaffSession } from "@/types/domain";
 
-export const adminLocationCookie = "sushi_admin_location";
-export const adminLocationCookieOptions = {
-  httpOnly: true,
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-  path: "/",
-  maxAge: 60 * 60 * 24 * 365,
-};
+export { adminLocationCookie, adminLocationCookieOptions, adminRestaurantHeader };
 
 export function getAccessibleAdminLocations(session: StaffSession) {
   return restaurantLocations.filter((location) => session.accessibleLocationIds.includes(location.id));
@@ -29,8 +23,21 @@ function fallbackLocation(session?: StaffSession | null) {
     ?? defaultRestaurantLocation;
 }
 
+/**
+ * Il ristorante nell'indirizzo, se l'indirizzo ne nomina uno.
+ *
+ * `/admin/yuko/prenotazioni` deve mostrare YUKO subito, non dalla richiesta
+ * successiva: per questo l'intestazione messa dal proxy batte il cookie.
+ */
+export async function getScopedAdminRestaurant() {
+  const slug = (await headers()).get(adminRestaurantHeader);
+  return slug ? getRestaurantLocationBySlug(slug) ?? null : null;
+}
+
 export async function getActiveAdminLocation(providedSession?: StaffSession) {
   const session = providedSession ?? await getCurrentStaffSession();
+  const scoped = await getScopedAdminRestaurant();
+  if (scoped) return session && canAccessAdminLocation(session, scoped.id) ? scoped : fallbackLocation(session);
   const cookieStore = await cookies();
   const selectedSlug = cookieStore.get(adminLocationCookie)?.value;
   const selected = selectedSlug ? getRestaurantLocationBySlug(selectedSlug) : undefined;

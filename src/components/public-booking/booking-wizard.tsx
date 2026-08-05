@@ -279,7 +279,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
   // 20px, ma il padding effettivo del contenitore non è sempre esattamente
   // quello: la differenza usciva dallo schermo come scroll orizzontale.
   return <div id="booking-content" tabIndex={-1} className="mx-auto grid max-w-6xl scroll-mt-14 gap-12 overflow-x-clip px-5 py-10 outline-none lg:grid-cols-[minmax(0,1fr)_340px] lg:py-16">
-    <main className="pb-24 sm:pb-0">
+    <main>
       <div className="sticky top-[59px] z-30 -mx-5 mb-5 border-y border-border/70 bg-background/95 px-5 py-3 text-xs shadow-[0_8px_18px_-18px_rgba(0,0,0,.8)] backdrop-blur sm:static sm:mx-0 sm:mb-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none" aria-live="polite">
         <div className="flex items-center justify-between gap-4">
           <span className="font-mono uppercase tracking-[0.16em] text-muted-foreground">Passaggio {step} di {t.steps.length}</span>
@@ -297,12 +297,12 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
         </li>; })}
       </ol>
 
-      {step === 1 && <Step title={t.bookingTitle} icon={<CalendarDays />}>
+      {step === 1 && <Step step={1} title={t.bookingTitle} icon={<CalendarDays />}>
         <p id="party-size-hint" className="-mt-4 mb-5 text-sm text-muted-foreground">{flow.partySizeRequired}</p>
         <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{t.fieldParty}</p>
         <div role="group" aria-label={t.partyTitle} aria-describedby="party-size-hint" className="grid grid-cols-5 gap-2 sm:grid-cols-6">
-          {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => <button key={value} type="button" disabled={value < features.minimumPartySize} onClick={() => { setPartySize(value); setPartySizeSelected(true); }} aria-pressed={partySizeSelected && partySize === value} className={cn("surface-3d flex aspect-square items-center justify-center rounded-xl border text-lg font-semibold transition-[transform,border-color,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px disabled:cursor-not-allowed disabled:opacity-35", partySizeSelected && partySize === value ? "-translate-y-0.5 border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5 hover:border-primary/50")}>{value}</button>)}
-          <button type="button" onClick={() => { setPartySize(11); setPartySizeSelected(true); }} aria-pressed={partySizeSelected && partySize > 10} className={cn("surface-3d col-span-5 min-h-12 rounded-xl border px-4 text-sm font-semibold transition-transform active:translate-y-px sm:col-span-2", partySizeSelected && partySize > 10 ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:-translate-y-0.5")}>{t.partyMore}</button>
+          {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => <button key={value} type="button" disabled={value < features.minimumPartySize} onClick={() => { setPartySize(value); setPartySizeSelected(true); }} aria-pressed={partySizeSelected && partySize === value} className="tile flex aspect-square min-h-12 items-center justify-center font-mono text-xl font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-30">{value}</button>)}
+          <button type="button" onClick={() => { setPartySize(11); setPartySizeSelected(true); }} aria-pressed={partySizeSelected && partySize > 10} className="tile col-span-5 min-h-12 px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-2">{t.partyMore}</button>
         </div>
         {partySizeSelected && partySize > 10 && <div className="mt-5 max-w-xs"><Label htmlFor="large-party-size">{flow.exactPartySize}</Label><Input id="large-party-size" type="number" min={11} max={100} value={partySize} onChange={(event) => { setPartySize(Math.max(11, Number(event.target.value))); setPartySizeSelected(true); }} className="mt-2 h-12 bg-card"/></div>}
         {requiresManualHandling && <p className="mt-5 flex items-start gap-2 rounded-xl border border-accent/35 bg-accent/15 p-4 text-sm"><Info className="mt-0.5 size-4 shrink-0" />{partySize > features.maximumPartySize ? flow.largeParty(features.maximumPartySize) : features.requiresDeposit ? flow.deposit(depositAmount) : flow.staffReview}</p>}
@@ -318,13 +318,13 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
             ? <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><Clock3 className="size-3.5 shrink-0" />{flow.partySizeRequired}</p>
             : <><p className="mb-6 text-sm text-muted-foreground">{t.timeHint}</p>
         {loading && <div className="flex h-36 items-center justify-center text-muted-foreground"><LoaderCircle className="mr-2 size-5 animate-spin" />{t.loading}</div>}
-        {!loading && slots.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{slots.map((slot) => <button type="button" key={slot.startAt} onClick={() => chooseSlot(slot)} className="surface-3d group rounded-2xl border bg-card px-4 py-4 text-left transition-[transform,border-color] hover:-translate-y-0.5 hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-px"><span className="flex items-center justify-between gap-2"><span className="font-mono text-xl font-semibold">{formatTimeInZone(slot.startAt)}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" /></span><span className="mt-2 block text-xs font-medium">Orario disponibile</span><span className="mt-1 block text-[11px] text-muted-foreground">{slot.durationMinutes} min · {flow.instantConfirmation}</span></button>)}</div>}
+        {!loading && slots.length > 0 && <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{slots.map((slot) => <button type="button" key={slot.startAt} onClick={() => chooseSlot(slot)} className="tile group min-h-[5.25rem] px-4 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="flex items-center justify-between gap-2"><span className="font-mono text-2xl font-semibold tracking-tight">{formatTimeInZone(slot.startAt)}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" /></span><span className="mt-2 block text-[11px] leading-4 text-muted-foreground">{slot.durationMinutes} min · {flow.instantConfirmation}</span></button>)}</div>}
         {!loading && slots.length === 0 && <div className="surface-3d rounded-2xl border border-dashed bg-card/70 p-6"><p className="font-medium">{requiresManualHandling || manualReviewRequired ? flow.staffReviewTitle : t.unavailable}</p><p className="mt-2 text-sm text-muted-foreground">{requiresManualHandling || manualReviewRequired ? flow.staffReviewDescription : features.waitlistEnabled ? flow.waitlistDescription : flow.waitlistDisabled}</p>{restrictions.length > 0 && <ul className="mt-4 space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">{restrictions.map((restriction) => <li key={restriction} className="flex gap-2"><Info className="mt-0.5 size-4 shrink-0 text-amber-600" />{restriction}</li>)}</ul>}<div className="mt-5 flex flex-wrap items-end gap-3">{features.waitlistEnabled ? <><div><Label htmlFor="requested-time" className="text-xs">{flow.preferredTime}</Label><Input id="requested-time" type="time" value={requestedTime} onChange={(event) => setRequestedTime(event.target.value)} className="mt-2 w-36 bg-background" /></div><Button variant="outline" onClick={() => { setWaitlistMode(true); setStep(2); }}>{requiresManualHandling || manualReviewRequired ? flow.sendStaffRequest : t.waitlist}</Button></> : hasPhone ? <Button asChild variant="outline"><a href={location.phoneHref}><PhoneCall />{flow.callRestaurant}</a></Button> : <p className="text-sm text-muted-foreground">I recapiti saranno disponibili a breve.</p>}</div></div>}
             </>}
         </div>}
       </Step>}
 
-      {step === 2 && <Step title={t.detailsTitle} icon={<ShieldCheck />}>
+      {step === 2 && <Step step={2} title={t.detailsTitle} icon={<ShieldCheck />}>
         {!waitlistMode && selected && <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-700/20 bg-emerald-700/8 p-4 text-sm"><span className="signal-pulse mt-1 size-2 shrink-0 rounded-full bg-emerald-600" /><div><p className="font-semibold">Orario temporaneamente riservato</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Completa i dati per confermare l’orario delle {formatTimeInZone(selected.startAt)}.</p></div></div>}
         {/* Detto qui, prima che il cliente compili: a fine flusso il codice
             esiste solo sullo schermo e va salvato da lui. */}
@@ -335,13 +335,15 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
         <StepActions back={() => { setStep(1); void releaseCurrentHold(); }} next={() => { if (validateDetails()) setStep(3); }} nextLabel={t.continue} backLabel={t.back} />
       </Step>}
 
-      {step === 3 && <Step title={t.reviewTitle} icon={<Sparkles />}>
+      {step === 3 && <Step step={3} title={t.reviewTitle} icon={<Sparkles />}>
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/8 p-4 text-sm"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><div><p className="font-semibold">Ultimo controllo</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Confermando, la prenotazione entra subito nella regia operativa.</p></div></div>
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-amber-400/35 bg-amber-400/10 p-4 text-sm"><Camera className="mt-0.5 size-4 shrink-0 text-amber-300" /><p className="text-xs leading-5 text-amber-100/85">{flow.noEmailNotice}</p></div>
         <dl className="surface-3d divide-y rounded-2xl border bg-card px-5">{[
           [t.fieldParty, `${partySize} ${dictionary.common.guests}`], [t.fieldDate, selectedDateLabel], [t.fieldTime, selected ? formatTimeInZone(selected.startAt) : requestedTime], [t.firstName, `${fields.firstName} ${fields.lastName}`], [t.phone, fields.phone], ...(fields.allergies ? [[details.allergies, fields.allergies]] : []), ...(fields.accessibilityNeeds ? [[details.accessibility, fields.accessibilityNeeds]] : []),
         ].map(([label, value]) => <div key={label} className="grid grid-cols-[120px_1fr] gap-4 py-4 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>
-        <StepActions back={() => setStep(4)} next={finish} nextLabel={t.confirm} backLabel={t.back} loading={loading} />
+        {/* Tornava al passaggio 4, che non esiste: la pagina restava vuota e
+            la prenotazione moriva lì. */}
+        <StepActions back={() => setStep(2)} next={finish} nextLabel={t.confirm} backLabel={t.back} loading={loading} />
       </Step>}
       {error && <p role="alert" className="mt-6 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</p>}
     </main>
@@ -355,8 +357,28 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
   </div>;
 }
 
-function Step({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) { return <section className="surface-3d rounded-3xl border bg-background/70 p-5 sm:p-8"><div className="mb-8 flex items-center gap-4 text-primary"><span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/8 [&_svg]:size-5">{icon}</span><div><p className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Prenotazione guidata</p><h2 className="font-heading text-3xl tracking-tight sm:text-4xl">{title}</h2></div></div>{children}</section>; }
-function StepActions({ back, next, backLabel, nextLabel, disabled, loading }: { back?: () => void; next?: () => void; backLabel?: string; nextLabel?: string; disabled?: boolean; loading?: boolean }) { return <div className="mt-8 flex gap-3 rounded-2xl border border-border/80 bg-background/95 p-3 shadow-[0_12px_30px_-18px_rgba(0,0,0,.9)] backdrop-blur sm:mt-9 sm:flex-row sm:items-center sm:justify-between sm:rounded-none sm:border-x-0 sm:border-b-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-6 sm:shadow-none">{back ? <Button variant="outline" onClick={back} className="min-h-12 flex-1 sm:w-auto sm:flex-none"><ArrowLeft />{backLabel}</Button> : <span className="hidden sm:block" />}{next && <Button size="lg" onClick={next} disabled={disabled || loading} className="surface-3d min-h-12 flex-1 sm:w-auto">{loading ? <LoaderCircle className="animate-spin" /> : null}{nextLabel}<ArrowRight /></Button>}</div>; }
+function Step({ title, icon, step, children }: { title: string; icon: React.ReactNode; step: number; children: React.ReactNode }) {
+  // Il ritaglio sta sul solo numero decorativo: messo sulla scheda intera
+  // faceva di questa sezione un contenitore di scorrimento, e la barra
+  // d'azione appiccicata in fondo smetteva di seguire il pollice.
+  return <section className="lacquer lacquer-spine p-5 sm:p-8">
+    <span aria-hidden className="pointer-events-none absolute inset-0 overflow-clip"><span className="ghost-numeral font-mono">{step}</span></span>
+    <div className="relative mb-7 flex items-start gap-3.5 text-primary sm:items-center sm:gap-4">
+      <span className="flex size-10 shrink-0 items-center justify-center border border-primary/25 bg-primary/10 sm:size-11 [&_svg]:size-5">{icon}</span>
+      {/* Niente "Passaggio N" qui: la barra di avanzamento sopra lo dice già
+          due volte, e ripeterlo una terza rubava solo spazio allo schermo. */}
+      <h2 className="min-w-0 text-balance font-heading text-2xl leading-tight tracking-tight text-foreground sm:text-4xl">{title}</h2>
+    </div>
+    <div className="relative">{children}</div>
+  </section>;
+}
+
+function StepActions({ back, next, backLabel, nextLabel, disabled, loading }: { back?: () => void; next?: () => void; backLabel?: string; nextLabel?: string; disabled?: boolean; loading?: boolean }) {
+  return <div className="step-actions flex gap-3 sm:items-center sm:justify-between">
+    {back ? <Button variant="outline" onClick={back} className="min-h-12 flex-1 sm:w-auto sm:flex-none"><ArrowLeft />{backLabel}</Button> : <span className="hidden sm:block" />}
+    {next && <Button size="lg" onClick={next} disabled={disabled || loading} className="min-h-12 flex-[1.6] sm:w-auto sm:flex-none">{loading ? <LoaderCircle className="animate-spin" /> : null}{nextLabel}<ArrowRight /></Button>}
+  </div>;
+}
 function Field({ id, label, value, onChange, type = "text", autoComplete, required }: { id: string; label: string; value: string; onChange: (value: string) => void; type?: string; autoComplete?: string; required?: boolean }) { return <div><Label htmlFor={id}>{label}{required ? " *" : ""}</Label><Input id={id} type={type} inputMode={type === "tel" ? "tel" : type === "email" ? "email" : undefined} autoComplete={autoComplete} autoCapitalize={type === "email" || type === "tel" ? "none" : "words"} enterKeyHint={type === "tel" || type === "email" ? "next" : undefined} value={value} onChange={(event) => onChange(event.target.value)} required={required} aria-required={required} className="mt-2 h-12 bg-background" /></div>; }
 function CheckRow({ id, checked, onCheckedChange, label, required }: { id: string; checked: boolean; onCheckedChange: (value: boolean) => void; label: string; required?: boolean }) { return <div className="flex items-start gap-3"><Checkbox id={id} checked={checked} onCheckedChange={(value) => onCheckedChange(value === true)} aria-required={required} /><Label htmlFor={id} className="text-sm font-normal leading-5">{label}{required ? " *" : ""}</Label></div>; }
 function SummaryLine({ icon, label, value, active }: { icon: React.ReactNode; label: string; value: string; active?: boolean }) { return <div className="grid grid-cols-[32px_1fr] gap-3"><span className={cn("flex size-8 items-center justify-center rounded-lg [&_svg]:size-4", active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{icon}</span><div><p className="text-xs text-muted-foreground">{label}</p><p className="mt-0.5 font-medium">{value}</p></div></div>; }

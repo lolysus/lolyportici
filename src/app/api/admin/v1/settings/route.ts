@@ -89,6 +89,8 @@ const settingsSchema = z.object({
   }),
   guestExperience: z.object({
     arrivalMessage: z.string().trim().min(10).max(300),
+    // Vuoto è legittimo: significa "nessun riquadro in evidenza".
+    highlight: z.string().trim().max(120),
     directions: z.string().trim().min(5).max(300),
     parkingInfo: z.string().trim().min(5).max(300),
     accessibilityInfo: z.string().trim().min(5).max(300),

@@ -100,18 +100,20 @@ test("direct operator entries open the correct restaurant context", async ({ pag
   await page.goto("/admin/yuko");
   await expect(page).toHaveURL(/\/admin\/yuko\/dashboard$/);
   await expect(page.getByText("YUKO", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Pannello operatori")).toBeVisible();
+  await expect(page.getByText("Pannello del ristorante")).toBeVisible();
 
   await page.goto("/admin/kousushi");
   await expect(page).toHaveURL(/\/admin\/kousushi\/dashboard$/);
   await expect(page.getByText("KouSushi", { exact: true }).first()).toBeVisible();
 });
 
-test("the CEO has one executive dashboard for both locations", async ({ page }) => {
-  await page.goto("/admin/ceo");
-  await expect(page).toHaveURL(/\/admin\/ceo$/);
-  await expect(page.getByRole("heading", { name: "Regia CEO: Ardea e Portici" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "YUKO e KouSushi: due servizi indipendenti, una sola regia." })).toBeVisible();
+test("neither restaurant can reach a panel that spans both", async ({ page }) => {
+  // La regia centrale è stata eliminata: questi indirizzi non esistono più e
+  // non devono tornare a esistere per sbaglio.
+  for (const removed of ["/admin/ceo", "/admin/master", "/admin/locations"]) {
+    const response = await page.goto(removed);
+    expect(response?.status()).toBe(404);
+  }
 });
 
 test("operator surfaces focus on booking flow without exposing table availability", async ({ page }) => {
@@ -125,7 +127,7 @@ test("operator surfaces focus on booking flow without exposing table availabilit
   await expect(page.getByText("Servizi attivi", { exact: true })).toBeVisible();
 });
 
-test("sound notifications are armed for each operator and centrally for the CEO", async ({ page }) => {
+test("sound notifications are armed separately in each restaurant", async ({ page }) => {
   await page.goto("/admin/yuko");
   await page.getByRole("button", { name: "Apri notifiche operative" }).click();
   await expect(page.getByText("YUKO", { exact: true }).last()).toBeVisible();
@@ -137,11 +139,8 @@ test("sound notifications are armed for each operator and centrally for the CEO"
   await page.getByRole("button", { name: "Apri notifiche operative" }).click();
   await expect(page.getByText("KouSushi", { exact: true }).last()).toBeVisible();
   await expect(page.getByRole("button", { name: "Disattiva" })).toBeVisible();
-
-  await page.goto("/admin/ceo");
-  await page.getByRole("button", { name: "Apri notifiche operative" }).click();
-  await expect(page.getByText("YUKO + KouSushi", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Campanella pronta|Attiva la campanella/)).toBeVisible();
+  // Nessun pannello somma i due locali: qui deve comparire solo KouSushi.
+  await expect(page.getByText("YUKO")).toHaveCount(0);
 });
 
 test("the operator header remains usable on a mobile viewport", async ({ page }) => {
@@ -154,11 +153,13 @@ test("the operator header remains usable on a mobile viewport", async ({ page })
   await expect(page.getByRole("button", { name: /Abilita audio|Prova suono/ })).toBeVisible();
 });
 
-test("the central administrator sees the master rules for both restaurant brands", async ({ page }) => {
-  await page.goto("/admin/master");
-  await expect(page.getByRole("heading", { name: "Regole comuni, identità indipendenti" })).toBeVisible();
-  await expect(page.getByText("Policy master")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Applica a entrambi" })).toBeVisible();
+test("each restaurant has its own reserved entrance and rejects the other's", async ({ page }) => {
+  const response = await page.goto("/gestione/ardea-yuko-7c41f9");
+  expect(response?.status()).toBe(200);
+  await expect(page.getByText("Ingresso riservato allo staff di YUKO.")).toBeVisible();
+
+  const unknown = await page.goto("/gestione/chiave-inventata");
+  expect(unknown?.status()).toBe(404);
 });
 
 test("a manager saves operational settings, knowledge and a staff invitation", async ({ page }) => {

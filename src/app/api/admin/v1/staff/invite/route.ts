@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { roles } from "@/config/permissions";
+import { isRestaurantLead, roles } from "@/config/permissions";
 import { assertSameOrigin, failure, success, validationFailure } from "@/lib/api/response";
 import { requirePermission } from "@/lib/auth/dal";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const session = await requirePermission("staff:write");
     const parsed = inviteSchema.safeParse(await request.json());
     if (!parsed.success) return validationFailure(parsed.error.flatten());
-    if (parsed.data.role === "administrator" && !session.centralAccess) throw new PermissionDeniedError();
+    if (parsed.data.role === "administrator" && !isRestaurantLead(session.role)) throw new PermissionDeniedError();
     const location = getAdminLocationFromRequest(request, session);
     if (session.demo || !isSupabaseConfigured()) return success({ status: "sandbox" }, { status: 202 });
 

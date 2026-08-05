@@ -22,15 +22,13 @@ function getSoundPreference(key: string) {
   return window.localStorage.getItem(key) !== "off";
 }
 
-export function OperationalNotifications({ location, locations }: { location: RestaurantLocation; locations?: readonly RestaurantLocation[] }) {
+export function OperationalNotifications({ location }: { location: RestaurantLocation }) {
   const router = useRouter();
   const [items, setItems] = useState<PublicReservation[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
-  const monitorAllLocations = Boolean(locations && locations.length > 1);
-  const monitoredLocations = locations?.length ? locations : [location];
-  const notificationScope = monitorAllLocations ? "ceo" : location.id;
-  const soundPreferenceKey = getSoundPreferenceKey(notificationScope);
+
+  const soundPreferenceKey = getSoundPreferenceKey(location.id);
   const [soundEnabled, setSoundEnabled] = useState(() => getSoundPreference(soundPreferenceKey));
   const [audioReady, setAudioReady] = useState(false);
   const [toast, setToast] = useState<PublicReservation | null>(null);
@@ -83,7 +81,7 @@ export function OperationalNotifications({ location, locations }: { location: Re
 
   const loadReservations = useCallback(async (notify: boolean) => {
     try {
-      const response = await fetch(`/api/admin/v1/reservations${monitorAllLocations ? "?scope=all" : ""}`, { cache: "no-store" });
+      const response = await fetch("/api/admin/v1/reservations", { cache: "no-store" });
       if (!response.ok) {
         setFeedState("offline");
         return;
@@ -109,10 +107,10 @@ export function OperationalNotifications({ location, locations }: { location: Re
     } catch {
       setFeedState("offline");
     }
-  }, [monitorAllLocations, playChime]);
+  }, [playChime]);
 
   const realtimeRefresh = useCallback(() => { void loadReservations(true); }, [loadReservations]);
-  useReservationRealtime(realtimeRefresh, monitorAllLocations ? {} : { locationId: location.id });
+  useReservationRealtime(realtimeRefresh, { locationId: location.id });
 
   useEffect(() => {
     seenIds.current = null;
@@ -122,7 +120,7 @@ export function OperationalNotifications({ location, locations }: { location: Re
       window.clearTimeout(initialLoad);
       window.clearInterval(interval);
     };
-  }, [loadReservations, location.id, monitorAllLocations]);
+  }, [loadReservations, location.id]);
 
   useEffect(() => {
     const refreshOnFocus = () => {
@@ -184,27 +182,22 @@ export function OperationalNotifications({ location, locations }: { location: Re
     void playChime(true);
   }
 
-  async function openReservation(reservation: PublicReservation) {
-    const reservationLocation = monitoredLocations.find((item) => item.id === reservation.locationId);
+  function openReservation(reservation: PublicReservation) {
     setOpen(false);
-    if (monitorAllLocations && reservationLocation && reservationLocation.id !== location.id) {
-      const response = await fetch("/api/admin/v1/location", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ slug: reservationLocation.slug }),
-      });
-      if (!response.ok) return;
-    }
-    router.push(`/admin/reservations?date=${reservation.reservationDate}&reservation=${reservation.id}`);
+    // L'agenda vive nel ramo della sede: senza il prefisso si uscirebbe dal
+    // pannello del ristorante a ogni notifica aperta.
+    router.push(`/admin/${location.slug}/reservations?date=${reservation.reservationDate}&reservation=${reservation.id}`);
     router.refresh();
   }
-
-  const toastLocation = toast ? monitoredLocations.find((item) => item.id === toast.locationId) : undefined;
 
   return <>
     <Popover open={open} onOpenChange={(next) => { setOpen(next); if (next) { setUnread(0); void loadReservations(false); } }}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="notification-bell-trigger relative size-11 touch-manipulation lg:size-9" data-sound-status={!soundEnabled ? "muted" : audioReady ? "armed" : "pending"} aria-label="Apri notifiche operative">
+        {/* `size-11` perdeva contro il `size-8` della variante "icon": sono la
+            stessa utility, e a decidere è l'ordine nel foglio di stile, non
+            l'ordine scritto qui. `min-h`/`min-w` sono proprietà diverse e
+            vincono comunque, così il bersaglio resta da 44px sotto il dito. */}
+        <Button variant="ghost" size="icon" className="notification-bell-trigger relative min-h-11 min-w-11 touch-manipulation lg:min-h-9 lg:min-w-9" data-sound-status={!soundEnabled ? "muted" : audioReady ? "armed" : "pending"} aria-label="Apri notifiche operative">
           {unread > 0 ? <BellRing /> : <Bell />}
           {unread > 0 && <span className="absolute right-0.5 top-0.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 font-mono text-[9px] font-semibold text-primary-foreground">{Math.min(unread, 9)}{unread > 9 ? "+" : ""}</span>}
         </Button>
@@ -212,7 +205,7 @@ export function OperationalNotifications({ location, locations }: { location: Re
       <PopoverContent align="end" sideOffset={10} className="dark w-[min(420px,calc(100vw-1.25rem))] overflow-hidden border-white/10 bg-card p-0 text-foreground shadow-2xl">
         <div className="border-b border-white/8 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-4">
-            <div><p className="font-heading text-lg">Notifiche operative</p><p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><MapPin className="size-3" />{monitorAllLocations ? "YUKO + KouSushi" : location.shortName}</p></div>
+            <div><p className="font-heading text-lg">Notifiche operative</p><p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><MapPin className="size-3" />{location.shortName}</p></div>
             <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium", feedState === "offline" ? "border-destructive/25 bg-destructive/10 text-destructive" : "border-emerald-400/20 bg-emerald-400/8 text-emerald-200")}><span className={cn("size-1.5 rounded-full", feedState === "offline" ? "bg-destructive" : "bg-emerald-400", feedState === "syncing" && "animate-pulse")} />{feedState === "offline" ? "Riprovo" : feedState === "syncing" ? "Aggiorno" : "In ascolto"}</span>
           </div>
           <div className={cn("mt-4 rounded-xl border p-3.5", soundEnabled ? "border-primary/20 bg-primary/[0.055]" : "border-white/8 bg-white/[0.025]")}>
@@ -232,10 +225,10 @@ export function OperationalNotifications({ location, locations }: { location: Re
         </div>
         <div className="max-h-[420px] divide-y divide-white/8 overflow-y-auto">
           {items.map((reservation) => {
-            const reservationLocation = monitoredLocations.find((item) => item.id === reservation.locationId);
-            return <button key={reservation.id} type="button" onClick={() => void openReservation(reservation)} className="grid min-h-[72px] w-full grid-cols-[38px_minmax(0,1fr)_auto] gap-3 p-4 text-left transition-colors hover:bg-white/[0.035]">
+
+            return <button key={reservation.id} type="button" onClick={() => openReservation(reservation)} className="grid min-h-[72px] w-full grid-cols-[38px_minmax(0,1fr)_auto] gap-3 p-4 text-left transition-colors hover:bg-white/[0.035]">
               <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><CalendarCheck2 className="size-4" /></span>
-              <span className="min-w-0"><span className="block truncate text-sm font-medium">{reservation.customer.firstName} {reservation.customer.lastName}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{reservation.partySize} ospiti - {reservation.reservationCode}{monitorAllLocations && reservationLocation ? ` - ${reservationLocation.shortName}` : ""}</span></span>
+              <span className="min-w-0"><span className="block truncate text-sm font-medium">{reservation.customer.firstName} {reservation.customer.lastName}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{reservation.partySize} ospiti - {reservation.reservationCode}</span></span>
               <time className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground"><Clock3 className="size-3" />{formatCreatedAt(reservation.createdAt)}</time>
             </button>;
           })}
@@ -249,7 +242,7 @@ export function OperationalNotifications({ location, locations }: { location: Re
       <div className="service-route h-0.5" />
       <div className="flex items-start gap-3 p-4">
         <span className="signal-pulse flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground"><BellRing className="size-4" /></span>
-        <div className="min-w-0 flex-1"><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">Nuova prenotazione - {toastLocation?.shortName ?? location.shortName}</p><p className="mt-1 font-medium">{toast.customer.firstName} {toast.customer.lastName}</p><p className="mt-1 text-xs text-muted-foreground">{toast.partySize} ospiti - {toast.reservationCode}</p><button type="button" onClick={() => void openReservation(toast)} className="mt-3 text-xs font-semibold text-primary underline-offset-4 hover:underline">Apri prenotazione</button></div>
+        <div className="min-w-0 flex-1"><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">Nuova prenotazione - {location.shortName}</p><p className="mt-1 font-medium">{toast.customer.firstName} {toast.customer.lastName}</p><p className="mt-1 text-xs text-muted-foreground">{toast.partySize} ospiti - {toast.reservationCode}</p><button type="button" onClick={() => openReservation(toast)} className="mt-3 text-xs font-semibold text-primary underline-offset-4 hover:underline">Apri prenotazione</button></div>
         <button type="button" onClick={() => setToast(null)} className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Chiudi notifica"><X className="size-4" /></button>
       </div>
     </div>}

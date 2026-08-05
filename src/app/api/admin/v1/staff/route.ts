@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { roles } from "@/config/permissions";
+import { isRestaurantLead, roles } from "@/config/permissions";
 import { DomainError } from "@/domains/bookings/errors";
 import { assertSameOrigin, failure, success, validationFailure } from "@/lib/api/response";
 import { getAdminLocationFromRequest } from "@/lib/admin/location";
@@ -21,7 +21,7 @@ export async function PATCH(request: Request) {
     if (!parsed.success) return validationFailure(parsed.error.flatten());
     if (parsed.data.staffId === session.id && parsed.data.status !== "active") throw new DomainError("SELF_SUSPENSION", "Non puoi sospendere il tuo account mentre lo stai usando.", 409);
     if (parsed.data.staffId === session.id && parsed.data.role !== session.role) throw new DomainError("SELF_ROLE_CHANGE", "Non puoi modificare il tuo ruolo mentre lo stai usando.", 409);
-    if (parsed.data.role === "administrator" && !session.centralAccess) throw new DomainError("CENTRAL_ROLE_REQUIRED", "Solo la regia centrale può assegnare un amministratore.", 403);
+    if (parsed.data.role === "administrator" && !isRestaurantLead(session.role)) throw new DomainError("LEAD_ROLE_REQUIRED", "Solo il proprietario o un amministratore del ristorante può assegnare questo ruolo.", 403);
     const location = getAdminLocationFromRequest(request, session);
     if (session.demo || !isSupabaseConfigured()) return success({ ...parsed.data, status: "sandbox" });
 
@@ -30,7 +30,9 @@ export async function PATCH(request: Request) {
     if (currentError) throw currentError;
     const assignments = current.staff_user_roles as unknown as Array<{ location_id: string | null; role: { name: string } | null }>;
     if (assignments.some((assignment) => assignment.role?.name === "owner")) throw new DomainError("OWNER_PROTECTED", "Il ruolo proprietario non può essere modificato da questa schermata.", 409);
-    if (!session.centralAccess && !assignments.some((assignment) => assignment.location_id === location.id)) throw new DomainError("STAFF_LOCATION_FORBIDDEN", "Questo account non appartiene alla sede selezionata.", 403);
+    // Nessuna eccezione per un profilo centrale: quel profilo non esiste più,
+    // e un account di un'altra sede non si tocca da qui.
+    if (!assignments.some((assignment) => assignment.location_id === location.id)) throw new DomainError("STAFF_LOCATION_FORBIDDEN", "Questo account non appartiene alla sede selezionata.", 403);
 
     const { data: role, error: roleError } = await db.from("roles").select("id").eq("name", parsed.data.role).single();
     if (roleError) throw roleError;

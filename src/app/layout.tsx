@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(await getRequestOrigin()),
     title: { default: `${brandConfig.platformName} · ${brandConfig.companyName}`, template: `%s · ${brandConfig.platformName}` },
-    description: "Prenotazioni e operatività di due ristoranti indipendenti, gestiti da un'unica regia.",
+    description: "Prenotazioni online dei ristoranti YUKO e KouSushi, ognuno con la propria sala e il proprio servizio.",
   };
 }
 

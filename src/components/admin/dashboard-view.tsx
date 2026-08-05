@@ -36,11 +36,14 @@ export function DashboardView({ reservations, waitlist, calls, location, setting
   const callConversion = calls.length > 0 ? Math.round((calls.filter((call) => call.reservationId).length / calls.length) * 100) : 0;
   const upcoming = [...reservations].filter((item) => ["confirmed", "modified", "arriving", "late", "arrived"].includes(item.status)).sort((a, b) => a.startAt.localeCompare(b.startAt)).slice(0, 6);
   const serviceMode = modeCopy[settings.operations.serviceMode];
+  // Ogni collegamento resta nel ramo di questa sede: senza il prefisso si
+  // uscirebbe dal pannello del ristorante al primo clic.
+  const panel = (section: string) => `/admin/${location.slug}${section}`;
   const metrics = [
-    { label: "Prenotazioni", value: activeReservations.length, note: `${arriving} prossimi arrivi`, icon: CalendarCheck2, href: "/admin/reservations" },
-    { label: "Coperti previsti", value: covers, note: "carico del servizio", icon: UsersRound, href: "/admin/analytics" },
-    { label: "Da approvare", value: pendingApprovals, note: pendingApprovals ? "richiedono una risposta" : "nessuna richiesta aperta", icon: CheckCircle2, href: "/admin/reservations" },
-    { label: "Lista d'attesa", value: waiting, note: `${offered} proposte inviate`, icon: Clock3, href: "/admin/waitlist" },
+    { label: "Prenotazioni", value: activeReservations.length, note: `${arriving} prossimi arrivi`, icon: CalendarCheck2, href: panel("/reservations") },
+    { label: "Coperti previsti", value: covers, note: "carico del servizio", icon: UsersRound, href: panel("/analytics") },
+    { label: "Da approvare", value: pendingApprovals, note: pendingApprovals ? "richiedono una risposta" : "nessuna richiesta aperta", icon: CheckCircle2, href: panel("/reservations") },
+    { label: "Lista d'attesa", value: waiting, note: `${offered} proposte inviate`, icon: Clock3, href: panel("/waitlist") },
   ];
   const serviceFlow = [
     { label: "Richieste", value: pendingApprovals, icon: CalendarCheck2 },
@@ -48,12 +51,11 @@ export function DashboardView({ reservations, waitlist, calls, location, setting
     { label: "In arrivo", value: reservations.filter((item) => ["arriving", "late"].includes(item.status)).length, icon: Clock3 },
     { label: "In servizio", value: reservations.filter((item) => item.status === "seated").length, icon: UsersRound },
   ];
-  const chart = [
-    { time: "19:00", covers: Math.min(8, capacityLimit), capacity: capacityLimit }, { time: "19:30", covers: Math.min(20, capacityLimit), capacity: capacityLimit },
-    { time: "20:00", covers: Math.min(34, capacityLimit), capacity: capacityLimit }, { time: "20:30", covers: Math.min(48, capacityLimit), capacity: capacityLimit },
-    { time: "21:00", covers: Math.min(Math.round(capacityLimit * 0.9), covers), capacity: capacityLimit }, { time: "21:30", covers: Math.min(capacityLimit, covers), capacity: capacityLimit },
-    { time: "22:00", covers: Math.min(38, covers, capacityLimit), capacity: capacityLimit }, { time: "22:30", covers: Math.min(18, covers, capacityLimit), capacity: capacityLimit },
-  ];
+  // I coperti per mezz'ora vengono dalle prenotazioni vere. Prima erano otto
+  // valori scritti a mano (8, 20, 34, 48…): un grafico che sembrava il ritmo
+  // del locale e non lo era, uguale in una serata piena e in una vuota.
+  const chart = buildServiceRhythm(activeReservations, capacityLimit, location.timezone);
+  const peak = chart.reduce<{ time: string; covers: number } | null>((best, point) => best && best.covers >= point.covers ? best : point, null);
 
   return <>
     <section className="surface-3d-dark relative mb-6 overflow-hidden rounded-2xl border border-white/8 bg-card" aria-labelledby="booking-flow-title">
@@ -66,10 +68,45 @@ export function DashboardView({ reservations, waitlist, calls, location, setting
     <div className="surface-3d-dark grid gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 xl:grid-cols-4">{metrics.map((metric) => <Link key={metric.label} href={metric.href} className="group bg-card p-5 transition-[background-color,transform] hover:bg-muted/50"><div className="flex items-start justify-between"><metric.icon className="size-4 text-primary" /><ArrowUpRight className="size-4 text-muted-foreground opacity-0 transition-[opacity,transform] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100" /></div><p className="mt-5 text-3xl font-semibold tracking-tight">{metric.value}</p><p className="mt-1 text-sm font-medium">{metric.label}</p><p className="mt-1 text-xs text-muted-foreground">{metric.note}</p></Link>)}</div>
 
     <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)]">
-      <Card className="surface-3d-dark overflow-hidden"><CardHeader className="flex-row items-center justify-between border-b"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Service pulse</p><CardTitle className="mt-2 font-heading text-2xl">Prossimi arrivi</CardTitle></div><Button asChild variant="outline" size="sm"><Link href="/admin/reservations">Apri agenda</Link></Button></CardHeader><CardContent className="p-0"><div className="divide-y">{upcoming.map((reservation) => <Link href={`/admin/reservations?reservation=${reservation.id}`} key={reservation.id} className="grid grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 transition-colors hover:bg-white/[0.025]"><p className="font-mono text-sm font-semibold">{formatTimeInZone(reservation.startAt)}</p><div className="min-w-0"><div className="flex items-center gap-2"><p className="truncate font-medium">{reservation.customer.firstName} {reservation.customer.lastName}</p>{reservation.customer.customerType === "vip" && <Sparkles className="size-3.5 text-primary" />}</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">{reservation.partySize} ospiti</span><ReservationSourceBadge source={reservation.source} /></div></div><Badge variant={reservation.status === "late" ? "destructive" : "secondary"}>{statusCopy[reservation.status] ?? reservation.status}</Badge></Link>)}{upcoming.length === 0 && <div className="px-5 py-12 text-center text-sm text-muted-foreground">Nessun arrivo in attesa.</div>}</div></CardContent></Card>
-      <div className="space-y-6"><Card className="surface-3d-dark"><CardHeader><CardTitle className="font-heading text-xl">Attenzioni operative</CardTitle></CardHeader><CardContent className="space-y-3">{capacityWarning && <AlertRow icon={<AlertTriangle />} title={`Carico al ${occupancyPercent}%`} note={`${covers} coperti previsti nel servizio`} tone="warning" />}{settings.notifications.staffAllergyAlertsEnabled && allergies.slice(0, 1).map((reservation) => <AlertRow key={reservation.id} icon={<AlertTriangle />} title={`${allergies.length} ${allergies.length === 1 ? "allergia segnalata" : "allergie segnalate"}`} note={`${reservation.customer.firstName} ${reservation.customer.lastName} · ${formatTimeInZone(reservation.startAt)}`} tone="warning" />)}{settings.notifications.staffLargePartyAlertsEnabled && largeParties.length > 0 && <AlertRow icon={<UsersRound />} title={`${largeParties.length} ${largeParties.length === 1 ? "gruppo importante" : "gruppi importanti"}`} note={`Da ${settings.operations.largePartyAlertSize} coperti in su`} />}{settings.notifications.staffWaitlistAlertsEnabled && waiting >= settings.operations.waitlistAlertCount && <AlertRow icon={<Clock3 />} title={`${waiting} richieste in lista d'attesa`} note={`Soglia operativa impostata a ${settings.operations.waitlistAlertCount}`} tone="warning" />}{callbacks.length > 0 && <AlertRow icon={<PhoneCall />} title={`${callbacks.length} ${callbacks.length === 1 ? "richiamata richiesta" : "richiamate richieste"}`} note={callbacks[0].summary || callbacks[0].outcome} />}{voiceBookings > 0 && <AlertRow icon={<AudioWaveform />} title={`${voiceBookings} prenotazioni da Voce AI`} note={`${calls.length} chiamate · ${callConversion}% conversione`} />}{!capacityWarning && (!settings.notifications.staffAllergyAlertsEnabled || allergies.length === 0) && (!settings.notifications.staffLargePartyAlertsEnabled || largeParties.length === 0) && (!settings.notifications.staffWaitlistAlertsEnabled || waiting < settings.operations.waitlistAlertCount) && callbacks.length === 0 && voiceBookings === 0 && <AlertRow icon={<CheckCircle2 />} title="Nessuna criticità aperta" note="Il servizio può procedere regolarmente" tone="success" />}</CardContent></Card><Card className="surface-3d-dark"><CardHeader><CardTitle className="font-heading text-xl">Ritmo del servizio</CardTitle></CardHeader><CardContent><CoversChart data={chart} /><div className="mt-2 flex justify-between text-xs text-muted-foreground"><span>Coperti previsti</span><span className="font-mono">Picco 21:00 · {Math.round((Math.min(capacityLimit, Math.max(covers, 1)) / capacityLimit) * 100)}%</span></div></CardContent></Card></div>
+      <Card className="surface-3d-dark overflow-hidden"><CardHeader className="flex-row items-center justify-between border-b"><div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Service pulse</p><CardTitle className="mt-2 font-heading text-2xl">Prossimi arrivi</CardTitle></div><Button asChild variant="outline" size="sm"><Link href={panel("/reservations")}>Apri agenda</Link></Button></CardHeader><CardContent className="p-0"><div className="divide-y">{upcoming.map((reservation) => <Link href={`${panel("/reservations")}?reservation=${reservation.id}`} key={reservation.id} className="grid grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 transition-colors hover:bg-white/[0.025]"><p className="font-mono text-sm font-semibold">{formatTimeInZone(reservation.startAt)}</p><div className="min-w-0"><div className="flex items-center gap-2"><p className="truncate font-medium">{reservation.customer.firstName} {reservation.customer.lastName}</p>{reservation.customer.customerType === "vip" && <Sparkles className="size-3.5 text-primary" />}</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">{reservation.partySize} ospiti</span><ReservationSourceBadge source={reservation.source} /></div></div><Badge variant={reservation.status === "late" ? "destructive" : "secondary"}>{statusCopy[reservation.status] ?? reservation.status}</Badge></Link>)}{upcoming.length === 0 && <div className="px-5 py-12 text-center text-sm text-muted-foreground">Nessun arrivo in attesa.</div>}</div></CardContent></Card>
+      <div className="space-y-6"><Card className="surface-3d-dark"><CardHeader><CardTitle className="font-heading text-xl">Attenzioni operative</CardTitle></CardHeader><CardContent className="space-y-3">{capacityWarning && <AlertRow icon={<AlertTriangle />} title={`Carico al ${occupancyPercent}%`} note={`${covers} coperti previsti nel servizio`} tone="warning" />}{settings.notifications.staffAllergyAlertsEnabled && allergies.slice(0, 1).map((reservation) => <AlertRow key={reservation.id} icon={<AlertTriangle />} title={`${allergies.length} ${allergies.length === 1 ? "allergia segnalata" : "allergie segnalate"}`} note={`${reservation.customer.firstName} ${reservation.customer.lastName} · ${formatTimeInZone(reservation.startAt)}`} tone="warning" />)}{settings.notifications.staffLargePartyAlertsEnabled && largeParties.length > 0 && <AlertRow icon={<UsersRound />} title={`${largeParties.length} ${largeParties.length === 1 ? "gruppo importante" : "gruppi importanti"}`} note={`Da ${settings.operations.largePartyAlertSize} coperti in su`} />}{settings.notifications.staffWaitlistAlertsEnabled && waiting >= settings.operations.waitlistAlertCount && <AlertRow icon={<Clock3 />} title={`${waiting} richieste in lista d'attesa`} note={`Soglia operativa impostata a ${settings.operations.waitlistAlertCount}`} tone="warning" />}{callbacks.length > 0 && <AlertRow icon={<PhoneCall />} title={`${callbacks.length} ${callbacks.length === 1 ? "richiamata richiesta" : "richiamate richieste"}`} note={callbacks[0].summary || callbacks[0].outcome} />}{voiceBookings > 0 && <AlertRow icon={<AudioWaveform />} title={`${voiceBookings} prenotazioni da Voce AI`} note={`${calls.length} chiamate · ${callConversion}% conversione`} />}{!capacityWarning && (!settings.notifications.staffAllergyAlertsEnabled || allergies.length === 0) && (!settings.notifications.staffLargePartyAlertsEnabled || largeParties.length === 0) && (!settings.notifications.staffWaitlistAlertsEnabled || waiting < settings.operations.waitlistAlertCount) && callbacks.length === 0 && voiceBookings === 0 && <AlertRow icon={<CheckCircle2 />} title="Nessuna criticità aperta" note="Il servizio può procedere regolarmente" tone="success" />}</CardContent></Card><Card className="surface-3d-dark"><CardHeader><CardTitle className="font-heading text-xl">Ritmo del servizio</CardTitle></CardHeader><CardContent>{peak ? <><CoversChart data={chart} /><div className="mt-2 flex justify-between gap-3 text-xs text-muted-foreground"><span>Coperti in sala</span><span className="font-mono">Picco {peak.time} · {peak.covers} su {capacityLimit}</span></div></> : <p className="py-8 text-center text-sm text-muted-foreground">Nessuna prenotazione in programma: il grafico compare appena arriva la prima.</p>}</CardContent></Card></div>
     </div>
   </>;
+}
+
+/**
+ * Coperti presenti in sala, mezz'ora per mezz'ora.
+ *
+ * Una prenotazione pesa su tutte le mezz'ore che occupa, non solo su quella
+ * d'inizio: un tavolo da sei alle 20:00 che resta due ore è in sala anche alle
+ * 21:30. Contarlo una volta sola avrebbe fatto sembrare vuoto un servizio
+ * pieno.
+ */
+function buildServiceRhythm(reservations: PublicReservation[], capacity: number, timeZone: string) {
+  const perSlot = new Map<number, number>();
+  for (const reservation of reservations) {
+    const start = new Date(reservation.startAt).getTime();
+    const end = new Date(reservation.endAt).getTime();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    const firstSlot = Math.floor(start / 1_800_000);
+    const lastSlot = Math.ceil(end / 1_800_000) - 1;
+    for (let slot = firstSlot; slot <= lastSlot; slot += 1) {
+      perSlot.set(slot, (perSlot.get(slot) ?? 0) + reservation.partySize);
+    }
+  }
+  if (perSlot.size === 0) return [];
+  const slots = [...perSlot.keys()].sort((left, right) => left - right);
+  // Nessun buco in mezzo: una mezz'ora senza nessuno è un'informazione, non
+  // una riga da saltare.
+  const points = [];
+  for (let slot = slots[0]; slot <= slots[slots.length - 1]; slot += 1) {
+    points.push({
+      time: formatTimeInZone(new Date(slot * 1_800_000), timeZone),
+      covers: perSlot.get(slot) ?? 0,
+      capacity,
+    });
+  }
+  return points;
 }
 
 function AlertRow({ icon, title, note, tone }: { icon: React.ReactNode; title: string; note: string; tone?: "warning" | "success" }) { return <div className="flex items-start gap-3 rounded-xl border p-3"><span className={tone === "warning" ? "text-amber-300 [&_svg]:size-4" : tone === "success" ? "text-emerald-300 [&_svg]:size-4" : "text-muted-foreground [&_svg]:size-4"}>{icon}</span><div><p className="text-sm font-medium">{title}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{note}</p></div></div>; }

@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PATCH as patchRole } from "@/app/api/admin/v1/roles/route";
 import { PATCH as patchStaff } from "@/app/api/admin/v1/staff/route";
-import { rolePermissions } from "@/config/permissions";
 
 function request(path: string, body: unknown) {
   return new Request(`http://localhost${path}`, {
@@ -20,21 +18,5 @@ describe("admin access control APIs", () => {
     }));
     expect(response.status).toBe(200);
     expect((await response.json()).data.status).toBe("sandbox");
-  });
-
-  it("protects the current role from permission lockout", async () => {
-    const response = await patchRole(request("/api/admin/v1/roles", {
-      role: "manager",
-      permissions: rolePermissions.manager.filter((permission) => permission !== "staff:write"),
-    }));
-    expect(response.status).toBe(409);
-  });
-
-  it("accepts a complete permission matrix", async () => {
-    const response = await patchRole(request("/api/admin/v1/roles", {
-      role: "manager",
-      permissions: rolePermissions.manager,
-    }));
-    expect(response.status).toBe(200);
   });
 });

@@ -3,7 +3,6 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { normalizeStoredPermissions, rolePermissions, type Permission, type Role } from "@/config/permissions";
-import { restaurantLocations } from "@/config/brand";
 import { PermissionDeniedError } from "@/domains/bookings/errors";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { StaffSession } from "@/types/domain";
@@ -17,8 +16,7 @@ const demoSession: StaffSession = {
   permissions: [...rolePermissions.manager],
   organizationId: "00000000-0000-0000-0000-000000000001",
   locationId: "00000000-0000-0000-0000-000000000003",
-  accessibleLocationIds: restaurantLocations.map((location) => location.id),
-  centralAccess: true,
+  accessibleLocationIds: ["00000000-0000-0000-0000-000000000003"],
   demo: true,
 };
 
@@ -55,10 +53,13 @@ export const getCurrentStaffSession = cache(async (): Promise<StaffSession | nul
   const primaryAssignment = assignments[0];
   if (!primaryAssignment) return null;
   const role = primaryAssignment.role.name;
-  const centralAccess = assignments.some((assignment) => assignment.location_id === null || ["owner", "administrator"].includes(assignment.role.name));
-  const accessibleLocationIds = centralAccess
-    ? restaurantLocations.map((location) => location.id)
-    : [...new Set(assignments.map((assignment) => assignment.location_id).filter((id): id is string => Boolean(id)))];
+  // Un incarico senza sede valeva "tutte le sedi": era il super amministratore.
+  // Ora non esiste più, quindi un incarico del genere vale la sede predefinita
+  // dell'account e nient'altro — nessuno guarda i due ristoranti insieme.
+  const assignedLocationIds = [...new Set(assignments.map((assignment) => assignment.location_id).filter((id): id is string => Boolean(id)))];
+  const accessibleLocationIds = assignedLocationIds.length > 0
+    ? assignedLocationIds
+    : [data.default_location_id].filter((id): id is string => Boolean(id));
   if (accessibleLocationIds.length === 0) return null;
   const locationId = accessibleLocationIds.includes(data.default_location_id)
     ? data.default_location_id
@@ -72,7 +73,6 @@ export const getCurrentStaffSession = cache(async (): Promise<StaffSession | nul
     organizationId: data.organization_id,
     locationId,
     accessibleLocationIds,
-    centralAccess,
     demo: false,
   };
 });

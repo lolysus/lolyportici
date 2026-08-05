@@ -12,8 +12,10 @@ import {
 } from "lucide-react";
 import { PageHeading } from "@/components/admin/page-heading";
 import { BookingLinksPanel } from "@/components/admin/booking-links-panel";
+import { StaffAccessLinksPanel } from "@/components/admin/staff-access-links-panel";
 import { Badge } from "@/components/ui/badge";
-import { restaurantLocations } from "@/config/brand";
+import { adminAccessPath } from "@/config/admin-access";
+import { getActiveAdminLocation } from "@/lib/admin/location";
 import { requirePermission } from "@/lib/auth/dal";
 import { getPublicAppUrl } from "@/lib/public-url";
 import { isSupabaseConfigured } from "@/lib/supabase/admin";
@@ -57,7 +59,8 @@ const integrations = [
 ] as const;
 
 export default async function IntegrationsPage() {
-  await requirePermission("settings:write");
+  const session = await requirePermission("settings:write");
+  const location = await getActiveAdminLocation(session);
   const states = integrations.map((item) => ({ ...item, configured: item.env.every((key) => Boolean(process.env[key])) }));
   const activeCount = states.filter((item) => item.configured).length;
   const persistenceReady = isSupabaseConfigured() && process.env.NEXT_PUBLIC_DEMO_MODE !== "true";
@@ -73,7 +76,8 @@ export default async function IntegrationsPage() {
         description="Il booking base richiede solo persistenza e autenticazione. AI, SMS, WhatsApp, email e calendario restano canali opzionali."
         actions={<Badge variant={productionReady ? "default" : "outline"}>{productionReady ? <><CheckCircle2 /> Core pronto</> : <><TriangleAlert /> Database richiesto</>}</Badge>}
       />
-      <BookingLinksPanel locations={restaurantLocations} configuredBaseUrl={getPublicAppUrl()} />
+      <BookingLinksPanel locations={[location]} configuredBaseUrl={getPublicAppUrl()} />
+      <StaffAccessLinksPanel configuredBaseUrl={getPublicAppUrl()} links={[{ slug: location.slug, label: location.shortName, city: location.city, path: adminAccessPath(location) }]} />
       <div className="mb-6 grid gap-px overflow-hidden rounded-xl border bg-border md:grid-cols-3">
         <ReadinessCard icon={Database} label="Persistenza" value={persistenceReady ? "Supabase attivo" : "Sandbox effimera"} ready={persistenceReady} />
         <ReadinessCard icon={ServerCog} label="Canali opzionali" value={`${activeCount} su ${states.length}`} ready={activeCount > 0} />

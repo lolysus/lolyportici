@@ -6,7 +6,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/admin/", "/api/", "/auth/", "/login", "/it/booking/manage/", "/en/booking/manage/", "/es/booking/manage/"],
+      disallow: ["/admin/", "/api/", "/auth/", "/login", "/gestione/", "/it/booking/manage/", "/en/booking/manage/", "/es/booking/manage/"],
     },
     // La sitemap dichiarata qui deve essere quella dello stesso dominio: un
     // crawler su kousushiportici.it che trova un rimando alla sitemap di

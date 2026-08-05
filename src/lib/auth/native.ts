@@ -16,7 +16,6 @@ interface NativeUser {
   organizationId: string;
   locationId: string;
   accessibleLocationIds: string[];
-  centralAccess: boolean;
   passwordSalt: string;
   passwordHash: string;
 }
@@ -74,7 +73,6 @@ function sessionFor(user: NativeUser): StaffSession {
     organizationId: user.organizationId,
     locationId: user.locationId,
     accessibleLocationIds: [...user.accessibleLocationIds],
-    centralAccess: user.centralAccess,
     demo: false,
   };
 }

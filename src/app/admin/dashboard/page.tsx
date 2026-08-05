@@ -21,7 +21,12 @@ export default async function DashboardPage() {
     repository.listCalls(),
     getRestaurantSettings(location.id),
   ]);
-  const today = new Intl.DateTimeFormat("it", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  const today = new Intl.DateTimeFormat("it", { weekday: "long", day: "numeric", month: "long", timeZone: location.timezone }).format(new Date());
+  // Saluto e servizio venivano scritti a mano come "Buonasera" e "Servizio
+  // cena": a mezzogiorno il pannello dava del buonasera a chi apriva il pranzo.
+  const hour = Number(new Intl.DateTimeFormat("it", { hour: "2-digit", hour12: false, timeZone: location.timezone }).format(new Date()));
+  const greeting = hour < 12 ? "Buongiorno" : hour < 17 ? "Buon pomeriggio" : "Buonasera";
+  const serviceLabel = hour < 17 ? "Servizio pranzo" : "Servizio cena";
   const modeDescription = settings.operations.serviceMode === "live"
     ? "Tutti i canali attivi sono sincronizzati."
     : settings.operations.serviceMode === "approval"
@@ -31,9 +36,9 @@ export default async function DashboardPage() {
   return <>
     <PageHeading
       eyebrow={location.shortName}
-      title={`Buonasera, ${today}`}
+      title={`${greeting}, ${today}`}
       description={`Il servizio di ${location.city} è in preparazione. ${modeDescription}`}
-      actions={<><Badge variant="outline" className="h-9 px-3">Servizio cena</Badge><Button asChild><Link href={`/it/book/${location.slug}`}><CalendarPlus />Nuova prenotazione</Link></Button></>}
+      actions={<><Badge variant="outline" className="h-9 px-3">{serviceLabel}</Badge><Button asChild><Link href={`/it/book/${location.slug}`}><CalendarPlus />Nuova prenotazione</Link></Button></>}
     />
     <DashboardView reservations={reservations} waitlist={waitlist} calls={calls} location={location} settings={settings} />
   </>;
