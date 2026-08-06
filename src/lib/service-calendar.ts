@@ -74,6 +74,35 @@ export function buildServiceTimeSlots(service: Pick<ServicePeriod, "startTime" |
   return slots;
 }
 
+/**
+ * Gli orari che verranno proposti a chi prenota, dentro una fascia di apertura.
+ *
+ * Non arriva fino alla chiusura: l'ultimo orario utile è la chiusura meno la
+ * permanenza più breve, altrimenti si accetterebbe un tavolo che non fa in
+ * tempo a mangiare. È la regola che sorprende chi configura gli orari e vede
+ * meno slot di quanti se ne aspettava.
+ *
+ * Restituisce un elenco vuoto quando la fascia è chiusa, malformata o troppo
+ * corta perché ci stia anche una sola permanenza.
+ */
+export function previewBookingSlots(window: { enabled: boolean; startTime: string; endTime: string }, intervalMinutes: number, shortestStayMinutes: number) {
+  if (!window.enabled) return [];
+  const start = parseTimeOfDay(window.startTime);
+  const end = parseTimeOfDay(window.endTime);
+  const interval = Number.isFinite(intervalMinutes) && intervalMinutes > 0 ? Math.floor(intervalMinutes) : 30;
+  const stay = Number.isFinite(shortestStayMinutes) && shortestStayMinutes > 0 ? Math.floor(shortestStayMinutes) : 0;
+  if (start === null || end === null || end <= start) return [];
+  const slots: string[] = [];
+  for (let cursor = start; cursor <= end - stay; cursor += interval) slots.push(minutesToTime(cursor));
+  return slots;
+}
+
+/** `null` invece di un numero sbagliato: un orario malformato non deve produrre slot. */
+export function parseTimeOfDay(value: string | undefined | null) {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)/.exec(value ?? "");
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
+
 export function serviceForDate(servicePeriods: ServicePeriod[], dateKey: string) {
   const day = dayOfWeekForDateKey(dateKey);
   return servicePeriods

@@ -11,11 +11,12 @@ import { normalizeEmail, normalizePhone } from "@/domains/customers/normalizatio
 import { dateKeyInZone, formatTimeInZone } from "@/lib/datetime";
 import { getInMemoryRestaurantSettings } from "@/domains/settings/settings-service";
 import { createDemoReservations, createDemoWaitlist, demoCalls, demoCombinations, demoCustomers, demoServices, demoTables } from "@/repositories/demo-data";
-import type { ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
-import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
+import type { ClosureInput, ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
+import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 interface MemoryState {
   reservations: Reservation[];
+  closures: Map<string, SpecialClosure[]>;
   holds: ReservationHold[];
   waitlist: WaitlistEntry[];
   customers: Customer[];
@@ -34,9 +35,21 @@ export function resetMemoryRepositoryForTests() {
   delete globalMemory.__sushiMemory;
 }
 
+/** Le chiusure della sede, create su richiesta la prima volta. */
+function closuresFor(locationId: string) {
+  const closures = state().closures;
+  let list = closures.get(locationId);
+  if (!list) {
+    list = [];
+    closures.set(locationId, list);
+  }
+  return list;
+}
+
 function state(): MemoryState {
   globalMemory.__sushiMemory ??= {
     reservations: createDemoReservations(),
+    closures: new Map(),
     holds: [],
     waitlist: createDemoWaitlist(),
     customers: [...demoCustomers],
@@ -113,7 +126,7 @@ function context(locationId: string) {
     servicePeriods,
     reservations: memory.reservations.filter((reservation) => reservation.locationId === locationId),
     holds: memory.holds.filter((hold) => hold.locationId === locationId),
-    closures: [],
+    closures: closuresFor(locationId),
     durationRules: settings.durations,
     bookingConstraints: {
       minimumPartySize: settings.rules.minimumPartySize,
@@ -204,6 +217,22 @@ export class MemoryReservationRepository implements ReservationRepository {
       diningAreaName: area.name,
     });
     return structuredClone(current);
+  }
+
+  async listClosures(): Promise<SpecialClosure[]> {
+    return [...closuresFor(this.locationId)].sort((left, right) => left.date.localeCompare(right.date));
+  }
+
+  async createClosure(input: ClosureInput): Promise<SpecialClosure> {
+    const closure: SpecialClosure = { id: randomUUID(), ...input };
+    closuresFor(this.locationId).push(closure);
+    return closure;
+  }
+
+  async deleteClosure(id: string): Promise<void> {
+    const closures = closuresFor(this.locationId);
+    const index = closures.findIndex((closure) => closure.id === id);
+    if (index >= 0) closures.splice(index, 1);
   }
 
   async deleteTable(id: string): Promise<void> {

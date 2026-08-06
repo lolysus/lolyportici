@@ -9,7 +9,7 @@ import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-mach
 import { formatTimeInZone } from "@/lib/datetime";
 import { getPostgres } from "@/lib/postgres";
 import { hashManagementToken, managementTokenForIdempotency } from "@/lib/security";
-import type { ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
+import type { ClosureInput, ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
 import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableCombination, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 type Row = Record<string, unknown>;
@@ -198,6 +198,38 @@ export class PostgresReservationRepository implements ReservationRepository {
       where id=${id} and location_id=${this.locationId}`;
     if (areaId) await sql`update public.restaurant_tables set dining_area_id=${areaId} where id=${id} and location_id=${this.locationId}`;
     return this.tableById(id);
+  }
+
+  async listClosures(): Promise<SpecialClosure[]> {
+    const sql = getPostgres();
+    // Solo da oggi in avanti: le chiusure passate sono storia, e un elenco che
+    // cresce all'infinito diventa illeggibile proprio quando serve.
+    const rows = await sql<Row[]>`
+      select * from public.special_openings_closures
+      where location_id=${this.locationId} and date >= current_date
+      order by date, start_time nulls first`;
+    return rows.map((row) => ({
+      id: text(row.id), date: text(row.date).slice(0, 10),
+      startTime: text(row.start_time).slice(0, 5) || undefined,
+      endTime: text(row.end_time).slice(0, 5) || undefined,
+      type: text(row.type) as SpecialClosure["type"], reason: text(row.reason),
+    }));
+  }
+
+  async createClosure(input: ClosureInput): Promise<SpecialClosure> {
+    const sql = getPostgres();
+    const rows = await sql<Row[]>`
+      insert into public.special_openings_closures (location_id,date,start_time,end_time,type,reason)
+      values (${this.locationId},${input.date},${input.startTime ?? null},${input.endTime ?? null},${input.type},${input.reason})
+      returning id`;
+    return { id: text(rows[0].id), ...input };
+  }
+
+  async deleteClosure(id: string): Promise<void> {
+    const sql = getPostgres();
+    // Il vincolo sulla sede sta nella query, non nel chiamante: senza, l'id di
+    // una chiusura dell'altro ristorante basterebbe a cancellarla.
+    await sql`delete from public.special_openings_closures where id=${id} and location_id=${this.locationId}`;
   }
 
   async deleteTable(id: string): Promise<void> {

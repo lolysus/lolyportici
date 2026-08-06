@@ -95,9 +95,13 @@ export const restaurantLocations = [
     city: "Ardea · RM",
     phone: "06 98871100",
     phoneHref: "tel:+390698871100",
-    // WhatsApp comunicato come +3933915436: 8 cifre dopo il prefisso, un
-    // cellulare italiano ne ha 10. Resta fuori finché non arriva completo.
-    whatsapp: "",
+    // Numero comunicato dal titolare due volte, sempre come +3933915436:
+    // 8 cifre dopo il prefisso, un cellulare italiano ne ha 10. Lo teniamo
+    // scritto qui — così compare nel campo del pannello, dove si vede cosa
+    // manca e si completa in dieci secondi — ma `whatsappHref` resta vuoto:
+    // un pulsante WhatsApp che porta a un numero inesistente è peggio di
+    // nessun pulsante, perché il cliente crede di aver scritto al ristorante.
+    whatsapp: "+39 339 15436",
     whatsappHref: "",
     email: "",
     seating: { indoor: 130, outdoor: 70 },

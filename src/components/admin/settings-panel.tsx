@@ -34,8 +34,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { RestaurantLocation } from "@/config/brand";
 import { buildPhoneHref, buildWhatsappHref } from "@/lib/contact";
+import { previewBookingSlots } from "@/lib/service-calendar";
 import { cn } from "@/lib/utils";
-import type { RestaurantSettings, ServiceMode, ServiceWindowSettings } from "@/types/settings";
+import type { DayScheduleSettings, RestaurantSettings, ServiceMode, ServiceWindowSettings } from "@/types/settings";
 
 const dayLabels = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
 
@@ -233,9 +234,10 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
             </div>
           </div>
 
-          <Field id="slot-interval" label="Frequenza degli arrivi" type="number" min={5} max={180} value={String(settings.service.slotIntervalMinutes)} setValue={(value) => updateSection("service", { slotIntervalMinutes: Number(value) })} suffix="min" />
-          <Field id="turnaround" label="Buffer di riassetto" type="number" min={0} max={120} value={String(settings.service.turnaroundMinutes)} setValue={(value) => updateSection("service", { turnaroundMinutes: Number(value) })} suffix="min" />
-          <Field id="max-arrivals" label="Arrivi massimi per frequenza" type="number" min={1} max={100} value={String(settings.service.maximumArrivalsPerSlot)} setValue={(value) => updateSection("service", { maximumArrivalsPerSlot: Number(value) })} />
+          {/* Frequenza e arrivi massimi sono passati nella scheda Orari,
+              accanto all'anteprima: sono due numeri che si capiscono solo
+              vedendo che orari producono. */}
+          <Field id="turnaround" label="Buffer di riassetto" type="number" min={0} max={120} value={String(settings.service.turnaroundMinutes)} setValue={(value) => updateSection("service", { turnaroundMinutes: Number(value) })} suffix="min" hint="Tempo di riassetto fra un tavolo e il successivo." />
           <div className="hidden sm:block" />
           <SwitchRow id="online-booking" label="Prenotazioni online" description="Mostra disponibilità e consente conferme dal sito quando la sede è operativa." checked={settings.service.onlineBookingEnabled} setChecked={(value) => updateSection("service", { onlineBookingEnabled: value })} />
           <SwitchRow id="phone-booking" label="Prenotazioni AI telefonica" description="Abilita disponibilità, hold e conferme attraverso l’assistente vocale." checked={settings.service.phoneBookingEnabled} setChecked={(value) => updateSection("service", { phoneBookingEnabled: value })} />
@@ -243,17 +245,28 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
       </TabsContent>
 
       <TabsContent value="schedule">
-        <Card className="surface-3d-dark overflow-hidden">
-          <CardHeader className="border-b">
-            <CardTitle className="font-heading text-2xl">Settimana di servizio</CardTitle>
-            <CardDescription>Attiva pranzo e cena giorno per giorno. Le modifiche alimentano subito calendario pubblico e disponibilità.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y">
-              {settings.schedule.map((day) => <ScheduleDayRow key={day.dayOfWeek} dayOfWeek={day.dayOfWeek} lunch={day.lunch} dinner={day.dinner} update={updateSchedule} />)}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card className="surface-3d-dark overflow-hidden">
+            <CardHeader className="border-b">
+              <CardTitle className="font-heading text-2xl">Orari di apertura</CardTitle>
+              <CardDescription>Quando il ristorante è aperto, giorno per giorno. È la base di tutto: fuori da queste fasce non si prenota, né dal sito né al telefono.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {settings.schedule.map((day) => <ScheduleDayRow key={day.dayOfWeek} dayOfWeek={day.dayOfWeek} lunch={day.lunch} dinner={day.dinner} update={updateSchedule} />)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <SlotPreviewCard
+            schedule={settings.schedule}
+            slotIntervalMinutes={settings.service.slotIntervalMinutes}
+            maximumArrivalsPerSlot={settings.service.maximumArrivalsPerSlot}
+            shortestStayMinutes={settings.durations.party1To2}
+            setInterval={(value) => updateSection("service", { slotIntervalMinutes: value })}
+            setMaximumArrivals={(value) => updateSection("service", { maximumArrivalsPerSlot: value })}
+          />
+        </div>
       </TabsContent>
 
       <TabsContent value="booking">
@@ -349,6 +362,62 @@ interface ScheduleDayRowProps {
   lunch: ServiceWindowSettings;
   dinner: ServiceWindowSettings;
   update: (dayOfWeek: number, period: "lunch" | "dinner", values: Partial<ServiceWindowSettings>) => void;
+}
+
+/**
+ * Gli orari che il cliente vedrà davvero, calcolati mentre li si configura.
+ *
+ * Prima l'intervallo si chiamava "frequenza degli arrivi" e viveva sotto
+ * Operatività: si cambiava un numero e si scopriva l'effetto solo aprendo il
+ * sito. Qui il conto è sotto gli occhi, e comprende la regola che sorprende
+ * tutti — l'ultimo orario non è la chiusura, ma la chiusura meno la durata
+ * più breve, altrimenti si accetterebbe un tavolo che non fa in tempo a
+ * mangiare.
+ */
+function SlotPreviewCard({ schedule, slotIntervalMinutes, maximumArrivalsPerSlot, shortestStayMinutes, setInterval, setMaximumArrivals }: {
+  schedule: DayScheduleSettings[];
+  slotIntervalMinutes: number;
+  maximumArrivalsPerSlot: number;
+  shortestStayMinutes: number;
+  setInterval: (value: number) => void;
+  setMaximumArrivals: (value: number) => void;
+}) {
+  const openDays = schedule.filter((day) => day.lunch.enabled || day.dinner.enabled);
+  const slotsFor = (window: ServiceWindowSettings) => previewBookingSlots(window, slotIntervalMinutes, shortestStayMinutes);
+
+  return <Card className="surface-3d-dark overflow-hidden">
+    <CardHeader className="border-b">
+      <CardTitle className="font-heading text-2xl">Orari proposti a chi prenota</CardTitle>
+      <CardDescription>Dentro le fasce di apertura, questi sono gli orari fra cui il cliente sceglie. Il sito ne toglie poi quelli già pieni e quelli troppo vicini per il preavviso.</CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-5 p-5 sm:p-6">
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field id="slot-interval" label="Un orario ogni" type="number" min={5} max={180} value={String(slotIntervalMinutes)} setValue={(value) => setInterval(Number(value))} suffix="min" hint="15 minuti dà molta scelta al cliente, 30 tiene la sala più ordinata." />
+        <Field id="max-arrivals" label="Arrivi massimi per orario" type="number" min={1} max={100} value={String(maximumArrivalsPerSlot)} setValue={(value) => setMaximumArrivals(Number(value))} suffix="tavoli" hint="Evita che dieci tavoli si presentino tutti insieme alla stessa ora." />
+      </div>
+
+      {openDays.length === 0
+        ? <p className="rounded-xl border border-amber-400/30 bg-amber-400/8 p-4 text-sm leading-6 text-amber-100">Nessun giorno aperto: con questi orari il sito non propone nulla e chi prova a prenotare non trova date disponibili.</p>
+        : <div className="divide-y overflow-hidden rounded-xl border">
+            {openDays.map((day) => <div key={day.dayOfWeek} className="grid gap-3 p-4 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-start">
+              <p className="text-sm font-semibold">{dayLabels[day.dayOfWeek]}</p>
+              <div className="space-y-3">
+                {(["lunch", "dinner"] as const).map((period) => {
+                  const slots = slotsFor(day[period]);
+                  const label = period === "lunch" ? "Pranzo" : "Cena";
+                  if (!day[period].enabled) return null;
+                  return <div key={period}>
+                    <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label} · {day[period].startTime}–{day[period].endTime} · {slots.length === 1 ? "1 orario" : `${slots.length} orari`}</p>
+                    {slots.length === 0
+                      ? <p className="text-xs leading-5 text-amber-200">La fascia è più corta della permanenza più breve ({shortestStayMinutes} min): nessun orario risulta prenotabile.</p>
+                      : <div className="flex flex-wrap gap-1.5">{slots.map((slot) => <span key={slot} className="rounded border border-white/10 bg-background/50 px-2 py-1 font-mono text-xs">{slot}</span>)}</div>}
+                  </div>;
+                })}
+              </div>
+            </div>)}
+          </div>}
+    </CardContent>
+  </Card>;
 }
 
 function ScheduleDayRow({ dayOfWeek, lunch, dinner, update }: ScheduleDayRowProps) {

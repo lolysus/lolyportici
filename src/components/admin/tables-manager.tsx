@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Armchair, Check, LoaderCircle, Pencil, Plus, Trees, Trash2, UsersRound, X } from "lucide-react";
+import { Armchair, Ban, Check, LoaderCircle, Pencil, Plus, Trees, Trash2, UsersRound, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,10 +41,19 @@ export function TablesManager({ initialTables }: { initialTables: TableResource[
     outdoor: tables.filter((table) => table.isOutdoor),
   }), [tables]);
 
-  const totals = useMemo(() => ({
-    tables: tables.length,
-    seats: tables.reduce((sum, table) => sum + table.maximumCapacity, 0),
-  }), [tables]);
+  // Un tavolo fuori servizio esiste ancora ma non entra nella disponibilità:
+  // i totali che contano per chi prenota sono quelli prenotabili, non quelli
+  // configurati. Mostrarli insieme evita la domanda "ho 46 tavoli, perché il
+  // sito dice che è pieno?".
+  const totals = useMemo(() => {
+    const bookable = tables.filter((table) => isBookable(table));
+    return {
+      tables: tables.length,
+      bookableTables: bookable.length,
+      seats: tables.reduce((sum, table) => sum + table.maximumCapacity, 0),
+      bookableSeats: bookable.reduce((sum, table) => sum + table.maximumCapacity, 0),
+    };
+  }, [tables]);
 
   async function send(method: "POST" | "PATCH" | "DELETE", body: unknown) {
     setError(null);
@@ -84,6 +93,24 @@ export function TablesManager({ initialTables }: { initialTables: TableResource[
     } finally { setBusyId(null); }
   }
 
+  /**
+   * Mette o toglie un tavolo dal servizio.
+   *
+   * Non è la stessa cosa che eliminarlo: un tavolo rotto o riservato a un
+   * evento torna in sala domani, e cancellarlo porterebbe via anche il suo
+   * posto nella planimetria.
+   */
+  async function setInService(table: TableResource, inService: boolean) {
+    setBusyId(table.id);
+    try {
+      const updated = await send("PATCH", { id: table.id, status: inService ? "available" : "out_of_service" }) as TableResource;
+      setTables((current) => current.map((row) => row.id === table.id ? updated : row));
+      setMessage(inService ? `Tavolo ${table.code} di nuovo prenotabile.` : `Tavolo ${table.code} fuori servizio: non verrà più proposto ai clienti.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Operazione non riuscita.");
+    } finally { setBusyId(null); }
+  }
+
   async function remove(table: TableResource) {
     if (!window.confirm(`Eliminare il tavolo ${table.code}? Le prenotazioni già servite restano nello storico.`)) return;
     setBusyId(table.id);
@@ -98,10 +125,15 @@ export function TablesManager({ initialTables }: { initialTables: TableResource[
 
   return <div className="space-y-6">
     <div className="grid gap-3 sm:grid-cols-3">
-      <Summary label="Tavoli attivi" value={String(totals.tables)} />
-      <Summary label="Posti totali" value={String(totals.seats)} />
+      <Summary label="Tavoli prenotabili" value={totals.bookableTables === totals.tables ? String(totals.tables) : `${totals.bookableTables} su ${totals.tables}`} />
+      <Summary label="Posti prenotabili" value={totals.bookableSeats === totals.seats ? String(totals.seats) : `${totals.bookableSeats} su ${totals.seats}`} />
       <Summary label="Interno / esterno" value={`${groups.indoor.length} / ${groups.outdoor.length}`} />
     </div>
+
+    {totals.bookableTables < totals.tables && <p className="flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-400/8 p-3 text-xs leading-5 text-amber-100">
+      <Ban className="mt-0.5 size-3.5 shrink-0" />
+      {totals.tables - totals.bookableTables === 1 ? "Un tavolo è fuori servizio" : `${totals.tables - totals.bookableTables} tavoli sono fuori servizio`} e non vengono proposti ai clienti. Rimettili in servizio quando tornano disponibili.
+    </p>}
 
     {(error || message) && <p role={error ? "alert" : "status"} className={cn("rounded-lg border p-3 text-sm", error ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-emerald-500/25 bg-emerald-500/10 text-emerald-300")}>{error ?? message}</p>}
 
@@ -118,6 +150,7 @@ export function TablesManager({ initialTables }: { initialTables: TableResource[
       onCreate={create}
       onUpdate={update}
       onRemove={remove}
+      onSetInService={setInService}
     />
     <Area
       title="Esterno e dehors"
@@ -132,11 +165,12 @@ export function TablesManager({ initialTables }: { initialTables: TableResource[
       onCreate={create}
       onUpdate={update}
       onRemove={remove}
+      onSetInService={setInService}
     />
   </div>;
 }
 
-function Area({ title, icon, tables, isOutdoor, draft, setDraft, editingId, setEditingId, busyId, onCreate, onUpdate, onRemove }: {
+function Area({ title, icon, tables, isOutdoor, draft, setDraft, editingId, setEditingId, busyId, onCreate, onUpdate, onRemove, onSetInService }: {
   title: string;
   icon: React.ReactNode;
   tables: TableResource[];
@@ -149,9 +183,11 @@ function Area({ title, icon, tables, isOutdoor, draft, setDraft, editingId, setE
   onCreate: (values: Draft) => Promise<void>;
   onUpdate: (id: string, values: Draft) => Promise<void>;
   onRemove: (table: TableResource) => Promise<void>;
+  onSetInService: (table: TableResource, inService: boolean) => Promise<void>;
 }) {
   const isAdding = draft?.isOutdoor === isOutdoor;
-  const seats = tables.reduce((sum, table) => sum + table.maximumCapacity, 0);
+  const bookable = tables.filter((table) => isBookable(table));
+  const seats = bookable.reduce((sum, table) => sum + table.maximumCapacity, 0);
 
   return <section className="overflow-hidden rounded-xl border bg-card">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
@@ -159,7 +195,7 @@ function Area({ title, icon, tables, isOutdoor, draft, setDraft, editingId, setE
         <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">{icon}</span>
         <div>
           <h2 className="font-heading text-xl leading-tight">{title}</h2>
-          <p className="text-xs text-muted-foreground">{tables.length} tavoli · {seats} posti</p>
+          <p className="text-xs text-muted-foreground">{bookable.length === tables.length ? `${tables.length} tavoli` : `${bookable.length} di ${tables.length} tavoli`} · {seats} posti prenotabili</p>
         </div>
       </div>
       <Button size="sm" variant={isAdding ? "secondary" : "default"} onClick={() => setDraft(isAdding ? null : { code: "", displayName: "", minimumCapacity: 2, maximumCapacity: 4, isOutdoor, isAccessible: false })}>
@@ -191,16 +227,25 @@ function Area({ title, icon, tables, isOutdoor, draft, setDraft, editingId, setE
                   onCancel={() => setEditingId(null)}
                 />
               </li>
-            : <li key={table.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border bg-background font-mono text-sm font-semibold">{table.code}</span>
+            : <li key={table.id} className={cn("flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5", !isBookable(table) && "bg-background/40")}>
+                <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg border bg-background font-mono text-sm font-semibold", !isBookable(table) && "text-muted-foreground line-through decoration-1")}>{table.code}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{table.displayName}</p>
+                  <p className={cn("truncate font-medium", !isBookable(table) && "text-muted-foreground")}>{table.displayName}</p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><UsersRound className="size-3" />{table.minimumCapacity}–{table.maximumCapacity} posti</span>
                     {table.isAccessible && <span>Accessibile</span>}
                     {table.status !== "available" && <Badge variant="outline" className="h-5 text-[10px]">{statusLabel(table.status)}</Badge>}
                   </p>
                 </div>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Switch
+                    checked={isBookable(table)}
+                    disabled={busyId === table.id}
+                    onCheckedChange={(value) => void onSetInService(table, value)}
+                    aria-label={`Tavolo ${table.code} in servizio`}
+                  />
+                  <span className="hidden sm:inline">{isBookable(table) ? "In servizio" : "Fuori servizio"}</span>
+                </label>
                 <div className="flex gap-1">
                   <Button size="sm" variant="ghost" onClick={() => setEditingId(table.id)} aria-label={`Modifica tavolo ${table.code}`}><Pencil className="size-4" /></Button>
                   <Button size="sm" variant="ghost" onClick={() => void onRemove(table)} disabled={busyId === table.id} aria-label={`Elimina tavolo ${table.code}`}>
@@ -280,6 +325,15 @@ function Summary({ label, value }: { label: string; value: string }) {
     <p className="text-xs text-muted-foreground">{label}</p>
     <p className="mt-1 font-mono text-2xl font-semibold">{value}</p>
   </div>;
+}
+
+/**
+ * Gli stessi due stati che il motore di disponibilità scarta. Sono l'unica
+ * cosa che il pannello decide: "occupato" o "in pulizia" li scrive il
+ * servizio, non chi configura la sala.
+ */
+function isBookable(table: TableResource) {
+  return table.status !== "blocked" && table.status !== "out_of_service";
 }
 
 function statusLabel(status: TableResource["status"]) {

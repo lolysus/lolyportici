@@ -35,6 +35,17 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // Nessuno deve poter incorniciare queste pagine dentro un altro
+          // sito: sopra il pannello del ristorante si costruisce una finta
+          // schermata e si fa cliccare "conferma" o "elimina" a chi crede di
+          // premere altro. Le due intestazioni dicono la stessa cosa a
+          // browser di generazioni diverse.
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Frame-Options", value: "DENY" },
+          // Il sito gestisce login e dati personali degli ospiti: il browser
+          // deve rifiutarsi di aprirlo in chiaro, non limitarsi a preferire
+          // HTTPS. Un anno, sottodomini inclusi.
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
         ],
       },
     ];

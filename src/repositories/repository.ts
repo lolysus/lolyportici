@@ -1,6 +1,6 @@
 import type { AvailabilityContext } from "@/domains/availability/availability-service";
 import type { AvailabilityInput } from "@/types/api";
-import type { Customer, Reservation, ReservationEvent, ReservationHold, ReservationStatus, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
+import type { Customer, Reservation, ReservationEvent, ReservationHold, ReservationStatus, SpecialClosure, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 export type PublicReservation = Omit<Reservation, "managementTokenHash" | "internalNotes">;
 
@@ -47,12 +47,29 @@ export interface TableInput {
 
 export type TableChanges = Partial<TableInput> & { status?: TableResource["status"] };
 
+/**
+ * Una chiusura straordinaria: ferie, festivo, evento privato.
+ *
+ * Senza orari copre l'intera giornata; con `startTime`/`endTime` toglie solo
+ * quella fascia — serve per un pranzo chiuso lasciando aperta la cena.
+ */
+export interface ClosureInput {
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  type: "full_closure" | "partial_closure" | "private_event" | "maintenance";
+  reason: string;
+}
+
 export interface ReservationRepository {
   getAvailabilityContext(): Promise<AvailabilityContext>;
   listTables(): Promise<TableResource[]>;
   createTable(input: TableInput): Promise<TableResource>;
   updateTable(id: string, changes: TableChanges): Promise<TableResource>;
   deleteTable(id: string): Promise<void>;
+  listClosures(): Promise<SpecialClosure[]>;
+  createClosure(input: ClosureInput): Promise<SpecialClosure>;
+  deleteClosure(id: string): Promise<void>;
   createHold(input: CreateHoldInput): Promise<ReservationHold>;
   releaseHold(holdId: string, sessionId?: string): Promise<void>;
   confirmHold(input: ConfirmHoldInput): Promise<ConfirmedReservation>;

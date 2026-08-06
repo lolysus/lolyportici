@@ -9,7 +9,7 @@ import { CapacityExceededError, HoldExpiredError, ReservationNotFoundError, Slot
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { hashManagementToken, managementTokenForIdempotency } from "@/lib/security";
 import { formatTimeInZone } from "@/lib/datetime";
-import type { ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
+import type { ClosureInput, ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
 import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableCombination, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 type Row = Record<string, unknown>;
@@ -165,6 +165,43 @@ export class SupabaseReservationRepository implements ReservationRepository {
     const { error } = await db.from("restaurant_tables").update(patch).eq("id", id).eq("location_id", this.locationId);
     if (error) throw new Error(error.message);
     return this.tableById(id);
+  }
+
+  async listClosures(): Promise<SpecialClosure[]> {
+    const db = getSupabaseAdmin();
+    const today = new Date().toISOString().slice(0, 10);
+    const { data, error } = await db
+      .from("special_openings_closures")
+      .select("*")
+      .eq("location_id", this.locationId)
+      .gte("date", today)
+      .order("date");
+    if (error) throw error;
+    return ((data ?? []) as Row[]).map((row) => ({
+      id: asString(row.id), date: asString(row.date).slice(0, 10),
+      startTime: asString(row.start_time).slice(0, 5) || undefined,
+      endTime: asString(row.end_time).slice(0, 5) || undefined,
+      type: asString(row.type) as SpecialClosure["type"], reason: asString(row.reason),
+    }));
+  }
+
+  async createClosure(input: ClosureInput): Promise<SpecialClosure> {
+    const db = getSupabaseAdmin();
+    const { data, error } = await db
+      .from("special_openings_closures")
+      .insert({ location_id: this.locationId, date: input.date, start_time: input.startTime ?? null, end_time: input.endTime ?? null, type: input.type, reason: input.reason })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return { id: asString((data as Row).id), ...input };
+  }
+
+  async deleteClosure(id: string): Promise<void> {
+    const db = getSupabaseAdmin();
+    // Il filtro sulla sede va nella query: un id dell'altro ristorante non
+    // deve poter cancellare nulla qui.
+    const { error } = await db.from("special_openings_closures").delete().eq("id", id).eq("location_id", this.locationId);
+    if (error) throw error;
   }
 
   async deleteTable(id: string): Promise<void> {
