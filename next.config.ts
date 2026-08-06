@@ -39,7 +39,8 @@ const nextConfig: NextConfig = {
           // sito: sopra il pannello del ristorante si costruisce una finta
           // schermata e si fa cliccare "conferma" o "elimina" a chi crede di
           // premere altro. Le due intestazioni dicono la stessa cosa a
-          // browser di generazioni diverse.
+          // browser di generazioni diverse. Valgono anche in sviluppo, così
+          // quello che si prova in locale è quello che va online.
           { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
           { key: "X-Frame-Options", value: "DENY" },
           // Il sito gestisce login e dati personali degli ospiti: il browser

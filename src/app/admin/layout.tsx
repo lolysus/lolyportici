@@ -6,6 +6,25 @@ import { canAccessAdminLocation, getAccessibleAdminLocations, getActiveAdminLoca
 import { requireStaffSession } from "@/lib/auth/dal";
 
 /**
+ * ⚠️ Niente `loading.tsx` in questa cartella. Non è una dimenticanza.
+ *
+ * Un `loading.tsx` crea un punto di sospensione, e React 19 rivela il
+ * contenuto di un punto di sospensione passando da `startViewTransition`.
+ * Finché la pagina non è visibile il browser quella transizione non la
+ * esegue: il contenuto resta nel documento — dentro un `<div hidden>` già
+ * pronto — e sullo schermo rimane lo scheletro, per sempre. Succede a chi
+ * apre il pannello in una scheda in secondo piano.
+ *
+ * Verificato il 2026-08-06 su build di produzione: con `loading.tsx` la
+ * dashboard si fermava allo scheletro in una scheda nascosta, mentre la
+ * pagina pubblica di prenotazione — che non ha punti di sospensione — si
+ * vedeva senza problemi nella stessa scheda.
+ *
+ * Queste pagine si servono in mezzo secondo: meglio aspettarle intere che
+ * mostrare uno scheletro che rischia di non andarsene più.
+ */
+
+/**
  * Anche la linguetta del browser è informazione separata: nel pannello di
  * Ardea non deve comparire il nome di Portici, come non compare in nessun'altra
  * schermata. Senza questo, il titolo predefinito restava "YUKO × KouSushi".
