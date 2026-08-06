@@ -3,6 +3,8 @@ import "server-only";
 import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { rolePermissions, type Role } from "@/config/permissions";
+import { restaurantConfig } from "@/config/brand";
+import { findAccountByEmail, findAccountById, passwordMatches } from "@/lib/auth/staff-accounts";
 import type { StaffSession } from "@/types/domain";
 
 const COOKIE_NAME = "loly_staff_session";
@@ -77,13 +79,50 @@ function sessionFor(user: NativeUser): StaffSession {
   };
 }
 
+/**
+ * Il database viene prima della variabile d'ambiente.
+ *
+ * Chi ha cambiato password ha la sua nella tabella: se guardassimo prima la
+ * variabile, la vecchia password continuerebbe a funzionare e il recupero non
+ * servirebbe a niente.
+ */
+async function accountSession(email: string, password: string) {
+  const account = await findAccountByEmail(email).catch(() => null);
+  if (!account || !passwordMatches(password, account)) return null;
+  return sessionFor({
+    id: account.id,
+    email: account.email,
+    name: account.name,
+    role: account.role,
+    organizationId: restaurantConfig.organizationId,
+    locationId: account.locationId,
+    accessibleLocationIds: [account.locationId],
+    passwordSalt: account.passwordSalt,
+    passwordHash: account.passwordHash,
+  });
+}
+
 export async function authenticateNativeUser(email: string, password: string) {
+  const fromDatabase = await accountSession(email, password);
+  if (fromDatabase) return fromDatabase;
+
   const user = users().find((candidate) => candidate.email.toLowerCase() === email.toLowerCase());
   if (!user) return null;
+  // Chi è già passato nella tabella non deve poter rientrare con la password
+  // vecchia rimasta nella variabile d'ambiente.
+  const migrated = await findAccountByEmail(email).catch(() => null);
+  if (migrated) return null;
   const actual = scryptSync(password, user.passwordSalt, 64);
   const expected = Buffer.from(user.passwordHash, "hex");
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   return sessionFor(user);
+}
+
+/** L'account come lo conosce la variabile d'ambiente, per chi non è ancora nella tabella. */
+export function nativeUserByEmail(email: string) {
+  const user = users().find((candidate) => candidate.email.toLowerCase() === email.trim().toLowerCase());
+  if (!user) return null;
+  return { email: user.email, name: user.name, role: user.role, locationId: user.locationId };
 }
 
 export async function setNativeSession(userId: string) {
@@ -108,5 +147,20 @@ export async function getNativeStaffSession() {
   const payload = token ? decode(token) : null;
   if (!payload) return null;
   const user = users().find((candidate) => candidate.id === payload.sub);
-  return user ? sessionFor(user) : null;
+  if (user) return sessionFor(user);
+  // Chi ha reimpostato la password vive nella tabella e non nella variabile:
+  // la sessione va ricostruita da lì, altrimenti verrebbe buttato fuori.
+  const account = await findAccountById(payload.sub).catch(() => null);
+  if (!account) return null;
+  return sessionFor({
+    id: account.id,
+    email: account.email,
+    name: account.name,
+    role: account.role,
+    organizationId: restaurantConfig.organizationId,
+    locationId: account.locationId,
+    accessibleLocationIds: [account.locationId],
+    passwordSalt: account.passwordSalt,
+    passwordHash: account.passwordHash,
+  });
 }

@@ -25,6 +25,14 @@ export async function GET() {
       // Senza provider email la prenotazione va a buon fine e il cliente non
       // riceve nulla: è un guasto invisibile dall'esterno, quindi va esposto.
       guestConfirmationEmail: guestEmailReady ? "ready" : demoMode ? "sandbox" : "configuration_required",
+      // Il recupero password ha bisogno di due cose distinte: un posto dove
+      // scrivere la password nuova (il database) e un modo per far arrivare
+      // il link (l'email). Se manca l'email il modulo accetta la richiesta e
+      // non succede niente — un guasto che si scopre solo quando qualcuno
+      // resta chiuso fuori.
+      staffPasswordReset: !postgresReady && !demoMode
+        ? "database_required"
+        : guestEmailReady ? "ready" : demoMode ? "sandbox" : "configuration_required",
     },
     timestamp: new Date().toISOString(),
   });
