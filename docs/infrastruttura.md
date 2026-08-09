@@ -343,3 +343,40 @@ Rientro da un rilascio andato male:
 2. **Migrazione** — quelle additive (colonne nuove, nullable) si annullano con `drop column` e non
    perdono nulla. Per una migrazione distruttiva non esiste rientro: il piano è lo snapshot di cui
    sopra, e va preso **prima**.
+
+## Prenotazioni in diretta
+
+La dashboard non interroga più il server ogni quindici secondi: **è il database ad avvisare**.
+
+```text
+  prenotazione confermata
+          │
+   trigger reservations_notify_change  →  pg_notify('reservation_changed')
+          │
+   hub in memoria (UN solo LISTEN per processo)  →  /api/admin/v1/stream (SSE)
+          │
+   dashboard della sola sede interessata
+```
+
+Misurato in produzione il 09/08/2026: **118 ms** fra la conferma e l'arrivo dell'evento, **231 ms**
+fino all'avviso a schermo. Prima erano fino a 15 000 ms.
+
+Tre scelte che sembrano dettagli e non lo sono:
+
+- **Payload minuscolo.** `pg_notify` sopra gli 8000 byte *fa fallire la transazione*: mandare la
+  prenotazione intera vorrebbe dire che una nota lunga del cliente fa fallire la prenotazione. Nel
+  messaggio non c'è nemmeno il `reservation_code`, perché all'inserimento è ancora quello provvisorio
+  (`MG-…`) e l'applicazione lo riscrive subito dopo. Chi ascolta rilegge dalle API.
+- **Un `LISTEN` per processo, non per dashboard.** `sql.listen()` apre una connessione dedicata a
+  ogni chiamata: dieci tablet avrebbero parcheggiato dieci connessioni ferme. L'hub in
+  `src/lib/realtime/reservation-hub.ts` tiene una connessione e distribuisce in memoria, nasce col
+  primo iscritto e chiude con l'ultimo.
+- **L'interrogazione non è sparita.** Ogni due minuti mentre il flusso è vivo — un evento perso in
+  una riconnessione non deve restare perso — e di nuovo ogni quindici secondi se il flusso cade.
+
+La sede **non** arriva dal client: la decide il server dalla sessione. Verificato in produzione
+creando una prenotazione di Ardea dalla dashboard di Portici: zero eventi, zero suoni, nessun avviso.
+
+Diagnosi: `curl -N -H 'cookie: …' https://yukoardea.it/api/admin/v1/stream` deve rispondere
+`event: ready` con `{"live":true,…}`. `live:false` significa che quel processo non ha il database e
+la dashboard sta interrogando invece di ascoltare.
