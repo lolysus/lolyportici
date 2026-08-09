@@ -27,6 +27,16 @@ export interface StaffAccount {
   locationId: string;
   passwordSalt: string;
   passwordHash: string;
+  /**
+   * Dove spedire il link del recupero, se diverso dal nome utente.
+   *
+   * Serve perché le due cose hanno vincoli opposti: il nome utente deve essere
+   * distinto per account, il recapito può essere condiviso. Con la gestione
+   * interna una sola casella raccoglie i link di tutte le sedi, e senza questa
+   * separazione l'unico modo sarebbe stato dare lo stesso nome utente a due
+   * account — rompere il login per far funzionare il recupero.
+   */
+  recoveryEmail?: string;
 }
 
 const RESET_TOKEN_MINUTES = 60;
@@ -64,7 +74,7 @@ export async function findAccountById(id: string): Promise<StaffAccount | null> 
   if (!isPostgresConfigured() || !/^[0-9a-f-]{36}$/i.test(id)) return null;
   const sql = getPostgres();
   const rows = await sql<Array<Record<string, unknown>>>`
-    select id, email, name, role, location_id, password_salt, password_hash
+    select id, email, name, role, location_id, password_salt, password_hash, recovery_email
     from public.staff_accounts
     where id = ${id}::uuid and status = 'active'
     limit 1`;
@@ -75,7 +85,7 @@ export async function findAccountByEmail(email: string): Promise<StaffAccount | 
   if (!isPostgresConfigured()) return null;
   const sql = getPostgres();
   const rows = await sql<Array<Record<string, unknown>>>`
-    select id, email, name, role, location_id, password_salt, password_hash
+    select id, email, name, role, location_id, password_salt, password_hash, recovery_email
     from public.staff_accounts
     where lower(email) = ${normalizeEmail(email)} and status = 'active'
     limit 1`;
@@ -91,6 +101,7 @@ function toAccount(row: Record<string, unknown>): StaffAccount {
     locationId: String(row.location_id),
     passwordSalt: String(row.password_salt),
     passwordHash: String(row.password_hash),
+    recoveryEmail: typeof row.recovery_email === "string" && row.recovery_email.trim() ? row.recovery_email : undefined,
   };
 }
 
@@ -100,18 +111,21 @@ function toAccount(row: Record<string, unknown>): StaffAccount {
  * Il primo recupero di un utente che vive solo nella variabile d'ambiente lo
  * porta dentro la tabella: da quel momento la variabile per lui non conta più.
  */
-export async function upsertAccountPassword(input: { email: string; name: string; role: Role; locationId: string; password: string }) {
+export async function upsertAccountPassword(input: { email: string; name: string; role: Role; locationId: string; password: string; recoveryEmail?: string }) {
   const sql = getPostgres();
   const { passwordSalt, passwordHash } = hashPassword(input.password);
   await sql`
-    insert into public.staff_accounts (id, location_id, email, name, role, password_salt, password_hash)
-    values (${randomUUID()}, ${input.locationId}, ${normalizeEmail(input.email)}, ${input.name}, ${input.role}, ${passwordSalt}, ${passwordHash})
+    insert into public.staff_accounts (id, location_id, email, name, role, password_salt, password_hash, recovery_email)
+    values (${randomUUID()}, ${input.locationId}, ${normalizeEmail(input.email)}, ${input.name}, ${input.role}, ${passwordSalt}, ${passwordHash}, ${input.recoveryEmail ?? null})
     on conflict (lower(email)) do update set
       password_salt = excluded.password_salt,
       password_hash = excluded.password_hash,
       name = excluded.name,
       role = excluded.role,
       location_id = excluded.location_id,
+      -- Il recapito del recupero sopravvive al cambio password: chi reimposta
+      -- non deve perdere il modo di reimpostare la volta dopo.
+      recovery_email = coalesce(public.staff_accounts.recovery_email, excluded.recovery_email),
       updated_at = now()`;
 }
 

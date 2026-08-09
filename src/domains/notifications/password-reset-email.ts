@@ -16,14 +16,25 @@ import { emailSenderFor } from "@/config/email-sender";
  * o li riscrivono, e a quel punto senza l'indirizzo per esteso l'utente resta
  * bloccato senza capire perché.
  */
-export function buildPasswordResetEmail({ to, name, restaurant, resetUrl, minutes }: {
+export function buildPasswordResetEmail({ to, accountEmail, name, restaurant, resetUrl, minutes }: {
   to: string;
+  /**
+   * L'account a cui appartiene il link, quando il recapito è un altro indirizzo.
+   *
+   * Con una casella interna che raccoglie i link di tutte le sedi, senza questo
+   * dato arriverebbero due messaggi quasi identici e nessuno saprebbe quale
+   * password sta reimpostando.
+   */
+  accountEmail?: string;
   name: string;
   restaurant: RestaurantLocation;
   resetUrl: string;
   minutes: number;
 }): EmailMessage {
-  const subject = `Reimposta la password · ${restaurant.shortName}`;
+  const perAltroAccount = Boolean(accountEmail && accountEmail.toLowerCase() !== to.toLowerCase());
+  const subject = perAltroAccount
+    ? `Reimposta la password · ${restaurant.shortName} · ${accountEmail}`
+    : `Reimposta la password · ${restaurant.shortName}`;
   const greeting = name.trim() ? `Ciao ${name.trim().split(/\s+/)[0]},` : "Ciao,";
   const accent = restaurant.accentColor;
 
@@ -31,6 +42,7 @@ export function buildPasswordResetEmail({ to, name, restaurant, resetUrl, minute
     greeting,
     "",
     `hai chiesto di reimpostare la password del pannello di ${restaurant.name} (${restaurant.city}).`,
+    ...(perAltroAccount ? ["", `Account interessato: ${accountEmail}`] : []),
     "",
     `Apri questo indirizzo entro ${minutes} minuti:`,
     resetUrl,
@@ -50,6 +62,7 @@ export function buildPasswordResetEmail({ to, name, restaurant, resetUrl, minute
       <h1 style="margin:12px 0 0;font-size:23px;line-height:1.25;font-weight:600">Reimposta la tua password</h1>
       <p style="margin:18px 0 0;font-size:15px;line-height:1.6">${escapeHtml(greeting)}</p>
       <p style="margin:10px 0 0;font-size:15px;line-height:1.6">hai chiesto di reimpostare la password del pannello di <strong>${escapeHtml(restaurant.name)}</strong>.</p>
+      ${perAltroAccount ? `<p style="margin:14px 0 0;padding:12px 14px;background:#f6f4ef;border-left:4px solid ${accent};font-size:14px;line-height:1.5">Account interessato: <strong>${escapeHtml(accountEmail ?? "")}</strong></p>` : ""}
       <p style="margin:26px 0 0">
         <a href="${escapeHtml(resetUrl)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:13px 24px;font-size:15px;font-weight:600">Scegli una nuova password</a>
       </p>

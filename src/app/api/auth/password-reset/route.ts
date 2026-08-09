@@ -110,8 +110,9 @@ export async function PUT(request: Request) {
 /** L'account, prima dalla tabella e poi dalla variabile d'ambiente. */
 async function ownerFor(email: string) {
   const account = await findAccountByEmail(email);
-  if (account) return { email: account.email, name: account.name, role: account.role, locationId: account.locationId };
-  return nativeUserByEmail(email);
+  if (account) return { email: account.email, name: account.name, role: account.role, locationId: account.locationId, recoveryEmail: account.recoveryEmail };
+  const native = nativeUserByEmail(email);
+  return native ? { ...native, recoveryEmail: undefined as string | undefined } : null;
 }
 
 async function deliverResetLink(email: string, slug: string, accessKey?: string) {
@@ -127,10 +128,15 @@ async function deliverResetLink(email: string, slug: string, accessKey?: string)
   // La porta dichiarata vale solo se apre questo stesso ristorante.
   const declared = accessKey && restaurantForAccessKey(accessKey)?.slug === restaurant.slug ? accessKey : null;
   const key = declared ?? adminAccessKey(restaurant);
+  // Il link va al recapito del recupero se c'è, all'indirizzo dell'account
+  // altrimenti. Il token resta legato all'account, non al recapito: cambiare
+  // dove arriva la posta non cambia di chi è la password.
+  const destinatario = owner.recoveryEmail?.trim() || owner.email;
   const { token } = await createPasswordReset(owner.email);
   const resetUrl = await getRequestUrl(`/gestione/${key}/reimposta?token=${encodeURIComponent(token)}`);
   await new ResendEmailAdapter().send(buildPasswordResetEmail({
-    to: owner.email,
+    to: destinatario,
+    accountEmail: owner.email,
     name: owner.name,
     restaurant,
     resetUrl,
