@@ -8,6 +8,17 @@ export interface CreateHoldInput {
   availability: AvailabilityInput;
   startAt: string;
   sessionId: string;
+  /**
+   * La sistemazione scelta dal cliente (`tableAssignmentId`).
+   *
+   * Assente significa "scegli tu il migliore", che è il comportamento dei canali
+   * dove il tavolo non si mostra — telefono, agente vocale, staff. Presente è un
+   * **vincolo**, non una preferenza: se quel tavolo non è più libero la
+   * prenotazione va rifiutata, non spostata altrove in silenzio. Il cliente ha
+   * scelto quel posto, e ritrovarsene un altro senza saperlo è peggio di un
+   * errore.
+   */
+  tableSelectionId?: string;
 }
 
 export interface ConfirmHoldInput {

@@ -35,9 +35,11 @@ export function emailSenderFor(restaurant: Pick<RestaurantLocation, "slug" | "sh
  *
  * La chiave Resend è una sola per tutta l'app, quindi configurarla per il
  * recupero password dello staff accendeva di rimbalzo anche le email ai
- * clienti — un cambiamento verso l'esterno che nessuno aveva chiesto. Le
- * impostazioni delle notifiche non sono salvate nel database: arrivano dai
- * default nel codice, e lì valevano `true`.
+ * clienti — un cambiamento verso l'esterno che nessuno aveva chiesto.
+ * `notifications.emailConfirmationEnabled` è una preferenza del ristoratore,
+ * salvata fra le impostazioni della sede e attiva per default: non è il posto
+ * dove esprimere "Resend serve solo al recupero password", che è una decisione
+ * di chi gestisce la piattaforma, non del ristorante.
  *
  * Perciò questo interruttore è un consenso esplicito e non un default:
  *

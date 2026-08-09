@@ -116,4 +116,20 @@ describe("multi-location administration", () => {
     } as StaffSession;
     expect(getAdminLocationFromRequest(request, session).id).toBe(restaurantLocations[0].id);
   });
+
+  it("tiene separato l'avviso sulla puntualità fra le due sedi", async () => {
+    // È il testo a cui il ristorante si appella quando deve spostare un tavolo:
+    // ogni sede ha la sua tolleranza, e un testo condiviso ne farebbe applicare
+    // a Portici una regola scritta per Ardea.
+    expect(originalCentro.guestExperience.punctualityNotice.length).toBeGreaterThan(20);
+
+    await updateRestaurantSettings({
+      ...originalMare,
+      guestExperience: { ...originalMare.guestExperience, punctualityNotice: "A Portici teniamo il tavolo dieci minuti." },
+    }, restaurantLocations[1].id);
+
+    const [centro, mare] = await Promise.all(restaurantLocations.map((location) => getRestaurantSettings(location.id)));
+    expect(mare.guestExperience.punctualityNotice).toBe("A Portici teniamo il tavolo dieci minuti.");
+    expect(centro.guestExperience.punctualityNotice).toBe(originalCentro.guestExperience.punctualityNotice);
+  });
 });

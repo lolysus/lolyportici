@@ -100,6 +100,7 @@ const defaults: RestaurantSettings = {
   },
   guestExperience: {
     arrivalMessage: "Ti aspettiamo cinque minuti prima dell’orario di prenotazione.",
+    punctualityNotice: "Ti invitiamo a presentarti puntuale. In caso di ritardo, il tavolo potrà essere assegnato al cliente successivo e la prenotazione verrà posticipata in base alla prima disponibilità utile.",
     highlight: "",
     directions: "Raggiungi il ristorante seguendo le indicazioni di Google Maps.",
     parkingInfo: "Parcheggi pubblici disponibili nelle vicinanze.",

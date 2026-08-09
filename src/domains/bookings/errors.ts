@@ -22,6 +22,17 @@ export class CapacityExceededError extends DomainError {
 export class TableConflictError extends DomainError {
   constructor() { super("TABLE_CONFLICT", "Il tavolo è già impegnato in questa fascia.", 409); }
 }
+/**
+ * Il tavolo che il cliente aveva scelto è stato preso da qualcun altro.
+ *
+ * Distinto da `SlotUnavailableError` perché la via d'uscita è diversa e va
+ * detta: l'orario è ancora buono, va solo scelto un altro tavolo. Mandare
+ * l'utente a rifare la scelta dell'orario lo farebbe ricominciare da capo per
+ * nulla.
+ */
+export class TableNoLongerAvailableError extends DomainError {
+  constructor(details: Record<string, unknown> = {}) { super("TABLE_NO_LONGER_AVAILABLE", "Il tavolo che avevi scelto è appena stato prenotato da qualcun altro. L'orario è ancora libero: scegli un altro tavolo.", 409, details); }
+}
 export class ReservationNotFoundError extends DomainError {
   constructor() { super("RESERVATION_NOT_FOUND", "Prenotazione non trovata.", 404); }
 }

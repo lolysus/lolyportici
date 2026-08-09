@@ -44,6 +44,20 @@ export async function getActiveAdminLocation(providedSession?: StaffSession) {
   return selected && session && canAccessAdminLocation(session, selected.id) ? selected : fallbackLocation(session);
 }
 
+/**
+ * La sede su cui agisce una chiamata alle API di gestione.
+ *
+ * Qui si guarda il **cookie**, non l'intestazione del proxy: quell'intestazione
+ * esiste solo sulle richieste di pagina sotto `/gestione/...`, e il proxy la
+ * cancella da tutto il resto perché altrimenti chiunque potrebbe scegliersi il
+ * ristorante a mano. Le chiamate API non passano da quel prefisso, quindi la
+ * sede la leggono dal cookie, che il proxy riallinea a ogni caricamento della
+ * pagina.
+ *
+ * In ogni caso la sede viene confrontata con quelle accessibili alla sessione, e
+ * l'identificativo del ristorante non arriva **mai** dal corpo della richiesta:
+ * quello lo controlla il client, e il client non decide su cosa può scrivere.
+ */
 export function getAdminLocationFromRequest(request: Request | undefined, session: StaffSession) {
   const cookieHeader = request?.headers.get("cookie") ?? "";
   const selectedSlug = cookieHeader.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${adminLocationCookie}=`))?.slice(adminLocationCookie.length + 1);

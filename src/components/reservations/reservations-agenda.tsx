@@ -40,7 +40,7 @@ import { dateKeyInZone, formatTimeInZone } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { addDaysToDateKey, buildReservationLanes, buildServiceTimeSlots, dateFromKey, dateKeyFromDate, serviceForDate, slotSpan, slotStartIndex } from "@/lib/service-calendar";
 import type { PublicReservation } from "@/repositories/repository";
-import type { ReservationSource, ReservationStatus, ServicePeriod, SpecialClosure } from "@/types/domain";
+import type { ReservationSource, ReservationStatus, ServicePeriod, SpecialClosure, TableResource } from "@/types/domain";
 
 const statusCopy: Record<string, string> = {
   draft: "Bozza",
@@ -97,7 +97,7 @@ function ReservationActions({ reservation, mutate, openDetails }: { reservation:
   </div>;
 }
 
-export function ReservationsAgenda({ initialReservations, servicePeriods, closures, initialDate, initialSelectedId }: { initialReservations: PublicReservation[]; servicePeriods: ServicePeriod[]; closures: SpecialClosure[]; initialDate: string; initialSelectedId?: string }) {
+export function ReservationsAgenda({ initialReservations, servicePeriods, closures, tables, initialDate, initialSelectedId }: { initialReservations: PublicReservation[]; servicePeriods: ServicePeriod[]; closures: SpecialClosure[]; tables: TableResource[]; initialDate: string; initialSelectedId?: string }) {
   const [rows, setRows] = useState(initialReservations);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("active");
@@ -129,6 +129,9 @@ export function ReservationsAgenda({ initialReservations, servicePeriods, closur
     return true;
   }
 
+  // Il tavolo è ciò che lo staff ha davanti agli occhi in sala: cercare "12"
+  // deve trovare chi siede al tavolo 12, non solo chi ha 12 nel telefono.
+  const tableNames = useMemo(() => new Map(tables.map((table) => [table.id, `${table.displayName} ${table.code}`.trim()])), [tables]);
   const filteredRows = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("it");
     return rows.filter((row) => {
@@ -138,9 +141,9 @@ export function ReservationsAgenda({ initialReservations, servicePeriods, closur
       if (!["all", "active", "cancelled"].includes(status) && row.status !== status) return false;
       if (source !== "all" && row.source !== source) return false;
       if (!needle) return true;
-      return [row.customer.firstName, row.customer.lastName, row.customer.phone, row.customer.email ?? "", row.reservationCode, reservationSourceInfo[row.source].label, row.id].join(" ").toLocaleLowerCase("it").includes(needle);
+      return [row.customer.firstName, row.customer.lastName, row.customer.phone, row.customer.email ?? "", row.reservationCode, reservationSourceInfo[row.source].label, row.id, ...row.tableIds.map((id) => tableNames.get(id) ?? "")].join(" ").toLocaleLowerCase("it").includes(needle);
     });
-  }, [query, rows, selectedDate, source, status]);
+  }, [query, rows, selectedDate, source, status, tableNames]);
 
   const activeCovers = dayReservations.filter((row) => capacityBlockingStatuses.has(row.status)).reduce((total, row) => total + row.partySize, 0);
   const pendingApprovals = dayReservations.filter((row) => row.status === "pending_approval").length;
@@ -149,7 +152,7 @@ export function ReservationsAgenda({ initialReservations, servicePeriods, closur
   return <>
     <ServiceDayNavigator selectedDate={selectedDate} onChange={changeDate} totalReservations={dayReservations.length} activeCovers={activeCovers} pendingApprovals={pendingApprovals} serviceCount={dayServices.length} />
     <section className="surface-3d-dark mb-5 grid gap-3 rounded-2xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_190px_190px_auto]" aria-label="Filtri prenotazioni">
-      <div className="relative min-w-0"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome, telefono, codice…" className="border-0 bg-background pl-9" /></div>
+      <div className="relative min-w-0"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome, telefono, codice, tavolo…" className="border-0 bg-background pl-9" /></div>
       <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-full bg-background"><Filter /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">Da gestire</SelectItem><SelectItem value="all">Tutti gli stati</SelectItem><SelectItem value="pending_approval">Da approvare</SelectItem><SelectItem value="confirmed">Confermate</SelectItem><SelectItem value="arriving">In arrivo</SelectItem><SelectItem value="late">In ritardo</SelectItem><SelectItem value="arrived">Arrivati</SelectItem><SelectItem value="seated">In servizio</SelectItem><SelectItem value="completed">Completate</SelectItem><SelectItem value="cancelled">Cancellate</SelectItem><SelectItem value="no_show">No-show</SelectItem></SelectContent></Select>
       <Select value={source} onValueChange={setSource}><SelectTrigger className="w-full bg-background"><SelectValue placeholder="Tutti i canali" /></SelectTrigger><SelectContent><SelectItem value="all">Tutti i canali</SelectItem>{(Object.entries(reservationSourceInfo) as Array<[ReservationSource, (typeof reservationSourceInfo)[ReservationSource]]>).map(([value, info]) => <SelectItem key={value} value={value}>{info.label}</SelectItem>)}</SelectContent></Select>
       <Badge variant="outline" className="h-9 justify-center px-3">{filteredRows.length} nel giorno</Badge>

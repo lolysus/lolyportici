@@ -308,6 +308,7 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
           <SettingsCard title="Informazioni prima dell’arrivo" description="Questi testi vengono mostrati nel booking e passati all’assistente telefonico.">
             <div className="sm:col-span-2"><Field id="guest-highlight" type="text" label="In evidenza sul sito" placeholder="Es. Ampio parcheggio privato di 1.000 m²" hint="Compare sottolineato in cima alla pagina di prenotazione. Lascia vuoto per non mostrarlo." value={settings.guestExperience.highlight} setValue={(value) => updateSection("guestExperience", { highlight: value })} /></div>
             <TextareaField id="arrival-message" label="Messaggio di accoglienza" value={settings.guestExperience.arrivalMessage} setValue={(value) => updateSection("guestExperience", { arrivalMessage: value })} />
+            <TextareaField id="punctuality-notice" label="Avviso sulla puntualità" hint="Il cliente lo legge prima di confermare e lo ritrova nella ricevuta scaricabile. Scrivi qui la tolleranza di questa sede: è ciò a cui potrai appellarti quando devi spostare un tavolo." value={settings.guestExperience.punctualityNotice} setValue={(value) => updateSection("guestExperience", { punctualityNotice: value })} />
             <TextareaField id="directions" label="Come arrivare" value={settings.guestExperience.directions} setValue={(value) => updateSection("guestExperience", { directions: value })} />
             <TextareaField id="parking-info" label="Parcheggio" value={settings.guestExperience.parkingInfo} setValue={(value) => updateSection("guestExperience", { parkingInfo: value })} />
             <TextareaField id="accessibility-info" label="Accessibilità" value={settings.guestExperience.accessibilityInfo} setValue={(value) => updateSection("guestExperience", { accessibilityInfo: value })} />
@@ -452,8 +453,8 @@ function Field({ id, label, type, value, setValue, suffix, min, max, hint, place
   return <div><Label htmlFor={id}>{label}</Label><div className="mt-2 flex items-center gap-2"><Input id={id} type={type} min={min} max={max} placeholder={placeholder} aria-describedby={hint ? `${id}-hint` : undefined} value={value} onChange={(event) => setValue(event.target.value)} />{suffix && <span className="min-w-fit text-xs text-muted-foreground">{suffix}</span>}</div>{hint && <p id={`${id}-hint`} className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}</div>;
 }
 
-function TextareaField({ id, label, value, setValue }: { id: string; label: string; value: string; setValue: (value: string) => void }) {
-  return <div><Label htmlFor={id}>{label}</Label><Textarea id={id} value={value} onChange={(event) => setValue(event.target.value)} className="mt-2 min-h-24 resize-y" /></div>;
+function TextareaField({ id, label, value, setValue, hint }: { id: string; label: string; value: string; setValue: (value: string) => void; hint?: string }) {
+  return <div><Label htmlFor={id}>{label}</Label>{hint && <p id={`${id}-hint`} className="mt-1 text-xs leading-5 text-muted-foreground">{hint}</p>}<Textarea id={id} aria-describedby={hint ? `${id}-hint` : undefined} value={value} onChange={(event) => setValue(event.target.value)} className="mt-2 min-h-24 resize-y" /></div>;
 }
 
 /**

@@ -21,6 +21,17 @@ export const availabilitySchema = z.object({
 export const holdSchema = availabilitySchema.extend({
   startAt: z.iso.datetime(),
   sessionId: z.string().min(12).max(128),
+  /** Il tavolo o la combinazione scelti dal cliente. Assente = scelga il sistema. */
+  tableSelectionId: databaseIdSchema.optional(),
+});
+
+/** I tavoli liberi per un orario preciso, per farli scegliere al cliente. */
+export const bookableTablesSchema = z.object({
+  locationId: databaseIdSchema,
+  date: z.iso.date(),
+  startAt: z.iso.datetime(),
+  partySize: z.number().int().min(1).max(100),
+  accessibilityRequirements: z.boolean().optional(),
 });
 
 export const customerSchema = z.object({
@@ -45,15 +56,19 @@ export const reservationCreateSchema = z.object({
 });
 
 /**
- * Il canale web è l'unico in cui possiamo pretendere un'email, ed è anche
- * l'unico in cui serve davvero: la conferma al cliente parte per email, quindi
- * senza indirizzo la prenotazione va a buon fine ma l'ospite non riceve nulla.
- * Al telefono l'indirizzo spesso non è ottenibile, perciò l'agente vocale
- * continua a usare lo schema permissivo.
+ * Il web non pretende l'email.
+ *
+ * Prima la pretendeva, perché la conferma al cliente doveva arrivare per posta.
+ * Quella conferma non parte più: il codice si legge a schermo e si scarica come
+ * immagine. Chiedere un indirizzo obbligatorio per un'email che nessuno invia
+ * significava solo perdere prenotazioni di chi non ce l'ha o non lo dà, e
+ * raccogliere un dato personale senza usarlo — cosa che il GDPR chiama
+ * minimizzazione, e che qui era pura zavorra.
+ *
+ * Obbligatori restano nome, cognome e cellulare: il telefono è l'unico modo che
+ * il ristorante ha di avvisare se qualcosa cambia nel servizio.
  */
-export const webReservationCreateSchema = reservationCreateSchema.extend({
-  customer: customerSchema.extend({ email: z.email() }),
-});
+export const webReservationCreateSchema = reservationCreateSchema;
 
 export const reservationUpdateSchema = z.object({
   partySize: z.number().int().min(1).max(100).optional(),

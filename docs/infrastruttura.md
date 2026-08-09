@@ -197,11 +197,16 @@ L'invio passa da Resend e **parte da Railway**, non da Vercel: le pagine non han
 
 **Una chiave sola, due usi da non confondere.** Oggi Resend serve **solo il recupero password dello
 staff**. Le conferme di prenotazione al cliente sono spente da `GUEST_CONFIRMATION_EMAIL=off`,
-scelta esplicita del 09/08/2026: le impostazioni delle notifiche non sono salvate nel database e i
-default nel codice valevano `true`, quindi configurare la chiave per il recupero password aveva
-acceso di rimbalzo anche le email ai clienti. Per riaccenderle serve mettere `on` — e prima
-conviene verificare `kousushiportici.it`, altrimenti i clienti di Portici ricevono la conferma da un
-dominio di Ardea.
+scelta esplicita del 09/08/2026: la chiave è condivisa, quindi configurarla per il recupero password
+aveva acceso di rimbalzo anche le email ai clienti, che nessuno aveva chiesto.
+
+L'interruttore è separato da `notifications.emailConfirmationEnabled` di proposito. Quella è una
+preferenza del ristoratore — vive fra le impostazioni della sede, in `booking_rules.conditions`, ed è
+attiva per default. Questa è una decisione di chi gestisce la piattaforma, e deve poter valere
+**sopra** la preferenza del ristorante.
+
+Per riaccenderle serve mettere `on` — e prima conviene verificare `kousushiportici.it`, altrimenti i
+clienti di Portici ricevono la conferma da un dominio di Ardea.
 
 Il mittente dipende dalla sede, perché YUKO e KouSushi sono due attività con due domini: una
 conferma per Portici che arriva da `@yukoardea.it` sembra un raggiro.

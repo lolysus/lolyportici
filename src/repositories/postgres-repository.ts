@@ -2,9 +2,11 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
-import { checkAvailability } from "@/domains/availability/availability-service";
+import { privacyPolicyVersion } from "@/config/privacy-policy";
+import { checkAvailability, listBookableTableOptions } from "@/domains/availability/availability-service";
+import { resolveHoldAssignment } from "@/domains/bookings/hold-assignment";
 import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
-import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNotFoundError } from "@/domains/bookings/errors";
+import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNoLongerAvailableError, TableNotFoundError } from "@/domains/bookings/errors";
 import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-machine";
 import { formatTimeInZone } from "@/lib/datetime";
 import { getPostgres } from "@/lib/postgres";
@@ -303,17 +305,23 @@ export class PostgresReservationRepository implements ReservationRepository {
   }
 
   async createHold(input: CreateHoldInput) {
-    const availability = checkAvailability({ ...input.availability, requestedTime: formatTimeInZone(input.startAt) }, await this.getAvailabilityContext());
+    const context = await this.getAvailabilityContext();
+    const availability = checkAvailability({ ...input.availability, requestedTime: formatTimeInZone(input.startAt) }, context);
     const option = availability.availableOptions.find((item) => item.startAt === input.startAt);
     if (!option) throw new SlotUnavailableError({ alternatives: availability.alternativeSlots });
+    // Il tavolo scelto dal cliente va riverificato adesso: il vero arbitro
+    // resta la funzione atomica in `create_reservation_hold`, ma qui possiamo
+    // dire *quale* tavolo è saltato e offrire subito le alternative, cosa che
+    // il vincolo del database non sa fare.
+    const chosen = resolveHoldAssignment(input, context, option);
     const sql = getPostgres();
     try {
       const [row] = await sql<Row[]>`
         select * from public.create_reservation_hold(
           ${this.locationId}::uuid, ${input.sessionId}, ${input.availability.source},
           ${input.availability.partySize}, ${option.startAt}::timestamptz, ${option.endAt}::timestamptz,
-          ${option.tableIds}::uuid[], ${option.combinationId ?? null}::uuid,
-          ${option.diningArea.id}::uuid, ${new Date(Date.now() + restaurantConfig.holdMinutes * 60_000).toISOString()}::timestamptz
+          ${chosen.tableIds}::uuid[], ${chosen.combinationId ?? null}::uuid,
+          ${chosen.diningAreaId}::uuid, ${new Date(Date.now() + restaurantConfig.holdMinutes * 60_000).toISOString()}::timestamptz
         )
       `;
       return {
@@ -324,6 +332,11 @@ export class PostgresReservationRepository implements ReservationRepository {
         status: text(row.status) as ReservationHold["status"], createdAt: iso(row.created_at),
       };
     } catch (error) {
+      // Se il cliente aveva scelto lui il tavolo, un conflitto sul tavolo è una
+      // storia diversa da uno slot esaurito: l'orario tiene, il posto no.
+      if (input.tableSelectionId && error instanceof Error && /TABLE_UNAVAILABLE/.test(error.message)) {
+        throw new TableNoLongerAvailableError({ tables: listBookableTableOptions(input.availability, context, option.startAt, option.endAt) });
+      }
       if (error instanceof Error && /SLOT_UNAVAILABLE|TABLE_UNAVAILABLE|CAPACITY_EXCEEDED/.test(error.message)) throw new SlotUnavailableError({ alternatives: availability.alternativeSlots });
       throw error;
     }
@@ -352,6 +365,18 @@ export class PostgresReservationRepository implements ReservationRepository {
         update public.reservations
         set reservation_code = ${`${prefix}-`} || upper(substr(replace(id::text,'-',''),1,6))
         where id = ${text(result.reservation_id)}::uuid and location_id = ${this.locationId}::uuid
+      `;
+      // Quale informativa il cliente ha accettato. Sta qui e non dentro la
+      // funzione di conferma per non riscrivere una `security definer` che
+      // governa la transazione: se questo aggiornamento fallisce, la
+      // prenotazione resta valida e manca solo la versione, che è il male
+      // minore fra i due.
+      await sql`
+        update public.customers c
+        set privacy_policy_version = ${privacyPolicyVersion},
+            marketing_consent_version = case when c.marketing_consent then ${privacyPolicyVersion} else c.marketing_consent_version end
+        from public.reservations r
+        where r.id = ${text(result.reservation_id)}::uuid and c.id = r.customer_id
       `;
       const rows = await this.reservationRows(`and r.id=$2::uuid`, [result.reservation_id]);
       if (!rows[0]) throw new ReservationNotFoundError();

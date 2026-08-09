@@ -16,6 +16,7 @@ function publicHoldInput(body: unknown) {
     accessibilityRequirements: input.accessibilityRequirements === true,
     startAt: input.startAt,
     sessionId: input.sessionId,
+    tableSelectionId: input.tableSelectionId,
     source: "web" as const,
   };
 }
@@ -27,8 +28,8 @@ export async function POST(request: Request) {
     if (!parsed.success) return validationFailure(parsed.error.flatten());
     const location = getRestaurantLocationById(parsed.data.locationId);
     if (!location) return validationFailure({ locationId: ["Sede non valida"] });
-    const { startAt, sessionId, ...availability } = parsed.data;
-    const hold = await getRepository(location.id).createHold({ availability, startAt, sessionId });
+    const { startAt, sessionId, tableSelectionId, ...availability } = parsed.data;
+    const hold = await getRepository(location.id).createHold({ availability, startAt, sessionId, tableSelectionId });
     return success(hold, { status: 201 });
   } catch (error) { return failure(error); }
 }

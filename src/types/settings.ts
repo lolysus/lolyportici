@@ -84,6 +84,15 @@ export type RestaurantSettings = {
   guestExperience: {
     arrivalMessage: string;
     /**
+     * Cosa accade a chi arriva in ritardo, scritto dal ristorante.
+     *
+     * Va detto **prima** della conferma e ripetuto nella ricevuta: è l'unica
+     * condizione della prenotazione che può far perdere il tavolo, e scoprirla
+     * sulla porta è il modo più rapido di litigare con un cliente. Ogni sede ha
+     * la sua tolleranza, quindi ha il suo testo.
+     */
+    punctualityNotice: string;
+    /**
      * Il vantaggio che il locale vuole far vedere per primo, in cima alla
      * pagina di prenotazione. Vuoto = nessun riquadro in evidenza.
      */

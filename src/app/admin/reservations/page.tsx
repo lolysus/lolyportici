@@ -22,6 +22,6 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
 
   return <>
     <PageHeading eyebrow={location.shortName} title="Agenda prenotazioni" description={`Calendario operativo di ${location.city}, collegato a servizi, capienza e canali reali.`} actions={<Button asChild><Link href={`/prenota/${location.slug}`}><CalendarPlus />Apri booking</Link></Button>} />
-    <ReservationsAgenda initialReservations={reservations} servicePeriods={availabilityContext.servicePeriods} closures={availabilityContext.closures} initialDate={initialDate} initialSelectedId={selectedReservation?.id} />
+    <ReservationsAgenda initialReservations={reservations} servicePeriods={availabilityContext.servicePeriods} closures={availabilityContext.closures} tables={availabilityContext.tables} initialDate={initialDate} initialSelectedId={selectedReservation?.id} />
   </>;
 }

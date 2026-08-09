@@ -102,13 +102,21 @@ function activeTables(context: AvailabilityContext, startAt: string) {
     && !closures.some((closure) => closure.affectedTableId === table.id || closure.affectedAreaId === table.diningAreaId));
 }
 
-export function findBestTableAssignment(
+/**
+ * Tutte le sistemazioni possibili per uno slot, dalla più adatta alla meno.
+ *
+ * Esiste separata da `findBestTableAssignment` perché il cliente sceglie il
+ * tavolo: mostrargli solo il migliore non è una scelta, e mostrargli tavoli che
+ * non stanno nel suo gruppo o già occupati è una scelta che poi fallisce alla
+ * conferma. Il punteggio serve ancora, ma qui ordina invece di eliminare.
+ */
+export function listTableAssignments(
   input: Pick<AvailabilityInput, "partySize" | "preferredAreaId" | "accessibilityRequirements" | "tablePreferenceId">,
   context: AvailabilityContext,
   startAt: string,
   endAt: string,
   ignoredHoldId?: string,
-): TableAssignment | null {
+): TableAssignment[] {
   const occupied = occupiedTableIds(context, startAt, endAt, ignoredHoldId);
   const tables = activeTables(context, startAt).filter((table) => !occupied.has(table.id));
   const candidates: TableAssignment[] = [];
@@ -149,7 +157,84 @@ export function findBestTableAssignment(
     });
   }
 
-  return candidates.sort((a, b) => a.score - b.score || a.tableIds.length - b.tableIds.length)[0] ?? null;
+  return candidates.sort((a, b) => a.score - b.score || a.tableIds.length - b.tableIds.length);
+}
+
+export function findBestTableAssignment(
+  input: Pick<AvailabilityInput, "partySize" | "preferredAreaId" | "accessibilityRequirements" | "tablePreferenceId">,
+  context: AvailabilityContext,
+  startAt: string,
+  endAt: string,
+  ignoredHoldId?: string,
+): TableAssignment | null {
+  return listTableAssignments(input, context, startAt, endAt, ignoredHoldId)[0] ?? null;
+}
+
+/**
+ * L'identificativo con cui il cliente sceglie una sistemazione.
+ *
+ * Una combinazione di tavoli è una scelta sola pur essendo più tavoli, quindi
+ * ha un identificativo suo: usare il primo tavolo la renderebbe indistinguibile
+ * dal tavolo singolo con lo stesso id, e alla conferma prenoteremmo la cosa
+ * sbagliata.
+ */
+export function tableAssignmentId(assignment: TableAssignment) {
+  return assignment.combinationId ?? assignment.tableIds[0];
+}
+
+/** Una sistemazione come la vede il cliente: nessun identificativo interno oltre a quello che gli serve per scegliere. */
+export interface BookableTableOption {
+  id: string;
+  kind: "table" | "combination";
+  label: string;
+  areaName: string;
+  seats: number;
+  isAccessible: boolean;
+  /** La prima della lista: quella che il sistema avrebbe scelto da sé. */
+  recommended: boolean;
+}
+
+export function listBookableTableOptions(
+  input: Pick<AvailabilityInput, "partySize" | "preferredAreaId" | "accessibilityRequirements" | "tablePreferenceId">,
+  context: AvailabilityContext,
+  startAt: string,
+  endAt: string,
+  ignoredHoldId?: string,
+): BookableTableOption[] {
+  const byId = new Map(context.tables.map((table) => [table.id, table]));
+  const nameFor = (id: string) => byId.get(id)?.displayName?.trim() || byId.get(id)?.code?.trim() || "Tavolo";
+  return listTableAssignments(input, context, startAt, endAt, ignoredHoldId).map((assignment, index) => {
+    const tables = assignment.tableIds.map((id) => byId.get(id)).filter((table): table is TableResource => Boolean(table));
+    return {
+      id: tableAssignmentId(assignment),
+      kind: assignment.combinationId ? "combination" as const : "table" as const,
+      label: assignment.combinationId ? `Tavoli ${assignment.tableIds.map(nameFor).join(" + ")}` : nameFor(assignment.tableIds[0]),
+      areaName: assignment.diningAreaName,
+      // La capienza dichiarata è quella che il cliente valuta: la somma per una
+      // combinazione, il massimo per un tavolo singolo.
+      seats: tables.reduce((total, table) => total + table.maximumCapacity, 0) || input.partySize,
+      isAccessible: tables.some((table) => table.isAccessible),
+      recommended: index === 0,
+    };
+  });
+}
+
+/**
+ * La sistemazione che il cliente ha scelto, se è ancora libera.
+ *
+ * `null` non significa "non esiste": significa "non è più prenotabile", ed è il
+ * caso da mostrare con un messaggio che invita a sceglierne un'altra.
+ */
+export function findChosenTableAssignment(
+  selectionId: string,
+  input: Pick<AvailabilityInput, "partySize" | "preferredAreaId" | "accessibilityRequirements" | "tablePreferenceId">,
+  context: AvailabilityContext,
+  startAt: string,
+  endAt: string,
+  ignoredHoldId?: string,
+): TableAssignment | null {
+  const assignments = listTableAssignments(input, context, startAt, endAt, ignoredHoldId);
+  return assignments.find((assignment) => tableAssignmentId(assignment) === selectionId) ?? null;
 }
 
 function serviceFor(date: string, time: string, input: AvailabilityInput, context: AvailabilityContext) {

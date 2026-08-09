@@ -89,6 +89,10 @@ const settingsSchema = z.object({
   }),
   guestExperience: z.object({
     arrivalMessage: z.string().trim().min(10).max(300),
+    // Non può restare vuoto: è la condizione che fa perdere il tavolo, e una
+    // ricevuta che non la riporta lascia il ristorante senza appoggio quando
+    // deve spostare qualcuno.
+    punctualityNotice: z.string().trim().min(20).max(400),
     // Vuoto è legittimo: significa "nessun riquadro in evidenza".
     highlight: z.string().trim().max(120),
     directions: z.string().trim().min(5).max(300),

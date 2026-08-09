@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
+import { resolveHoldAssignment } from "@/domains/bookings/hold-assignment";
 import { checkAvailability, findBestTableAssignment } from "@/domains/availability/availability-service";
 import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNotFoundError } from "@/domains/bookings/errors";
 import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
@@ -253,6 +254,7 @@ export class MemoryReservationRepository implements ReservationRepository {
       const availability = checkAvailability({ ...input.availability, requestedTime: formatTimeInZone(input.startAt) }, current);
       const option = availability.availableOptions.find((item) => item.startAt === input.startAt);
       if (!option) throw new SlotUnavailableError({ alternatives: availability.alternativeSlots });
+      const chosen = resolveHoldAssignment(input, current, option);
       const now = new Date();
       const hold: ReservationHold = {
         id: randomUUID(),
@@ -261,9 +263,9 @@ export class MemoryReservationRepository implements ReservationRepository {
         partySize: input.availability.partySize,
         startAt: option.startAt,
         endAt: option.endAt,
-        tableIds: option.tableIds,
-        combinationId: option.combinationId,
-        diningAreaId: option.diningArea.id,
+        tableIds: chosen.tableIds,
+        combinationId: chosen.combinationId,
+        diningAreaId: chosen.diningAreaId,
         expiresAt: new Date(now.getTime() + restaurantConfig.holdMinutes * 60_000).toISOString(),
         status: "active",
         createdAt: now.toISOString(),
