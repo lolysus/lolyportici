@@ -152,7 +152,7 @@ Non stanno nel repository. Vivono nelle due piattaforme e vanno tenute coerenti.
 | `DATABASE_URL` | — | ✅ | solo backend |
 | `MANAGEMENT_TOKEN_PEPPER` | — | ✅ | token di gestione prenotazione |
 | `CRON_SECRET` | — | ✅ | protegge `/api/cron/*` |
-| `TRUSTED_ORIGINS`, `APP_TIMEZONE`, `NEXT_PUBLIC_*` | — | ✅ | |
+| `APP_TIMEZONE`, `NEXT_PUBLIC_*` | — | ✅ | |
 | `TRUSTED_ORIGINS` | — | ✅ | **deve elencare i domini reali**, vedi sotto |
 | `ADMIN_ACCESS_PATHS` | ✅ | — | solo dove girano le pagine |
 | `RESEND_API_KEY` | — | ✅ | l'invio parte dall'API, non dalle pagine |
