@@ -153,6 +153,8 @@ Non stanno nel repository. Vivono nelle due piattaforme e vanno tenute coerenti.
 | `MANAGEMENT_TOKEN_PEPPER` | — | ✅ | token di gestione prenotazione |
 | `CRON_SECRET` | — | ✅ | protegge `/api/cron/*` |
 | `TRUSTED_ORIGINS`, `APP_TIMEZONE`, `NEXT_PUBLIC_*` | — | ✅ | |
+| `TRUSTED_ORIGINS` | — | ✅ | **deve elencare i domini reali**, vedi sotto |
+| `ADMIN_ACCESS_PATHS` | ✅ | — | solo dove girano le pagine |
 | `RESEND_API_KEY` | — | ✅ | l'invio parte dall'API, non dalle pagine |
 | `EMAIL_FROM_BY_LOCATION` | — | ✅ | un mittente per sede |
 | `EMAIL_FROM` | — | ✅ | rete di sicurezza per una sede non elencata |
@@ -169,6 +171,27 @@ Ispezione (mostra i nomi, non i valori):
 vercel env ls production
 railway variables --service loly-api
 ```
+
+## Origini fidate: `curl` non basta a verificarle
+
+`assertSameOrigin` protegge tutte le scritture (API di gestione, recupero password). Confronta
+l'intestazione `Origin` con l'host della richiesta, l'`x-forwarded-host` e l'elenco in
+`TRUSTED_ORIGINS`. Poiché le `/api/*` arrivano riscritte da Vercel verso Railway, **l'origine del
+browser non coincide mai con l'host di Railway**: senza i domini reali nell'elenco, ogni scrittura
+dai siti veri risponde `403 CSRF_CHECK_FAILED`.
+
+È rimasto invisibile per giorni: `TRUSTED_ORIGINS` conteneva solo `lolyportici.vercel.app`, e ogni
+verifica fatta con `curl` passava perché **senza intestazione `Origin` il controllo esce subito**.
+Chi verifica questa strada deve mandarla a mano:
+
+```bash
+curl -s -X POST https://yukoardea.it/api/auth/password-reset \
+  -H 'content-type: application/json' -H 'origin: https://yukoardea.it' \
+  -d '{"email":"nessuno@example.it","scope":"yuko"}'
+```
+
+Atteso `"success":true`. Un `CSRF_CHECK_FAILED` significa che quel dominio manca dall'elenco. Provare
+anche con un'origine inventata: lì il rifiuto è la risposta giusta.
 
 ## Autenticazione staff
 
@@ -283,3 +306,26 @@ per accorgersene.
 
 ⚠️ `docs/production-topology.md` e la sezione "Attivazione produzione" del README descrivono la
 topologia **precedente**, basata su Supabase come fonte dati. Sono superati da questo documento.
+
+## Backup e ripristino
+
+Railway è sul piano Trial: **non ci sono backup automatici**. Prima di ogni migrazione va preso uno
+snapshot a mano. `pg_dump` non è installato sulla macchina di sviluppo, quindi si usa la connessione
+pubblica del servizio Postgres e si salvano le righe come JSON:
+
+```bash
+railway variables --service Postgres --kv | grep '^DATABASE_PUBLIC_URL='
+```
+
+Lo snapshot **non è un dump logico**: contiene le righe, non lo schema. Le funzioni, gli indici e le
+policy vivono nelle migrazioni di questo repository e si ricostruiscono da lì; le righe no, ed è per
+quelle che serve la copia. Contiene dati personali di clienti reali: resta in locale, fuori dal
+repository, e non si condivide.
+
+Rientro da un rilascio andato male:
+
+1. **Codice** — `git revert <commit>` e ripubblicare (`git push` per Vercel, `railway up` per
+   Railway). Le due piattaforme vanno riportate indietro entrambe, o restano disallineate.
+2. **Migrazione** — quelle additive (colonne nuove, nullable) si annullano con `drop column` e non
+   perdono nulla. Per una migrazione distruttiva non esiste rientro: il piano è lo snapshot di cui
+   sopra, e va preso **prima**.
