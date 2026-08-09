@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { restaurantLocations } from "@/config/brand";
+import { restaurantLocations, type RestaurantLocation } from "@/config/brand";
 import { buildPasswordResetEmail } from "@/domains/notifications/password-reset-email";
 
 const [yuko, kousushi] = restaurantLocations;
 const CASELLA_INTERNA = "suhsiportici@outlook.it";
 
-function email(overrides: { to: string; accountEmail?: string; restaurant?: typeof yuko }) {
+function email(overrides: { to: string; accountEmail?: string; restaurant?: RestaurantLocation }) {
   return buildPasswordResetEmail({
     to: overrides.to,
     accountEmail: overrides.accountEmail,

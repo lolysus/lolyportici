@@ -50,20 +50,43 @@ export function receiptFileName(reservationCode: string) {
   return `prenotazione-${safe || "conferma"}.png`;
 }
 
+/** Oltre questo tempo il logo si considera non arrivato e si procede senza. */
+const LOGO_TIMEOUT_MS = 2500;
+
+/**
+ * Il logo, se arriva in fretta.
+ *
+ * Prima usava `image.decode()`, che su una pagina **non visibile** può restare
+ * appeso per sempre: Chrome rinvia la rasterizzazione di ciò che nessuno sta
+ * guardando. Misurato in produzione — oltre cinque secondi senza risolvere né
+ * rifiutare — e succede davvero, perché basta che il cliente cambi app mentre
+ * l'immagine si prepara. Il risultato era il pulsante bloccato su "Preparo
+ * l'immagine…" per sempre, cioè nessuna ricevuta: esattamente ciò che sostituisce
+ * l'email di conferma che non arriva.
+ *
+ * Ora si aspetta `onload`, che scatta anche a pagina nascosta, con un tempo
+ * massimo oltre il quale si va avanti senza logo. Una ricevuta senza logo è
+ * ancora una ricevuta valida; una ricevuta che non esiste, no.
+ */
 async function loadLogo(url: string | undefined) {
   if (!url) return null;
-  try {
+  return await new Promise<HTMLImageElement | null>((resolve) => {
     const image = new Image();
+    let done = false;
+    const finish = (value: HTMLImageElement | null) => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = window.setTimeout(() => finish(null), LOGO_TIMEOUT_MS);
     // Il logo è servito dallo stesso dominio: senza questo il canvas
     // risulterebbe "sporcato" e `toBlob` fallirebbe silenziosamente.
     image.crossOrigin = "anonymous";
+    image.onload = () => finish(image.naturalWidth > 0 ? image : null);
+    image.onerror = () => finish(null);
     image.src = url;
-    await image.decode();
-    return image;
-  } catch {
-    // Una ricevuta senza logo è ancora una ricevuta valida: meglio di nessuna.
-    return null;
-  }
+  });
 }
 
 function wrap(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
@@ -185,7 +208,16 @@ export async function drawReceipt(data: ReceiptData): Promise<Blob | null> {
     }
   }
 
-  return await new Promise<Blob | null>((resolve) => canvas.toBlob((blob) => resolve(blob), "image/png"));
+  // Anche qui un tempo massimo: `toBlob` è affidabile, ma se un giorno non lo
+  // fosse il pulsante resterebbe appeso e il cliente senza ricevuta. Meglio
+  // `null`, che l'interfaccia sa raccontare — "fai uno screenshot" — di un'attesa
+  // che non finisce e non spiega niente.
+  return await new Promise<Blob | null>((resolve) => {
+    let done = false;
+    const finish = (value: Blob | null) => { if (!done) { done = true; window.clearTimeout(timer); resolve(value); } };
+    const timer = window.setTimeout(() => finish(null), 8000);
+    canvas.toBlob((blob) => finish(blob), "image/png");
+  });
 }
 
 export type ReceiptOutcome = "downloaded" | "shared" | "opened" | "failed";
