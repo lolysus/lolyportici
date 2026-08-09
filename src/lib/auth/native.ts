@@ -25,6 +25,28 @@ interface NativeUser {
 interface SessionPayload {
   sub: string;
   exp: number;
+  /**
+   * L'identità dell'utente, portata dentro il cookie firmato.
+   *
+   * Serve perché le pagine girano su **Vercel, che non ha `DATABASE_URL`**: da
+   * lì `findAccountById` non può funzionare, e senza questi campi la sessione di
+   * un account che vive solo in `staff_accounts` — cioè chiunque abbia
+   * reimpostato la password — risulterebbe inesistente a ogni caricamento.
+   *
+   * Non è un rischio: il cookie è firmato in HMAC-SHA256 con
+   * `AUTH_SESSION_SECRET`, quindi il contenuto non è falsificabile. Il prezzo è
+   * che un cambio di ruolo o di permessi entra in vigore al prossimo accesso e
+   * non entro le otto ore di sessione in corso — un compromesso normale, e molto
+   * meno grave di un pannello che non riconosce chi ha appena cambiato password.
+   */
+  ident?: {
+    email: string;
+    name: string;
+    role: Role;
+    organizationId: string;
+    locationId: string;
+    accessibleLocationIds: string[];
+  };
 }
 
 /**
@@ -144,9 +166,21 @@ export function nativeUserByEmail(email: string) {
   return { email: user.email, name: user.name, role: user.role, locationId: user.locationId };
 }
 
-export async function setNativeSession(userId: string) {
+export async function setNativeSession(session: StaffSession) {
   const store = await cookies();
-  store.set(COOKIE_NAME, encode({ sub: userId, exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS }), {
+  const payload: SessionPayload = {
+    sub: session.id,
+    exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS,
+    ident: {
+      email: session.email,
+      name: session.name,
+      role: session.role,
+      organizationId: session.organizationId,
+      locationId: session.locationId,
+      accessibleLocationIds: [...session.accessibleLocationIds],
+    },
+  };
+  store.set(COOKIE_NAME, encode(payload), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -167,8 +201,25 @@ export async function getNativeStaffSession() {
   if (!payload) return null;
   const user = users().find((candidate) => candidate.id === payload.sub);
   if (user) return sessionFor(user);
-  // Chi ha reimpostato la password vive nella tabella e non nella variabile:
-  // la sessione va ricostruita da lì, altrimenti verrebbe buttato fuori.
+
+  // L'identità nel cookie firmato viene prima del database: è l'unica strada
+  // dove il database non c'è, cioè su Vercel, dove girano tutte le pagine.
+  if (payload.ident) {
+    return {
+      id: payload.sub,
+      name: payload.ident.name,
+      email: payload.ident.email,
+      role: payload.ident.role,
+      permissions: [...rolePermissions[payload.ident.role]],
+      organizationId: payload.ident.organizationId,
+      locationId: payload.ident.locationId,
+      accessibleLocationIds: [...payload.ident.accessibleLocationIds],
+      demo: false,
+    };
+  }
+
+  // Cookie emesso prima di questo cambiamento: si ricade sulla tabella, che
+  // funziona dove il database esiste.
   const account = await findAccountById(payload.sub).catch(() => null);
   if (!account) return null;
   return sessionFor({
