@@ -20,7 +20,7 @@ export default async function RecoverPasswordPage({ params }: { params: Promise<
       <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">{restaurant.shortName} · {restaurant.city}</p>
       <h1 className="mt-3 font-heading text-4xl tracking-tight">Password dimenticata</h1>
       <p className="mb-8 mt-3 text-sm leading-6 text-muted-foreground">Indica la tua email di lavoro: ti arriva il link per sceglierne una nuova.</p>
-      <PasswordResetRequestForm restaurant={{ slug: restaurant.slug, shortName: restaurant.shortName }} backHref={adminAccessPath(restaurant)} />
+      <PasswordResetRequestForm restaurant={{ slug: restaurant.slug, shortName: restaurant.shortName }} backHref={adminAccessPath(restaurant)} accessKey={key} />
     </div>
   </EntranceLayout>;
 }

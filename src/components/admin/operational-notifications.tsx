@@ -7,20 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { RestaurantLocation } from "@/config/brand";
 import { useReservationRealtime } from "@/hooks/use-reservation-realtime";
+import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
+import { claimReservationAnnouncement } from "@/lib/notification-preferences";
+import { findNotificationSound } from "@/lib/notification-sounds";
 import { cn } from "@/lib/utils";
 import type { PublicReservation } from "@/repositories/repository";
 
 type AudioWindow = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 type FeedState = "syncing" | "ready" | "offline";
-
-function getSoundPreferenceKey(scope: string) {
-  return `regia-sushi-notification-sound:${scope}`;
-}
-
-function getSoundPreference(key: string) {
-  if (typeof window === "undefined") return true;
-  return window.localStorage.getItem(key) !== "off";
-}
 
 export function OperationalNotifications({ location }: { location: RestaurantLocation }) {
   const router = useRouter();
@@ -28,8 +22,8 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
 
-  const soundPreferenceKey = getSoundPreferenceKey(location.id);
-  const [soundEnabled, setSoundEnabled] = useState(() => getSoundPreference(soundPreferenceKey));
+  const [preferences, updatePreferences] = useNotificationPreferences(location.id);
+  const soundEnabled = preferences.enabled;
   const [audioReady, setAudioReady] = useState(false);
   const [toast, setToast] = useState<PublicReservation | null>(null);
   const [feedState, setFeedState] = useState<FeedState>("syncing");
@@ -59,25 +53,9 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
   const playChime = useCallback(async (force = false) => {
     const context = await unlockAudio(force);
     if (!context) return false;
-    const now = context.currentTime;
-    [0, 0.22, 0.44].forEach((offset) => {
-      [1046.5, 1318.5].forEach((frequency, overtone) => {
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
-        const start = now + offset;
-        oscillator.type = overtone === 0 ? "sine" : "triangle";
-        oscillator.frequency.value = frequency;
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(overtone === 0 ? 0.2 : 0.07, start + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.025, start + 0.14);
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.86);
-        oscillator.connect(gain).connect(context.destination);
-        oscillator.start(start);
-        oscillator.stop(start + 0.9);
-      });
-    });
+    findNotificationSound(preferences.soundId).play(context, preferences.volume);
     return true;
-  }, [unlockAudio]);
+  }, [unlockAudio, preferences.soundId, preferences.volume]);
 
   const loadReservations = useCallback(async (notify: boolean) => {
     try {
@@ -95,7 +73,11 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
         if (created.length > 0) {
           setUnread((current) => current + created.length);
           setToast(created[0]);
-          void playChime();
+          // Con più schede del pannello aperte suonerebbero tutte: la prima che
+          // rivendica la prenotazione annuncia, le altre mostrano e restano
+          // zitte. L'avviso a schermo resta in ognuna, perché lì il doppione
+          // non disturba.
+          if (created.some((row) => claimReservationAnnouncement(location.id, row.id))) void playChime();
           if (toastTimer.current) clearTimeout(toastTimer.current);
           toastTimer.current = setTimeout(() => setToast(null), 8000);
         }
@@ -107,7 +89,7 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
     } catch {
       setFeedState("offline");
     }
-  }, [playChime]);
+  }, [playChime, location.id]);
 
   const realtimeRefresh = useCallback(() => { void loadReservations(true); }, [loadReservations]);
   useReservationRealtime(realtimeRefresh, { locationId: location.id });
@@ -135,14 +117,6 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
   }, [loadReservations]);
 
   useEffect(() => {
-    const syncPreference = (event: StorageEvent) => {
-      if (event.key === soundPreferenceKey) setSoundEnabled(event.newValue !== "off");
-    };
-    window.addEventListener("storage", syncPreference);
-    return () => window.removeEventListener("storage", syncPreference);
-  }, [soundPreferenceKey]);
-
-  useEffect(() => {
     if (!soundEnabled) return;
     const prime = () => { void unlockAudio(); };
     window.addEventListener("pointerdown", prime, { once: true, passive: true });
@@ -162,12 +136,7 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
 
   async function toggleSound() {
     const next = !soundEnabled;
-    try {
-      window.localStorage.setItem(soundPreferenceKey, next ? "on" : "off");
-    } catch {
-      // The current dashboard still honors the choice if browser storage is unavailable.
-    }
-    setSoundEnabled(next);
+    updatePreferences({ enabled: next });
     if (next) {
       await playChime(true);
       return;

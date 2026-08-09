@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getRestaurantLocationById, getRestaurantLocationBySlug } from "@/config/brand";
-import { adminAccessPath } from "@/config/admin-access";
+import { adminAccessKey, restaurantForAccessKey } from "@/config/admin-access";
 import { buildPasswordResetEmail } from "@/domains/notifications/password-reset-email";
 import { ResendEmailAdapter } from "@/integrations/email/resend/adapter";
 import { assertSameOrigin, failure, success, validationFailure } from "@/lib/api/response";
@@ -20,7 +20,25 @@ import { getRequestUrl } from "@/lib/public-url";
 
 const RESET_MINUTES = 60;
 
-const requestSchema = z.object({ email: z.email(), scope: z.string().trim().min(1) });
+const requestSchema = z.object({
+  email: z.email(),
+  scope: z.string().trim().min(1),
+  /**
+   * La porta di servizio da cui arriva la richiesta.
+   *
+   * Serve perché il link nell'email deve puntare alla porta **vera**, e i
+   * percorsi riservati vivono in `ADMIN_ACCESS_PATHS`, una variabile che sta su
+   * Vercel — dove girano le pagine — e non necessariamente qui, dove gira
+   * l'invio. Senza questo campo l'API costruiva il link con i percorsi di
+   * ripiego del codice e spediva un indirizzo che dà 404: il recupero
+   * sembrava funzionare e il link era inutilizzabile.
+   *
+   * Non è fiducia cieca nel client: la chiave viene verificata e deve indicare
+   * lo stesso ristorante dell'account, altrimenti si ignora e si torna al
+   * percorso calcolato qui.
+   */
+  accessKey: z.string().trim().min(3).max(64).optional(),
+});
 const applySchema = z.object({
   token: z.string().trim().min(20),
   scope: z.string().trim().min(1),
@@ -52,7 +70,7 @@ export async function POST(request: Request) {
     const parsed = requestSchema.safeParse(await request.json());
     if (!parsed.success) return validationFailure(parsed.error.flatten());
 
-    await deliverResetLink(parsed.data.email, parsed.data.scope).catch((error) => {
+    await deliverResetLink(parsed.data.email, parsed.data.scope, parsed.data.accessKey).catch((error) => {
       // Un guasto dell'invio non deve diventare un modo per scoprire chi
       // esiste: resta nei log, l'utente vede la risposta di sempre.
       console.error("[password-reset] invio non riuscito", error);
@@ -96,7 +114,7 @@ async function ownerFor(email: string) {
   return nativeUserByEmail(email);
 }
 
-async function deliverResetLink(email: string, slug: string) {
+async function deliverResetLink(email: string, slug: string, accessKey?: string) {
   if (!accountsTableAvailable()) return;
   const owner = await ownerFor(email);
   if (!owner) return;
@@ -106,8 +124,11 @@ async function deliverResetLink(email: string, slug: string) {
   const restaurant = getRestaurantLocationById(owner.locationId);
   if (!restaurant || restaurant.slug !== slug) return;
 
+  // La porta dichiarata vale solo se apre questo stesso ristorante.
+  const declared = accessKey && restaurantForAccessKey(accessKey)?.slug === restaurant.slug ? accessKey : null;
+  const key = declared ?? adminAccessKey(restaurant);
   const { token } = await createPasswordReset(owner.email);
-  const resetUrl = await getRequestUrl(`${adminAccessPath(restaurant)}/reimposta?token=${encodeURIComponent(token)}`);
+  const resetUrl = await getRequestUrl(`/gestione/${key}/reimposta?token=${encodeURIComponent(token)}`);
   await new ResendEmailAdapter().send(buildPasswordResetEmail({
     to: owner.email,
     name: owner.name,

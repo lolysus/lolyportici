@@ -32,7 +32,7 @@ async function callResetApi(method: "POST" | "PUT", body: unknown) {
  * "questa email non è registrata" darebbe a chiunque l'elenco di chi lavora
  * qui, un tentativo alla volta.
  */
-export function PasswordResetRequestForm({ restaurant, backHref }: { restaurant: Restaurant; backHref: string }) {
+export function PasswordResetRequestForm({ restaurant, backHref, accessKey }: { restaurant: Restaurant; backHref: string; accessKey: string }) {
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
@@ -43,7 +43,8 @@ export function PasswordResetRequestForm({ restaurant, backHref }: { restaurant:
     setPending(true);
     setError(null);
     try {
-      await callResetApi("POST", { email: email.trim(), scope: restaurant.slug });
+      // La porta da cui arriva la richiesta: il link nell'email deve tornare qui.
+      await callResetApi("POST", { email: email.trim(), scope: restaurant.slug, accessKey });
       setDone(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Operazione non riuscita.");
