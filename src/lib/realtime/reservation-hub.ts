@@ -18,7 +18,6 @@ export interface ReservationChange {
   op: "INSERT" | "UPDATE" | "DELETE";
   id: string;
   locationId: string;
-  code: string;
   status: string;
   date: string;
 }

@@ -11,8 +11,10 @@ vi.mock("@/lib/postgres", () => ({
 const YUKO = "00000000-0000-0000-0000-000000000003";
 const KOUSUSHI = "00000000-0000-0000-0000-000000000004";
 
+// Il codice serve solo a distinguere i casi nel test: nel payload vero non c'è,
+// perché all'inserimento sarebbe quello provvisorio.
 function change(locationId: string, code: string) {
-  return JSON.stringify({ op: "INSERT", id: `id-${code}`, locationId, code, status: "confirmed", date: "2026-08-20" });
+  return JSON.stringify({ op: "INSERT", id: `id-${code}`, locationId, status: "confirmed", date: "2026-08-20" });
 }
 
 async function hub() {
@@ -47,8 +49,8 @@ describe("distribuzione degli avvisi di prenotazione", () => {
     const { subscribeToReservationChanges } = await hub();
     const ardea: string[] = [];
     const portici: string[] = [];
-    subscribeToReservationChanges(YUKO, (c) => ardea.push(c.code));
-    subscribeToReservationChanges(KOUSUSHI, (c) => portici.push(c.code));
+    subscribeToReservationChanges(YUKO, (c) => ardea.push(c.id));
+    subscribeToReservationChanges(KOUSUSHI, (c) => portici.push(c.id));
 
     const onNotify = listen.mock.calls[0][1] as (payload: string) => void;
     onNotify(change(YUKO, "YK-1"));
@@ -56,8 +58,8 @@ describe("distribuzione degli avvisi di prenotazione", () => {
 
     // È la garanzia che regge tutto l'isolamento delle notifiche: una
     // prenotazione di Portici non deve nemmeno sfiorare la dashboard di Ardea.
-    expect(ardea).toEqual(["YK-1"]);
-    expect(portici).toEqual(["KS-1"]);
+    expect(ardea).toEqual(["id-YK-1"]);
+    expect(portici).toEqual(["id-KS-1"]);
   });
 
   it("smette di ascoltare quando l'ultima dashboard se ne va", async () => {
@@ -78,23 +80,23 @@ describe("distribuzione degli avvisi di prenotazione", () => {
     const arrivati: string[] = [];
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     subscribeToReservationChanges(YUKO, () => { throw new Error("rotto"); });
-    subscribeToReservationChanges(YUKO, (c) => arrivati.push(c.code));
+    subscribeToReservationChanges(YUKO, (c) => arrivati.push(c.id));
 
     const onNotify = listen.mock.calls[0][1] as (payload: string) => void;
     onNotify(change(YUKO, "YK-2"));
-    expect(arrivati).toEqual(["YK-2"]);
+    expect(arrivati).toEqual(["id-YK-2"]);
   });
 
   it("non cade su un messaggio illeggibile", async () => {
     const { subscribeToReservationChanges } = await hub();
     const arrivati: string[] = [];
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    subscribeToReservationChanges(YUKO, (c) => arrivati.push(c.code));
+    subscribeToReservationChanges(YUKO, (c) => arrivati.push(c.id));
 
     const onNotify = listen.mock.calls[0][1] as (payload: string) => void;
     onNotify("{non-json");
     onNotify(change(YUKO, "YK-3"));
-    expect(arrivati).toEqual(["YK-3"]);
+    expect(arrivati).toEqual(["id-YK-3"]);
   });
 
   it("dice di no dove il database non c'è, invece di finire in ascolto del nulla", async () => {

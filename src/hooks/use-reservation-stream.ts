@@ -2,11 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
+/**
+ * Cosa arriva dal canale. Volutamente **senza il codice** della prenotazione:
+ * all'inserimento è ancora quello provvisorio, e un campo giusto solo a volte è
+ * peggio di un campo assente. Chi ha bisogno dei dettagli rilegge dalle API.
+ */
 export interface ReservationStreamEvent {
   op: "INSERT" | "UPDATE" | "DELETE";
   id: string;
   locationId: string;
-  code: string;
   status: string;
   date: string;
 }
