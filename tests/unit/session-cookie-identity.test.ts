@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { StaffSession } from "@/types/domain";
 
 const cookieStore = new Map<string, string>();
 vi.mock("next/headers", () => ({
@@ -10,12 +11,12 @@ vi.mock("next/headers", () => ({
 
 const SECRET = "un-segreto-di-sessione-abbastanza-lungo-per-il-controllo";
 
-const session = {
+const session: StaffSession = {
   id: "35892966-a923-43b8-b9ed-ed937f5ee073",
   name: "Operatore YUKO",
   email: "suhsiroma@outlook.it",
   role: "manager" as const,
-  permissions: [] as string[],
+  permissions: [],
   organizationId: "00000000-0000-0000-0000-000000000001",
   locationId: "00000000-0000-0000-0000-000000000003",
   accessibleLocationIds: ["00000000-0000-0000-0000-000000000003"],
