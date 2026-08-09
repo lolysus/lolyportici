@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { it } from "date-fns/locale";
 import {
@@ -40,6 +40,7 @@ import { dateKeyInZone, formatTimeInZone } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { addDaysToDateKey, buildReservationLanes, buildServiceTimeSlots, dateFromKey, dateKeyFromDate, serviceForDate, slotSpan, slotStartIndex } from "@/lib/service-calendar";
 import type { PublicReservation } from "@/repositories/repository";
+import { useReservationStream } from "@/hooks/use-reservation-stream";
 import type { ReservationSource, ReservationStatus, ServicePeriod, SpecialClosure, TableResource } from "@/types/domain";
 
 const statusCopy: Record<string, string> = {
@@ -99,6 +100,20 @@ function ReservationActions({ reservation, mutate, openDetails }: { reservation:
 
 export function ReservationsAgenda({ initialReservations, servicePeriods, closures, tables, initialDate, initialSelectedId }: { initialReservations: PublicReservation[]; servicePeriods: ServicePeriod[]; closures: SpecialClosure[]; tables: TableResource[]; initialDate: string; initialSelectedId?: string }) {
   const [rows, setRows] = useState(initialReservations);
+  // L'agenda si aggiornava solo quando era lei a cambiare qualcosa: una
+  // prenotazione arrivata dal sito compariva al ricaricamento della pagina, e in
+  // sala nessuno ricarica. Ora arriva da sé, come nella campanella.
+  const ricarica = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/v1/reservations", { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = await response.json() as { data?: PublicReservation[] };
+      if (payload.data) setRows(payload.data);
+    } catch {
+      // Un giro andato male non è un errore da mostrare: il prossimo rimedia.
+    }
+  }, []);
+  useReservationStream(ricarica, ricarica);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("active");
   const [source, setSource] = useState("all");

@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { rolePermissions, type Role } from "@/config/permissions";
 import { restaurantConfig } from "@/config/brand";
 import { findAccountByEmail, findAccountById, passwordMatches } from "@/lib/auth/staff-accounts";
+import { isPostgresConfigured } from "@/lib/postgres";
 import type { StaffSession } from "@/types/domain";
 
 const COOKIE_NAME = "loly_staff_session";
@@ -77,8 +78,24 @@ function users(): NativeUser[] {
   }
 }
 
+/**
+ * L'autenticazione nativa è configurata se c'è un segreto **e** un posto da cui
+ * possono arrivare gli account.
+ *
+ * Prima pretendeva `AUTH_USERS_JSON` non vuoto, e con la tabella `staff_accounts`
+ * quella pretesa è diventata una trappola: svuotare la variabile — cosa
+ * ragionevole ora che gli account veri stanno nel database — faceva rispondere
+ * "no" a questa funzione, il login ripiegava su Supabase che non è configurato, e
+ * nessuno entrava più. Un'operazione di pulizia avrebbe chiuso fuori entrambi i
+ * ristoranti.
+ *
+ * Il controllo resta sincrono di proposito: viene chiamato a ogni caricamento di
+ * pagina, e interrogare il database per sapere *se* esiste un database sarebbe
+ * un giro a vuoto su ogni richiesta.
+ */
 export function isNativeAuthConfigured() {
-  return Boolean(process.env.AUTH_SESSION_SECRET && users().length > 0);
+  if (!process.env.AUTH_SESSION_SECRET) return false;
+  return users().length > 0 || isPostgresConfigured();
 }
 
 function signature(payload: string) {

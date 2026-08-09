@@ -6,7 +6,7 @@ import { Bell, BellRing, CalendarCheck2, Check, Clock3, MapPin, RefreshCw, Volum
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { RestaurantLocation } from "@/config/brand";
-import { useReservationRealtime } from "@/hooks/use-reservation-realtime";
+import { useReservationStream } from "@/hooks/use-reservation-stream";
 import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
 import { claimReservationAnnouncement } from "@/lib/notification-preferences";
 import { findNotificationSound } from "@/lib/notification-sounds";
@@ -91,17 +91,18 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
     }
   }, [playChime, location.id]);
 
-  const realtimeRefresh = useCallback(() => { void loadReservations(true); }, [loadReservations]);
-  useReservationRealtime(realtimeRefresh, { locationId: location.id });
+  // Il database avvisa, la dashboard non chiede più: l'evento arriva in meno di
+  // un secondo invece dei quindici del vecchio giro. L'interrogazione resta come
+  // rete di sicurezza, con il passo che il flusso decide.
+  const streamState = useReservationStream(
+    useCallback(() => { void loadReservations(true); }, [loadReservations]),
+    useCallback(() => { void loadReservations(true); }, [loadReservations]),
+  );
 
   useEffect(() => {
     seenIds.current = null;
     const initialLoad = window.setTimeout(() => void loadReservations(false), 0);
-    const interval = window.setInterval(() => void loadReservations(true), 15_000);
-    return () => {
-      window.clearTimeout(initialLoad);
-      window.clearInterval(interval);
-    };
+    return () => window.clearTimeout(initialLoad);
   }, [loadReservations, location.id]);
 
   useEffect(() => {
@@ -175,7 +176,7 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
         <div className="border-b border-white/8 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div><p className="font-heading text-lg">Notifiche operative</p><p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><MapPin className="size-3" />{location.shortName}</p></div>
-            <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium", feedState === "offline" ? "border-destructive/25 bg-destructive/10 text-destructive" : "border-emerald-400/20 bg-emerald-400/8 text-emerald-200")}><span className={cn("size-1.5 rounded-full", feedState === "offline" ? "bg-destructive" : "bg-emerald-400", feedState === "syncing" && "animate-pulse")} />{feedState === "offline" ? "Riprovo" : feedState === "syncing" ? "Aggiorno" : "In ascolto"}</span>
+            <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium", feedState === "offline" ? "border-destructive/25 bg-destructive/10 text-destructive" : "border-emerald-400/20 bg-emerald-400/8 text-emerald-200")}><span className={cn("size-1.5 rounded-full", feedState === "offline" ? "bg-destructive" : "bg-emerald-400", feedState === "syncing" && "animate-pulse")} />{feedState === "offline" ? "Riprovo" : streamState === "live" ? "In diretta" : "Controllo"}</span>
           </div>
           <div className={cn("mt-4 rounded-xl border p-3.5", soundEnabled ? "border-primary/20 bg-primary/[0.055]" : "border-white/8 bg-white/[0.025]")}>
             <div className="flex items-start gap-3">
