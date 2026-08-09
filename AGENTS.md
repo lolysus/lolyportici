@@ -18,8 +18,9 @@ Piattaforma prenotazioni per due ristoranti indipendenti sotto la stessa regia:
 
 1. **Un repo, due deploy.** Lo stesso codice Next.js gira su Vercel *e* su Railway.
    `next.config.ts` riscrive tutte le `/api/:path*` verso Railway, che è l'unico ad avere
-   `DATABASE_URL`. Vercel non parla mai col database. Entrambi si aggiornano da un push su `main`;
-   Railway impiega ~5 minuti contro i ~45 secondi di Vercel.
+   `DATABASE_URL`. Vercel non parla mai col database. **Solo Vercel si aggiorna dal push su `main`**
+   (~45 secondi): Railway va pubblicato a mano con `railway up --service loly-api --detach` (~5
+   minuti). Se lo dimentichi, il sito è aggiornato e le API no, senza nessun segnale.
 
 2. **L'auth non è Supabase.** È nativa (`src/lib/auth/native.ts`): utenti in `AUTH_USERS_JSON`
    con hash scrypt, sessione in cookie firmato HMAC. `AUTH_USERS_JSON` e `AUTH_SESSION_SECRET`

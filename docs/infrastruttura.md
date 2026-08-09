@@ -38,15 +38,22 @@ Il primo comando di diagnosi è sempre l'health check di Railway, non quello di 
 
 ## Aggiornare la produzione
 
-Entrambe le piattaforme sono collegate a GitHub. **Un push su `main` aggiorna tutto**, in parallelo.
+**Vercel sì, Railway no.** Un push su `main` aggiorna Vercel in ~45 secondi. Railway **non parte
+dal push**: va lanciato a mano.
 
 ```bash
-git push origin main
+git push origin main                      # aggiorna Vercel
+railway up --service loly-api --detach    # aggiorna Railway
 ```
 
-Non serve `vercel --prod` né `railway up`. Erano necessari prima del 30/07/2026, quando Railway
-veniva aggiornato a mano via CLI e poteva restare indietro rispetto a Vercel — con il sintomo
-ingannevole di un sito aggiornato che però si comporta come prima.
+Verificato il 09/08/2026: `railway deployment list --service loly-api --json` mostra venti deploy e
+**tutti** hanno `meta.cliCaller: "claude_code"`, nessuno viene da un commit. L'ultimo era del
+06/08/2026 mentre `main` era già avanti. Questa pagina affermava il contrario e ha fatto aspettare
+per dieci minuti un deploy che non era mai partito.
+
+È lo stesso guasto silenzioso descritto più sotto a proposito di `watchPatterns`: il frontend si
+aggiorna, le `/api/*` servono il codice vecchio, e nulla lo segnala. **Dopo ogni push, controlla che
+il deploy Railway esista davvero** — non dare per scontato che il collegamento a GitHub funzioni.
 
 Prima di ogni push:
 
@@ -204,6 +211,16 @@ Stato per sede, da `/api/health`:
 ```bash
 curl -s https://loly-api-production.up.railway.app/api/health | grep -o '"emailSenders".*'
 ```
+
+⚠️ Lì `"ready"` significa **"chiave e mittente configurati"**, non "dominio verificato": la verifica
+vive su Resend e con una chiave solo-invio non è interrogabile. Con il dominio non verificato il
+health check dice `ready` e l'invio fallisce comunque. La prova sta nei log:
+
+```bash
+railway logs --service loly-api | grep -i resend
+```
+
+Un `403 ... domain is not verified` lì significa che manca il DNS, non che l'app sia rotta.
 
 ## Accessi
 
