@@ -380,3 +380,35 @@ creando una prenotazione di Ardea dalla dashboard di Portici: zero eventi, zero 
 Diagnosi: `curl -N -H 'cookie: …' https://yukoardea.it/api/admin/v1/stream` deve rispondere
 `event: ready` con `{"live":true,…}`. `live:false` significa che quel processo non ha il database e
 la dashboard sta interrogando invece di ascoltare.
+
+## Recupero password: recapito separato dal nome utente
+
+Dal 09/08/2026 `staff_accounts.recovery_email` decide **dove** arriva il link, indipendentemente
+dall'indirizzo con cui si entra. Le due cose hanno vincoli opposti: il nome utente deve essere unico
+per account, il recapito può essere condiviso.
+
+Configurazione attuale — gestione interna, una sola casella per entrambe le sedi:
+
+| Account (nome utente) | Sede | Link recapitato a |
+| --- | --- | --- |
+| `suhsiroma@outlook.it` | Ardea | `suhsiportici@outlook.it` |
+| `suhsiportici@outlook.it` | Portici | `suhsiportici@outlook.it` |
+
+Poiché due messaggi quasi identici arrivano nella stessa casella, oggetto e corpo riportano
+**l'account interessato**: senza quello nessuno saprebbe quale password sta reimpostando.
+
+⚠️ **Il mittente è `onboarding@resend.dev`, e non per scelta estetica.** Finché nessun dominio è
+verificato su Resend, un mittente `@yukoardea.it` viene rifiutato con `403` e **Resend consegna solo
+all'indirizzo del titolare dell'account** (`suhsiportici@outlook.it`). È la ragione tecnica per cui il
+recapito condiviso non è un compromesso ma l'unica configurazione che funziona adesso.
+
+Quando `yukoardea.it` sarà verificato:
+
+```bash
+railway variables --service loly-api --set "EMAIL_FROM=noreply@yukoardea.it"
+# e, per tornare a un recapito per account:
+#   update public.staff_accounts set recovery_email = null;
+```
+
+`recovery_email = null` significa "manda all'indirizzo dell'account", che è il comportamento giusto
+una volta caduto il vincolo di Resend.
