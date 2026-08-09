@@ -31,7 +31,21 @@ Lo **stesso** codice Next.js gira in due posti diversi. Non esiste un backend se
 ```
 
 `next.config.ts` riscrive tutte le richieste `/api/:path*` verso `BACKEND_ORIGIN`, cioè Railway.
-Solo Railway possiede `DATABASE_URL`: **Vercel non parla mai direttamente col database.**
+⚠️ **Vercel ha `DATABASE_URL` dal 09/08/2026, e gli serve.** Questa pagina affermava il contrario, e
+il codice non lo rispettava: le pagine leggono i dati al momento del render con `getRepository()`,
+che senza database ricade sul repository **in memoria**. In produzione ogni pagina del pannello
+serviva quindi il set demo — misurato sulla pianta di Ardea: quindici tavoli "Tavolo 1…10" invece
+dei trentasette reali `YI01–YE06`, senza nessun avviso che dicesse allo staff che stava leggendo
+dati inventati.
+
+Non era esploso perché tutto ciò che riguarda il cliente passa dalle API, dal browser, e arriva al
+database vero: disponibilità, tavoli, blocco temporaneo, conferma, campanella. Era il pannello dello
+staff a mentire — comprese le impostazioni che sembravano non salvarsi, perché il salvataggio andava
+su Railway e il ridisegno veniva dalla memoria di Vercel.
+
+Su Vercel il pool è di **tre** connessioni per istanza (`poolSize()` in `src/lib/postgres.ts`):
+Railway è un processo che vive a lungo e dieci vanno bene, Vercel è tante istanze corte e dieci a
+testa esaurirebbero le cinquecento connessioni del database a cinquanta istanze in parallelo.
 
 Conseguenza da tenere a mente: se il backend è giù, il sito si carica ma nessuna prenotazione funziona.
 Il primo comando di diagnosi è sempre l'health check di Railway, non quello di Vercel.
@@ -149,7 +163,7 @@ Non stanno nel repository. Vivono nelle due piattaforme e vanno tenute coerenti.
 | `AUTH_USERS_JSON` | ✅ | ✅ | **deve combaciare nei due posti** |
 | `AUTH_SESSION_SECRET` | ✅ | ✅ | **deve combaciare nei due posti** |
 | `BACKEND_ORIGIN` | ✅ | — | punta a Railway |
-| `DATABASE_URL` | — | ✅ | solo backend |
+| `DATABASE_URL` | ✅ | ✅ | su Vercel è l'URL **pubblico** del proxy: l'host interno non è raggiungibile |
 | `MANAGEMENT_TOKEN_PEPPER` | — | ✅ | token di gestione prenotazione |
 | `CRON_SECRET` | — | ✅ | protegge `/api/cron/*` |
 | `APP_TIMEZONE`, `NEXT_PUBLIC_*` | — | ✅ | |

@@ -18,7 +18,8 @@ Piattaforma prenotazioni per due ristoranti indipendenti sotto la stessa regia:
 
 1. **Un repo, due deploy.** Lo stesso codice Next.js gira su Vercel *e* su Railway.
    `next.config.ts` riscrive tutte le `/api/:path*` verso Railway, che è l'unico ad avere
-   `DATABASE_URL`. Vercel non parla mai col database. **Solo Vercel si aggiorna dal push su `main`**
+   `DATABASE_URL` per le API — ma **anche Vercel ce l'ha**, perché le pagine leggono dati al render e
+   senza database servirebbero il set demo (è già successo in produzione). **Solo Vercel si aggiorna dal push su `main`**
    (~45 secondi): Railway va pubblicato a mano con `railway up --service loly-api --detach` (~5
    minuti). Se lo dimentichi, il sito è aggiornato e le API no, senza nessun segnale.
 
