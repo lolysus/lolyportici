@@ -387,28 +387,24 @@ Dal 09/08/2026 `staff_accounts.recovery_email` decide **dove** arriva il link, i
 dall'indirizzo con cui si entra. Le due cose hanno vincoli opposti: il nome utente deve essere unico
 per account, il recapito può essere condiviso.
 
-Configurazione attuale — gestione interna, una sola casella per entrambe le sedi:
+**Dal 09/08/2026 `yukoardea.it` è verificato su Resend**, quindi il mittente è
+`noreply@yukoardea.it` e `recovery_email` è `null` su entrambi gli account: ogni sede riceve il link
+sul proprio indirizzo, che è il comportamento giusto.
 
 | Account (nome utente) | Sede | Link recapitato a |
 | --- | --- | --- |
-| `suhsiroma@outlook.it` | Ardea | `suhsiportici@outlook.it` |
+| `suhsiroma@outlook.it` | Ardea | `suhsiroma@outlook.it` |
 | `suhsiportici@outlook.it` | Portici | `suhsiportici@outlook.it` |
 
-Poiché due messaggi quasi identici arrivano nella stessa casella, oggetto e corpo riportano
-**l'account interessato**: senza quello nessuno saprebbe quale password sta reimpostando.
+La colonna `recovery_email` resta e serve ancora: valorizzandola, i link di più sedi confluiscono in
+una casella sola, e in quel caso oggetto e corpo riportano **l'account interessato** — senza quello,
+due messaggi quasi identici non direbbero quale password si sta reimpostando.
 
-⚠️ **Il mittente è `onboarding@resend.dev`, e non per scelta estetica.** Finché nessun dominio è
-verificato su Resend, un mittente `@yukoardea.it` viene rifiutato con `403` e **Resend consegna solo
-all'indirizzo del titolare dell'account** (`suhsiportici@outlook.it`). È la ragione tecnica per cui il
-recapito condiviso non è un compromesso ma l'unica configurazione che funziona adesso.
+`kousushiportici.it` **non** è verificato: oggi anche i messaggi di Portici partono dal dominio di
+Ardea. Per il recupero password dello staff è irrilevante; conterebbe se un giorno si riaccendessero
+le conferme ai clienti.
 
-Quando `yukoardea.it` sarà verificato:
-
-```bash
-railway variables --service loly-api --set "EMAIL_FROM=noreply@yukoardea.it"
-# e, per tornare a un recapito per account:
-#   update public.staff_accounts set recovery_email = null;
-```
-
-`recovery_email = null` significa "manda all'indirizzo dell'account", che è il comportamento giusto
-una volta caduto il vincolo di Resend.
+Come si riconosce un dominio verificato **senza** il pannello Resend (la chiave è solo-invio e non
+può leggere l'elenco): si prova a spedire da quel mittente verso un indirizzo **diverso** dal
+titolare dell'account. Accettato = verificato; `403 domain is not verified` = no. Un dominio non
+verificato consegna solo al titolare, quindi provare con la sua casella non dimostra niente.
