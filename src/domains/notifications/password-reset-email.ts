@@ -2,6 +2,7 @@ import "server-only";
 
 import type { EmailMessage } from "@/integrations/email/types";
 import type { RestaurantLocation } from "@/config/brand";
+import { emailSenderFor } from "@/config/email-sender";
 
 /**
  * L'email che riporta dentro chi ha perso la password.
@@ -61,7 +62,10 @@ export function buildPasswordResetEmail({ to, name, restaurant, resetUrl, minute
   <p style="margin:18px auto 0;max-width:520px;font-size:11px;line-height:1.6;color:#9c968c;text-align:center">${escapeHtml(restaurant.name)} · ${escapeHtml(restaurant.address)}</p>
 </body></html>`;
 
-  return { to, subject, html, text };
+  // Chi entra nel pannello di Portici deve vedere KouSushi come mittente: su
+  // un'email che chiede di cambiare password, il mittente è la prima cosa che
+  // si guarda per decidere se fidarsi.
+  return { to, from: emailSenderFor(restaurant), subject, html, text };
 }
 
 function escapeHtml(value: string) {

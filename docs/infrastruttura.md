@@ -146,6 +146,9 @@ Non stanno nel repository. Vivono nelle due piattaforme e vanno tenute coerenti.
 | `MANAGEMENT_TOKEN_PEPPER` | — | ✅ | token di gestione prenotazione |
 | `CRON_SECRET` | — | ✅ | protegge `/api/cron/*` |
 | `TRUSTED_ORIGINS`, `APP_TIMEZONE`, `NEXT_PUBLIC_*` | — | ✅ | |
+| `RESEND_API_KEY` | — | ✅ | l'invio parte dall'API, non dalle pagine |
+| `EMAIL_FROM_BY_LOCATION` | — | ✅ | un mittente per sede |
+| `EMAIL_FROM` | — | ✅ | rete di sicurezza per una sede non elencata |
 
 `AUTH_USERS_JSON` e `AUTH_SESSION_SECRET` sono duplicati perché il login gira su Vercel mentre le
 API girano su Railway: entrambi devono firmare e verificare la stessa sessione. **Se ne aggiorni
@@ -165,9 +168,42 @@ Non è Supabase Auth. È l'implementazione nativa in `src/lib/auth/native.ts`: g
 array JSON dentro `AUTH_USERS_JSON`, con password in scrypt (`passwordSalt` + `passwordHash`), e
 la sessione è un cookie `loly_staff_session` firmato HMAC-SHA256, valido 8 ore.
 
-Ruotare una password significa **rigenerare hash e salt e aggiornare la variabile su entrambe le
-piattaforme**. Non c'è nessuna tabella utenti da modificare e nessuna schermata di cambio password
-per questi account.
+Dalla migrazione `0012` esiste anche la tabella `staff_accounts`, e **viene letta prima** della
+variabile: chi ha reimpostato la password vive lì. La variabile resta la rete di sicurezza per chi
+non è ancora passato dal recupero. Ruotare a mano una password di chi sta ancora nella variabile
+significa rigenerare hash e salt e aggiornarla **su entrambe le piattaforme**.
+
+Due trappole viste dal vero:
+
+- **Niente BOM nel valore.** Un `AUTH_USERS_JSON` incollato da un file salvato su Windows inizia
+  con un BOM invisibile. `JSON.parse` lo rifiutava e l'elenco restava vuoto in silenzio: nessuno
+  poteva accedere e il recupero password non trovava mai un account. Ora `users()` fa `trim()` e
+  scrive l'errore nei log, ma il valore va scritto pulito comunque.
+- **L'email dell'account è l'indirizzo del recupero.** Il link parte verso l'email con cui si
+  entra: se lì c'è un indirizzo di comodo tipo `@loly.local`, il recupero non raggiunge nessuno e
+  non segnala niente. Ogni sede vuole una casella vera.
+
+## Email in uscita
+
+L'invio passa da Resend e **parte da Railway**, non da Vercel: le pagine non hanno la chiave.
+
+Il mittente dipende dalla sede, perché YUKO e KouSushi sono due attività con due domini: una
+conferma per Portici che arriva da `@yukoardea.it` sembra un raggiro.
+
+```
+EMAIL_FROM_BY_LOCATION="yuko=noreply@yukoardea.it,kousushi=noreply@kousushiportici.it"
+```
+
+**Il dominio del mittente va verificato su resend.com/domains** (record SPF e DKIM nel DNS, che per
+questi due domini è su GoDaddy). Senza verifica Resend rifiuta l'invio con `403` e accetta come
+destinatario solo l'email del titolare dell'account Resend. Il guasto è invisibile dall'esterno:
+la richiesta di recupero risponde correttamente e l'email non parte.
+
+Stato per sede, da `/api/health`:
+
+```bash
+curl -s https://loly-api-production.up.railway.app/api/health | grep -o '"emailSenders".*'
+```
 
 ## Accessi
 

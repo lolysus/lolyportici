@@ -1,3 +1,5 @@
+import { restaurantLocations } from "@/config/brand";
+import { emailSenderConfigured } from "@/config/email-sender";
 import { isSupabaseConfigured } from "@/lib/supabase/admin";
 import { getPostgres, isPostgresConfigured } from "@/lib/postgres";
 
@@ -12,7 +14,14 @@ export async function GET() {
   if (postgresReady) {
     try { await getPostgres()`select 1`; databaseReady = true; } catch { databaseReady = false; }
   } else if (isSupabaseConfigured()) databaseReady = true;
-  const guestEmailReady = Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+  // Un mittente per sede: se ne manca uno, quel ristorante non spedisce e
+  // l'altro sì. Un unico "ready" complessivo nasconderebbe esattamente il caso
+  // che ci interessa, cioè metà del personale chiuso fuori.
+  const senderBySlug = Object.fromEntries(
+    restaurantLocations.map((restaurant) => [restaurant.slug, emailSenderConfigured(restaurant)]),
+  );
+  const everySenderReady = Object.values(senderBySlug).every(Boolean);
+  const guestEmailReady = Boolean(process.env.RESEND_API_KEY) && everySenderReady;
   const ready = !demoMode && managementTokensReady && databaseReady;
   return Response.json({
     status: ready || demoMode ? "ok" : "degraded",
@@ -34,6 +43,9 @@ export async function GET() {
         ? "database_required"
         : guestEmailReady ? "ready" : demoMode ? "sandbox" : "configuration_required",
     },
+    // Quale sede può spedire e quale no, per nome: è la differenza fra "il
+    // recupero password non va" e "il recupero password di Portici non va".
+    emailSenders: { apiKey: Boolean(process.env.RESEND_API_KEY) ? "ready" : "configuration_required", byRestaurant: senderBySlug },
     timestamp: new Date().toISOString(),
   });
 }

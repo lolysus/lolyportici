@@ -27,11 +27,30 @@ interface SessionPayload {
   exp: number;
 }
 
+/**
+ * Gli account dalla variabile d'ambiente.
+ *
+ * Il `trim()` non è pignoleria: un valore incollato da un file salvato su
+ * Windows arriva con un BOM (U+FEFF) davanti alla parentesi quadra, e
+ * `JSON.parse` lo rifiuta. Senza questa riga l'elenco resta vuoto e non se ne
+ * accorge nessuno — chi ha già la sessione continua a lavorare, ma nessuno
+ * riesce più ad accedere e il recupero password non trova mai un account a cui
+ * spedire il link. È già capitato: su Railway il valore aveva il BOM.
+ *
+ * Per lo stesso motivo il fallimento va nei log invece di essere ingoiato: un
+ * elenco vuoto per errore di battitura è indistinguibile da un elenco vuoto
+ * per scelta.
+ */
 function users(): NativeUser[] {
+  const raw = process.env.AUTH_USERS_JSON?.trim();
+  if (!raw) return [];
   try {
-    const parsed = JSON.parse(process.env.AUTH_USERS_JSON ?? "[]");
-    return Array.isArray(parsed) ? parsed as NativeUser[] : [];
-  } catch {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as NativeUser[];
+    console.error("[auth] AUTH_USERS_JSON non è un elenco: nessun account disponibile");
+    return [];
+  } catch (error) {
+    console.error("[auth] AUTH_USERS_JSON illeggibile: nessun account disponibile", error);
     return [];
   }
 }

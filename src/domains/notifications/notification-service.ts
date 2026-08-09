@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { reservationConfirmationEmail } from "@/emails/reservation-confirmation";
+import { emailSenderFor } from "@/config/email-sender";
 import { ResendEmailAdapter } from "@/integrations/email/resend/adapter";
 import { TelnyxAdapter } from "@/integrations/telephony/telnyx/adapter";
 import { formatTimeInZone } from "@/lib/datetime";
@@ -68,13 +69,18 @@ async function deliver(reservation: PublicReservation, delivery: Delivery, resen
 
 export async function sendReservationConfirmation(reservation: PublicReservation, options: { resend?: boolean; emailEnabled?: boolean; smsEnabled?: boolean } = {}) {
   const deliveries: Delivery[] = [];
-  const restaurant = getRestaurantLocationById(reservation.locationId) ?? restaurantConfig;
+  // La sede serve due volte con esigenze diverse: per il testo dell'SMS basta
+  // un nome qualsiasi, per il mittente serve la sede vera — senza di essa non
+  // sapremmo da quale dominio spedire, e tirare a indovinare è peggio del
+  // mittente globale.
+  const location = getRestaurantLocationById(reservation.locationId);
+  const restaurant = location ?? restaurantConfig;
   if (reservation.customer.email && options.emailEnabled !== false) {
     const message = reservationConfirmationEmail(reservation);
     deliveries.push({
       channel: "email",
       recipient: reservation.customer.email,
-      send: () => new ResendEmailAdapter().send({ to: reservation.customer.email!, ...message }),
+      send: () => new ResendEmailAdapter().send({ ...message, to: reservation.customer.email!, from: location ? emailSenderFor(location) : undefined }),
     });
   }
   if (options.smsEnabled !== false) {
