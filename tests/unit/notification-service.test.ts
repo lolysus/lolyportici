@@ -42,10 +42,16 @@ describe("notification service", () => {
     delete process.env.EMAIL_FROM;
     delete process.env.TELNYX_API_KEY;
     delete process.env.TELNYX_FROM_NUMBER;
+    // Questi casi descrivono il canale email, che ora richiede un consenso
+    // esplicito: senza accenderlo starebbero verificando il silenzio.
+    process.env.GUEST_CONFIRMATION_EMAIL = "on";
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
 
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    delete process.env.GUEST_CONFIRMATION_EMAIL;
+    vi.restoreAllMocks();
+  });
 
   it("sends email and SMS through sandbox adapters without losing the booking", async () => {
     await expect(sendReservationConfirmation(reservation)).resolves.toEqual({ status: "sandbox", attempts: 2, failed: 0, sandbox: 2 });
@@ -60,6 +66,16 @@ describe("notification service", () => {
     await expect(sendReservationConfirmation(reservation, { emailEnabled: true, smsEnabled: false }))
       .resolves.toEqual({ status: "sandbox", attempts: 1, failed: 0, sandbox: 1 });
     await expect(sendReservationConfirmation(reservation, { emailEnabled: false, smsEnabled: false }))
+      .resolves.toEqual({ status: "disabled", attempts: 0, failed: 0, sandbox: 0 });
+  });
+
+  it("non scrive al cliente finché le conferme non sono accese", async () => {
+    delete process.env.GUEST_CONFIRMATION_EMAIL;
+    // La chiave Resend è condivisa con il recupero password dello staff:
+    // configurarla non deve far partire email ai clienti di rimbalzo.
+    await expect(sendReservationConfirmation(reservation))
+      .resolves.toEqual({ status: "sandbox", attempts: 1, failed: 0, sandbox: 1 });
+    await expect(sendReservationConfirmation(reservation, { smsEnabled: false }))
       .resolves.toEqual({ status: "disabled", attempts: 0, failed: 0, sandbox: 0 });
   });
 });

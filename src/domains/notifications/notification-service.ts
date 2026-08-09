@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { reservationConfirmationEmail } from "@/emails/reservation-confirmation";
-import { emailSenderFor } from "@/config/email-sender";
+import { emailSenderFor, guestConfirmationEmailEnabled } from "@/config/email-sender";
 import { ResendEmailAdapter } from "@/integrations/email/resend/adapter";
 import { TelnyxAdapter } from "@/integrations/telephony/telnyx/adapter";
 import { formatTimeInZone } from "@/lib/datetime";
@@ -75,7 +75,9 @@ export async function sendReservationConfirmation(reservation: PublicReservation
   // mittente globale.
   const location = getRestaurantLocationById(reservation.locationId);
   const restaurant = location ?? restaurantConfig;
-  if (reservation.customer.email && options.emailEnabled !== false) {
+  // L'interruttore globale viene prima delle impostazioni della sede: finché è
+  // spento, la stessa chiave Resend serve solo il recupero password dello staff.
+  if (reservation.customer.email && options.emailEnabled !== false && guestConfirmationEmailEnabled()) {
     const message = reservationConfirmationEmail(reservation);
     deliveries.push({
       channel: "email",

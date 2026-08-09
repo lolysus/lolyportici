@@ -1,5 +1,5 @@
 import { restaurantLocations } from "@/config/brand";
-import { emailSenderConfigured } from "@/config/email-sender";
+import { emailSenderConfigured, guestConfirmationEmailEnabled } from "@/config/email-sender";
 import { isSupabaseConfigured } from "@/lib/supabase/admin";
 import { getPostgres, isPostgresConfigured } from "@/lib/postgres";
 
@@ -33,7 +33,12 @@ export async function GET() {
       managementTokens: managementTokensReady ? "ready" : demoMode ? "sandbox" : "configuration_required",
       // Senza provider email la prenotazione va a buon fine e il cliente non
       // riceve nulla: è un guasto invisibile dall'esterno, quindi va esposto.
-      guestConfirmationEmail: guestEmailReady ? "ready" : demoMode ? "sandbox" : "configuration_required",
+      // "disabled" non è un guasto: è la scelta di tenere Resend al solo
+      // recupero password dello staff. Va detto, altrimenti qualcuno passerà
+      // un pomeriggio a cercare perché i clienti non ricevono niente.
+      guestConfirmationEmail: !guestConfirmationEmailEnabled()
+        ? "disabled"
+        : guestEmailReady ? "ready" : demoMode ? "sandbox" : "configuration_required",
       // Il recupero password ha bisogno di due cose distinte: un posto dove
       // scrivere la password nuova (il database) e un modo per far arrivare
       // il link (l'email). Se manca l'email il modulo accetta la richiesta e

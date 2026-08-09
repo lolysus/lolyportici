@@ -156,6 +156,7 @@ Non stanno nel repository. Vivono nelle due piattaforme e vanno tenute coerenti.
 | `RESEND_API_KEY` | — | ✅ | l'invio parte dall'API, non dalle pagine |
 | `EMAIL_FROM_BY_LOCATION` | — | ✅ | un mittente per sede |
 | `EMAIL_FROM` | — | ✅ | rete di sicurezza per una sede non elencata |
+| `GUEST_CONFIRMATION_EMAIL` | — | ✅ | `off`: Resend serve solo il recupero password |
 
 `AUTH_USERS_JSON` e `AUTH_SESSION_SECRET` sono duplicati perché il login gira su Vercel mentre le
 API girano su Railway: entrambi devono firmare e verificare la stessa sessione. **Se ne aggiorni
@@ -193,6 +194,14 @@ Due trappole viste dal vero:
 ## Email in uscita
 
 L'invio passa da Resend e **parte da Railway**, non da Vercel: le pagine non hanno la chiave.
+
+**Una chiave sola, due usi da non confondere.** Oggi Resend serve **solo il recupero password dello
+staff**. Le conferme di prenotazione al cliente sono spente da `GUEST_CONFIRMATION_EMAIL=off`,
+scelta esplicita del 09/08/2026: le impostazioni delle notifiche non sono salvate nel database e i
+default nel codice valevano `true`, quindi configurare la chiave per il recupero password aveva
+acceso di rimbalzo anche le email ai clienti. Per riaccenderle serve mettere `on` — e prima
+conviene verificare `kousushiportici.it`, altrimenti i clienti di Portici ricevono la conferma da un
+dominio di Ardea.
 
 Il mittente dipende dalla sede, perché YUKO e KouSushi sono due attività con due domini: una
 conferma per Portici che arriva da `@yukoardea.it` sembra un raggiro.

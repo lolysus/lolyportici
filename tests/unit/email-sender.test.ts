@@ -62,3 +62,31 @@ describe("mittente email per sede", () => {
     expect(emailSenderConfigured(kousushi)).toBe(false);
   });
 });
+
+describe("conferme email ai clienti", () => {
+  const originalSwitch = process.env.GUEST_CONFIRMATION_EMAIL;
+  afterEach(() => {
+    if (originalSwitch === undefined) delete process.env.GUEST_CONFIRMATION_EMAIL;
+    else process.env.GUEST_CONFIRMATION_EMAIL = originalSwitch;
+  });
+
+  it("sono spente se nessuno le accende", async () => {
+    delete process.env.GUEST_CONFIRMATION_EMAIL;
+    const { guestConfirmationEmailEnabled } = await import("@/config/email-sender");
+    // La chiave Resend è una sola: configurarla per il recupero password non
+    // deve far partire email ai clienti che nessuno aveva chiesto.
+    expect(guestConfirmationEmailEnabled()).toBe(false);
+  });
+
+  it("si accendono solo con un consenso esplicito", async () => {
+    const { guestConfirmationEmailEnabled } = await import("@/config/email-sender");
+    for (const value of ["on", "true", "1", "ON"]) {
+      process.env.GUEST_CONFIRMATION_EMAIL = value;
+      expect(guestConfirmationEmailEnabled()).toBe(true);
+    }
+    for (const value of ["off", "false", "0", "", "si", "yes"]) {
+      process.env.GUEST_CONFIRMATION_EMAIL = value;
+      expect(guestConfirmationEmailEnabled()).toBe(false);
+    }
+  });
+});

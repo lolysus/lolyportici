@@ -30,6 +30,27 @@ export function emailSenderFor(restaurant: Pick<RestaurantLocation, "slug" | "sh
   return label ? `${label} <${address}>` : address;
 }
 
+/**
+ * Le conferme di prenotazione al cliente vanno accese di proposito.
+ *
+ * La chiave Resend è una sola per tutta l'app, quindi configurarla per il
+ * recupero password dello staff accendeva di rimbalzo anche le email ai
+ * clienti — un cambiamento verso l'esterno che nessuno aveva chiesto. Le
+ * impostazioni delle notifiche non sono salvate nel database: arrivano dai
+ * default nel codice, e lì valevano `true`.
+ *
+ * Perciò questo interruttore è un consenso esplicito e non un default:
+ *
+ *   GUEST_CONFIRMATION_EMAIL=on
+ *
+ * Spento, la prenotazione funziona esattamente come prima e `/api/health` lo
+ * dichiara — non deve sembrare un guasto.
+ */
+export function guestConfirmationEmailEnabled() {
+  const value = process.env.GUEST_CONFIRMATION_EMAIL?.trim().toLowerCase();
+  return value === "on" || value === "true" || value === "1";
+}
+
 /** Vero se esiste un mittente spendibile per questa sede. */
 export function emailSenderConfigured(restaurant: Pick<RestaurantLocation, "slug" | "shortName">) {
   return Boolean(emailSenderFor(restaurant));
