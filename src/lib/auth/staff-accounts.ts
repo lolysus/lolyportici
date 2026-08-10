@@ -169,3 +169,27 @@ export async function resetTokenIsUsable(token: string) {
     limit 1`;
   return Boolean(rows[0]);
 }
+
+/**
+ * Gli account di una sede, per la pagina che li mostra.
+ *
+ * Esiste perché quella pagina interrogava Supabase, che in produzione non è
+ * configurato: `getSupabaseAdmin()` solleva un errore e la pagina Personale
+ * finiva nella schermata di errore. Il ripiego previsto — due account inventati
+ * chiamati "Manager Demo" e "Reception Demo" con indirizzi `@example.test` —
+ * scattava solo in modalità demo, quindi in produzione non arrivava nemmeno a
+ * consolare: peggio ancora se l'avesse fatto, perché due persone finte nella
+ * pagina che governa gli accessi sono un invito a sbagliare.
+ *
+ * La fonte vera degli accessi è questa tabella: è quella che il login consulta.
+ */
+export async function listAccountsForLocation(locationId: string): Promise<StaffAccount[]> {
+  if (!isPostgresConfigured()) return [];
+  const sql = getPostgres();
+  const rows = await sql<Array<Record<string, unknown>>>`
+    select id, email, name, role, location_id, password_salt, password_hash, recovery_email
+    from public.staff_accounts
+    where location_id = ${locationId}::uuid and status = 'active'
+    order by email`;
+  return rows.map(toAccount);
+}

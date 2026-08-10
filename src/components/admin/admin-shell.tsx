@@ -147,7 +147,7 @@ export function AdminShell({ session, activeLocation, scopedRestaurantSlug, chil
           <p className="mt-0.5 truncate text-sm font-medium">{currentSection?.label ?? "Pannello"}</p>
         </div>
         <button onClick={() => setCommandOpen(true)} className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-white/8 bg-white/[0.03] text-muted-foreground transition-colors hover:border-white/15 md:h-10 md:min-w-0 md:max-w-xs md:flex-1 md:justify-start md:gap-2 md:px-3 md:text-sm" aria-label="Vai a una sezione"><Search className="size-4" /><span className="hidden truncate md:inline">Vai a una sezione…</span><kbd className="ml-auto hidden rounded border border-white/10 px-1.5 font-mono text-[10px] lg:block">Ctrl K</kbd></button>
-        <RealtimeStatus locationId={activeLocation.id} compact />
+        <RealtimeStatus compact />
         <Button asChild size="sm" className="hidden xl:inline-flex"><Link href={`/prenota/${activeLocation.slug}`}><CalendarPlus />Pagina prenotazioni</Link></Button>
         <OperationalNotifications key={activeLocation.id} location={activeLocation} />
       </header>
