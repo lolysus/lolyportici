@@ -105,7 +105,9 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
         <Link href={bookingPath} aria-label={`${location.name} · prenotazioni online`} className="block shrink-0 text-white"><BrandLogo priority size="hero" restaurant={location} subtitle="Prenotazioni online" /></Link>
         <nav className="flex items-center gap-1 text-xs sm:gap-3" aria-label="Lingua e accesso">
           <Badge variant="outline" className="hidden border-white/20 bg-white/5 text-white sm:inline-flex"><span className={`mr-1.5 size-1.5 rounded-full ${bookingStatus.dot}`} />{bookingStatus.label}</Badge>
-          <Link href="/account" className="hidden min-h-11 items-center gap-1.5 px-2 text-white/65 hover:text-white sm:inline-flex"><UserRound className="size-3.5" />Area ospite</Link>
+          {/* Niente "Area ospite": chi ha prenotato riceve il proprio link nella
+              schermata di conferma, e un ingresso generico su questa pagina era
+              l'unico punto della piattaforma che cercava fra i due ristoranti. */}
           {restaurantConfig.supportedLocales.map((language) => <Link key={language} href={`/${language}/book/${restaurantSlug}`} hrefLang={language} aria-current={language === locale ? "page" : undefined} className={cn("inline-flex min-h-11 items-center justify-center rounded-md px-2 transition-colors sm:px-3", language === locale ? "bg-white/10 font-semibold text-white" : "text-white/55 hover:bg-white/5 hover:text-white")}>{language.toUpperCase()}</Link>)}
         </nav>
       </div>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, Building2, CalendarCheck2, Clock3, MapPin, Phone, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { ArrowRight, Building2, CalendarCheck2, Clock3, MapPin, Phone, ShieldCheck, Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { brandConfig, managedRestaurants, restaurantConfig } from "@/config/brand";
@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils";
 import type { ServiceMode } from "@/types/settings";
 
 const copy = {
-  it: { eyebrow: "Prenotazioni YUKO × KouSushi", title: "Due identità. Un tavolo scelto con cura.", description: "YUKO ad Ardea e KouSushi a Portici mantengono disponibilità, sala, regole e immagine separate. Scegli il tuo ristorante.", choose: "Prenota in questo ristorante", staff: "Area staff", guests: "Area ospite", restaurants: "Ristoranti gestiti", secure: "Richiesta protetta", journey: { choose: ["Scegli la sede", "Ogni ristorante conserva immagine, sala e disponibilità indipendenti."], personalise: ["Personalizza la richiesta", "Orario, numero di ospiti e preferenze arrivano ordinati allo staff."], confirm: ["Ricevi conferma", "Il percorso guida il cliente fino al riepilogo della prenotazione."] } },
-  en: { eyebrow: "YUKO × KouSushi reservations", title: "Two identities. One table chosen with care.", description: "YUKO in Ardea and KouSushi in Portici keep their availability, floor, rules and identity separate.", choose: "Book this restaurant", staff: "Staff area", guests: "Guest area", restaurants: "Managed restaurants", secure: "Secure request", journey: { choose: ["Choose your restaurant", "Each restaurant keeps its own identity, floor plan and availability."], personalise: ["Make it yours", "Time, party size and preferences are sent clearly to the team."], confirm: ["Receive confirmation", "The guided flow ends with a clear booking summary."] } },
-  es: { eyebrow: "Reservas YUKO × KouSushi", title: "Dos identidades. Una mesa elegida con cuidado.", description: "YUKO en Ardea y KouSushi en Portici mantienen separadas disponibilidad, sala, reglas e identidad.", choose: "Reservar en este restaurante", staff: "Área del personal", guests: "Área de cliente", restaurants: "Restaurantes gestionados", secure: "Solicitud protegida", journey: { choose: ["Elige el restaurante", "Cada restaurante conserva su identidad, sala y disponibilidad."], personalise: ["Personaliza la solicitud", "Hora, comensales y preferencias llegan ordenados al equipo."], confirm: ["Recibe confirmación", "El flujo guiado termina con un resumen claro de la reserva."] } },
+  it: { eyebrow: "Prenotazioni YUKO × KouSushi", title: "Due identità. Un tavolo scelto con cura.", description: "YUKO ad Ardea e KouSushi a Portici mantengono disponibilità, sala, regole e immagine separate. Scegli il tuo ristorante.", choose: "Prenota in questo ristorante", staff: "Area staff", restaurants: "Ristoranti gestiti", secure: "Richiesta protetta", journey: { choose: ["Scegli la sede", "Ogni ristorante conserva immagine, sala e disponibilità indipendenti."], personalise: ["Personalizza la richiesta", "Orario, numero di ospiti e preferenze arrivano ordinati allo staff."], confirm: ["Ricevi conferma", "Il percorso guida il cliente fino al riepilogo della prenotazione."] } },
+  en: { eyebrow: "YUKO × KouSushi reservations", title: "Two identities. One table chosen with care.", description: "YUKO in Ardea and KouSushi in Portici keep their availability, floor, rules and identity separate.", choose: "Book this restaurant", staff: "Staff area", restaurants: "Managed restaurants", secure: "Secure request", journey: { choose: ["Choose your restaurant", "Each restaurant keeps its own identity, floor plan and availability."], personalise: ["Make it yours", "Time, party size and preferences are sent clearly to the team."], confirm: ["Receive confirmation", "The guided flow ends with a clear booking summary."] } },
+  es: { eyebrow: "Reservas YUKO × KouSushi", title: "Dos identidades. Una mesa elegida con cuidado.", description: "YUKO en Ardea y KouSushi en Portici mantienen separadas disponibilidad, sala, reglas e identidad.", choose: "Reservar en este restaurante", staff: "Área del personal", restaurants: "Restaurantes gestionados", secure: "Solicitud protegida", journey: { choose: ["Elige el restaurante", "Cada restaurante conserva su identidad, sala y disponibilidad."], personalise: ["Personaliza la solicitud", "Hora, comensales y preferencias llegan ordenados al equipo."], confirm: ["Recibe confirmación", "El flujo guiado termina con un resumen claro de la reserva."] } },
 } as const;
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
@@ -56,8 +56,9 @@ export default async function RestaurantSelectionPage({ params }: { params: Prom
         <Link href={`/${locale}/book`} aria-label={brandConfig.platformName} className="block shrink-0"><BrandLogo priority subtitle="Due ristoranti · una regia" /></Link>
         <nav className="flex items-center gap-3 text-xs" aria-label="Lingua e accesso">
           {restaurantConfig.supportedLocales.map((language) => <Link key={language} href={`/${language}/book`} hrefLang={language} aria-current={language === locale ? "page" : undefined} className={language === locale ? "font-semibold text-white" : "text-white/45 hover:text-white"}>{language.toUpperCase()}</Link>)}
-          <Link href="/account" className="ml-2 hidden items-center gap-1.5 text-white/65 hover:text-white sm:inline-flex"><UserRound className="size-3.5" />{text.guests}</Link>
-          <Link href="/login" className="border border-white/15 px-3 py-1.5 text-white/70 hover:border-primary/60 hover:text-white">{text.staff}</Link>
+          {/* Nessun ingresso ospite: vedi il commento nella pagina del singolo
+              ristorante. Chi ha prenotato usa il link della propria conferma. */}
+          <Link href="/login" className="ml-2 border border-white/15 px-3 py-1.5 text-white/70 hover:border-primary/60 hover:text-white">{text.staff}</Link>
         </nav>
       </div>
     </header>
