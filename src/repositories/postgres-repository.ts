@@ -19,6 +19,23 @@ const text = (value: unknown, fallback = "") => typeof value === "string" ? valu
 const number = (value: unknown, fallback = 0) => typeof value === "number" ? value : Number(value ?? fallback);
 const bool = (value: unknown) => value === true;
 const iso = (value: unknown) => value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
+/**
+ * Una colonna `date` di Postgres arriva come oggetto `Date`, non come stringa.
+ *
+ * `text()` accetta solo stringhe e altrimenti restituisce `""`: ogni
+ * `reservation_date` risultava quindi **vuota**, e con essa vuota l'agenda —
+ * che filtra le righe per giorno — i contatori della giornata, l'export CSV e le
+ * metriche. La schermata principale del pannello mostrava zero prenotazioni per
+ * qualunque data, in produzione, senza un errore da nessuna parte.
+ *
+ * Le colonne `time` invece arrivano già come stringhe ("19:00:00"), ed è per
+ * questo che gli orari funzionavano e le date no.
+ */
+export const dateKeyFromRow = (value: unknown, fallback = "") => {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === "string") return value.slice(0, 10);
+  return fallback;
+};
 
 function tableResource(row: Row): TableResource {
   return {
@@ -43,7 +60,7 @@ function customer(row: Row): Customer {
     customerType: text(row.customer_type, "new") as Customer["customerType"],
     totalBookings: number(row.total_bookings),
     noShowCount: number(row.no_show_count),
-    lastVisitAt: text(row.last_visit_at) || undefined,
+    lastVisitAt: row.last_visit_at ? iso(row.last_visit_at) : undefined,
     allergies: text(row.allergies) || undefined,
     accessibilityNeeds: text(row.accessibility_needs) || undefined,
   };
@@ -62,7 +79,7 @@ function reservation(row: Row): Reservation {
     source: text(row.source) as Reservation["source"],
     status: text(row.status) as Reservation["status"],
     partySize: number(row.party_size),
-    reservationDate: text(row.reservation_date),
+    reservationDate: dateKeyFromRow(row.reservation_date),
     startAt: iso(row.start_at),
     endAt: iso(row.end_at),
     durationMinutes: number(row.duration_minutes),
@@ -211,7 +228,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       where location_id=${this.locationId} and date >= current_date
       order by date, start_time nulls first`;
     return rows.map((row) => ({
-      id: text(row.id), date: text(row.date).slice(0, 10),
+      id: text(row.id), date: dateKeyFromRow(row.date),
       startTime: text(row.start_time).slice(0, 5) || undefined,
       endTime: text(row.end_time).slice(0, 5) || undefined,
       type: text(row.type) as SpecialClosure["type"], reason: text(row.reason),
@@ -283,7 +300,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       status: text(row.status) as ReservationHold["status"], createdAt: iso(row.created_at),
     }));
     const closures: SpecialClosure[] = closureRows.map((row) => ({
-      id: text(row.id), date: text(row.date), startTime: text(row.start_time).slice(0, 5) || undefined,
+      id: text(row.id), date: dateKeyFromRow(row.date), startTime: text(row.start_time).slice(0, 5) || undefined,
       endTime: text(row.end_time).slice(0, 5) || undefined, type: text(row.type) as SpecialClosure["type"],
       reason: text(row.reason), affectedAreaId: text(row.affected_area_id) || undefined, affectedTableId: text(row.affected_table_id) || undefined,
     }));
@@ -456,7 +473,7 @@ export class PostgresReservationRepository implements ReservationRepository {
     const rows = await sql<Row[]>`select * from public.waitlist_entries where location_id=${this.locationId}::uuid order by created_at`;
     return rows.map((row) => ({
       id: text(row.id), locationId: text(row.location_id), customer: (row.customer_snapshot ?? {}) as WaitlistEntry["customer"],
-      requestedDate: text(row.requested_date), requestedStartAt: iso(row.requested_start_at),
+      requestedDate: dateKeyFromRow(row.requested_date), requestedStartAt: iso(row.requested_start_at),
       partySize: number(row.party_size), flexibilityMinutes: number(row.flexibility_minutes), preferredAreaId: text(row.preferred_area_id) || undefined,
       status: text(row.status) as WaitlistEntry["status"], priority: number(row.priority), notes: text(row.notes) || undefined,
       createdAt: iso(row.created_at),
