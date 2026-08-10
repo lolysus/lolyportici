@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, BellRing, Check, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { Bell, BellRing, Check, Play, RotateCcw, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { RestaurantLocation } from "@/config/brand";
 import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
-import { defaultNotificationPreferences, type NotificationPreferences } from "@/lib/notification-preferences";
+import { defaultNotificationPreferences, minimumNotificationVolume, type NotificationPreferences } from "@/lib/notification-preferences";
 import { findNotificationSound, notificationSounds } from "@/lib/notification-sounds";
 import { cn } from "@/lib/utils";
 
@@ -52,26 +52,30 @@ export function NotificationSoundSettings({ location }: { location: RestaurantLo
     }
   }, []);
 
-  function update(changes: Partial<NotificationPreferences>, options: { previewSound?: boolean } = {}) {
-    const next = updatePreferences(changes);
+  // L'ora del salvataggio si legge qui dentro e non nel corpo del componente:
+  // `Date.now()` durante il render dà un valore diverso a ogni ridisegno.
+  const markSaved = useCallback(() => {
     setDraftVolume(null);
     setSavedAt(Date.now());
+  }, []);
+
+  function update(changes: Partial<NotificationPreferences>, options: { previewSound?: boolean } = {}) {
+    const next = updatePreferences(changes);
+    markSaved();
     // L'anteprima parte dal clic dell'utente, che è ciò che i browser
     // pretendono per sbloccare l'audio: farla qui è anche il modo di scoprire
     // subito se questa dashboard è ancora muta.
-    if (options.previewSound && next.enabled) void preview(next.soundId, next.volume);
+    if (options.previewSound) void preview(next.soundId, next.volume);
   }
 
   function restoreDefaults() {
     updatePreferences(defaultNotificationPreferences);
-    setDraftVolume(null);
-    setSavedAt(Date.now());
+    markSaved();
     void preview(defaultNotificationPreferences.soundId, defaultNotificationPreferences.volume);
   }
 
   const isDefault = preferences.soundId === defaultNotificationPreferences.soundId
-    && volume === defaultNotificationPreferences.volume
-    && preferences.enabled === defaultNotificationPreferences.enabled;
+    && volume === defaultNotificationPreferences.volume;
 
   return <section className="surface-3d rounded-2xl border bg-card p-5 sm:p-6">
     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -82,17 +86,15 @@ export function NotificationSoundSettings({ location }: { location: RestaurantLo
           il tablet in sala e il portatile in ufficio possono avere volumi diversi, ed è quello che serve.
         </p>
       </div>
-      <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium", preferences.enabled ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-700" : "border-border bg-muted text-muted-foreground")}>
-        {preferences.enabled ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
-        {preferences.enabled ? "Attive" : "Disattivate"}
+      {/* Non un interruttore: uno stato. La campanella suona sempre, e questo
+          lo dice a chi viene qui cercando il modo di spegnerla. */}
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-700">
+        <Volume2 className="size-3.5" />Sempre attive
       </span>
     </div>
 
     <div className="mt-5 flex flex-wrap gap-2">
-      <Button variant={preferences.enabled ? "outline" : "default"} onClick={() => update({ enabled: !preferences.enabled }, { previewSound: !preferences.enabled })} className="min-h-11" aria-pressed={preferences.enabled}>
-        {preferences.enabled ? <VolumeX /> : <Volume2 />}{preferences.enabled ? "Disattiva notifiche sonore" : "Attiva notifiche sonore"}
-      </Button>
-      <Button variant="outline" onClick={() => void preview(preferences.soundId, volume)} disabled={!preferences.enabled} className="min-h-11">
+      <Button variant="outline" onClick={() => void preview(preferences.soundId, volume)} className="min-h-11">
         <Bell />Prova la notifica
       </Button>
       <Button variant="ghost" onClick={restoreDefaults} disabled={isDefault} className="min-h-11">
@@ -104,18 +106,18 @@ export function NotificationSoundSettings({ location }: { location: RestaurantLo
       Il browser tiene l’audio bloccato finché non interagisci con la pagina. Premi “Prova la notifica”: da quel momento la campanella funziona per tutta la sessione.
     </p>}
 
-    <fieldset className="mt-6" disabled={!preferences.enabled}>
+    <fieldset className="mt-6">
       <legend className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Suono</legend>
       <ul role="list" className="grid gap-2.5 sm:grid-cols-3">
         {notificationSounds.map((sound) => {
           const active = preferences.soundId === sound.id;
           return <li key={sound.id}>
-            <div className={cn("flex h-full flex-col rounded-xl border p-4 transition-colors", active ? "border-primary bg-primary/[0.06] ring-2 ring-primary/20" : "bg-background", !preferences.enabled && "opacity-55")}>
+            <div className={cn("flex h-full flex-col rounded-xl border p-4 transition-colors", active ? "border-primary bg-primary/[0.06] ring-2 ring-primary/20" : "bg-background")}>
               <button type="button" onClick={() => update({ soundId: sound.id }, { previewSound: true })} aria-pressed={active} className="min-h-11 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="flex items-center justify-between gap-2"><span className="font-semibold">{sound.label}</span>{active && <Check className="size-4 shrink-0 text-primary" />}</span>
                 <span className="mt-1.5 block text-xs leading-5 text-muted-foreground">{sound.description}</span>
               </button>
-              <button type="button" onClick={() => void preview(sound.id, volume)} disabled={!preferences.enabled} className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border bg-card px-3 text-xs font-semibold transition-colors hover:border-primary/40 disabled:opacity-50">
+              <button type="button" onClick={() => void preview(sound.id, volume)} className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border bg-card px-3 text-xs font-semibold transition-colors hover:border-primary/40">
                 <Play className="size-3.5" />Ascolta
               </button>
             </div>
@@ -131,7 +133,9 @@ export function NotificationSoundSettings({ location }: { location: RestaurantLo
         <input
           id="notification-volume"
           type="range"
-          min={0}
+          // Parte da 10 e non da 0: portare il cursore a zero era l'interruttore
+          // di spegnimento rimasto in giro sotto un altro nome.
+          min={minimumNotificationVolume}
           max={100}
           step={5}
           value={volume}
@@ -140,11 +144,10 @@ export function NotificationSoundSettings({ location }: { location: RestaurantLo
           // il trascinamento partirebbero venti campanelle sovrapposte.
           onPointerUp={() => update({ volume }, { previewSound: true })}
           onKeyUp={() => update({ volume }, { previewSound: true })}
-          disabled={!preferences.enabled}
           className="mt-3 h-11 w-full touch-manipulation accent-[var(--primary)]"
           aria-describedby="notification-volume-hint"
         />
-        <p id="notification-volume-hint" className="mt-1 text-xs text-muted-foreground">Con la sala piena serve almeno l’80%.</p>
+        <p id="notification-volume-hint" className="mt-1 text-xs text-muted-foreground">Con la sala piena serve almeno l’80%. Sotto il {minimumNotificationVolume}% non si scende: l’avviso deve restare udibile.</p>
       </div>
     </fieldset>
 

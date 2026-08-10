@@ -20,7 +20,6 @@ export interface ReceiptData {
   dateLabel: string;
   timeLabel: string;
   partyLabel: string;
-  tableLabel?: string;
   guestName: string;
   punctualityNotice: string;
   accentColor: string;
@@ -33,7 +32,6 @@ export interface ReceiptData {
     date: string;
     time: string;
     party: string;
-    table: string;
     guest: string;
     punctuality: string;
   };
@@ -109,7 +107,6 @@ export async function drawReceipt(data: ReceiptData): Promise<Blob | null> {
     [data.labels.date, data.dateLabel],
     [data.labels.time, data.timeLabel],
     [data.labels.party, data.partyLabel],
-    ...(data.tableLabel ? [[data.labels.table, data.tableLabel] as [string, string]] : []),
     [data.labels.guest, data.guestName],
   ];
 
@@ -230,6 +227,14 @@ export type ReceiptOutcome = "downloaded" | "shared" | "opened" | "failed";
  * prima. Su desktop il download è la cosa attesa. Se nessuna delle due
  * funziona, l'immagine si apre in una scheda: brutta come soluzione, ma il
  * cliente può ancora tenerla premuta e salvarla, che è l'unica cosa che conta.
+ *
+ * **Va chiamata dentro il gesto dell'utente, con il blob già pronto.** Sia
+ * `navigator.share` sia l'apertura in scheda pretendono un'attivazione ancora
+ * valida, e disegnare l'immagine qui dentro la consumava: era il motivo per cui
+ * non si scaricava e non si apriva niente. Per lo stesso motivo chi chiama non
+ * deve fidarsi del valore restituito per dire al cliente "salvata": `iOS`
+ * ignora il click in silenzio e da qui risulta comunque `"downloaded"`. La
+ * ricevuta mostrata nella pagina è la garanzia, questa è la scorciatoia.
  */
 export async function deliverReceipt(blob: Blob, fileName: string): Promise<ReceiptOutcome> {
   const file = new File([blob], fileName, { type: "image/png" });

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, BellRing, CalendarCheck2, Check, Clock3, MapPin, RefreshCw, Volume2, VolumeX, X } from "lucide-react";
+import { Bell, BellRing, CalendarCheck2, Check, Clock3, MapPin, RefreshCw, Volume2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { RestaurantLocation } from "@/config/brand";
@@ -22,8 +22,7 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
 
-  const [preferences, updatePreferences] = useNotificationPreferences(location.id);
-  const soundEnabled = preferences.enabled;
+  const [preferences] = useNotificationPreferences(location.id);
   const [audioReady, setAudioReady] = useState(false);
   const [toast, setToast] = useState<PublicReservation | null>(null);
   const [feedState, setFeedState] = useState<FeedState>("syncing");
@@ -32,8 +31,8 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
   const audioContext = useRef<AudioContext | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const unlockAudio = useCallback(async (force = false) => {
-    if ((!soundEnabled && !force) || typeof window === "undefined") return null;
+  const unlockAudio = useCallback(async () => {
+    if (typeof window === "undefined") return null;
     const AudioContextClass = window.AudioContext ?? (window as AudioWindow).webkitAudioContext;
     if (!AudioContextClass) return null;
     if (audioContext.current?.state === "closed") audioContext.current = null;
@@ -48,10 +47,10 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
       setAudioReady(false);
       return null;
     }
-  }, [soundEnabled]);
+  }, []);
 
-  const playChime = useCallback(async (force = false) => {
-    const context = await unlockAudio(force);
+  const playChime = useCallback(async () => {
+    const context = await unlockAudio();
     if (!context) return false;
     findNotificationSound(preferences.soundId).play(context, preferences.volume);
     return true;
@@ -118,7 +117,6 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
   }, [loadReservations]);
 
   useEffect(() => {
-    if (!soundEnabled) return;
     const prime = () => { void unlockAudio(); };
     window.addEventListener("pointerdown", prime, { once: true, passive: true });
     window.addEventListener("keydown", prime, { once: true });
@@ -126,7 +124,7 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
       window.removeEventListener("pointerdown", prime);
       window.removeEventListener("keydown", prime);
     };
-  }, [soundEnabled, unlockAudio]);
+  }, [unlockAudio]);
 
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -135,21 +133,8 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
     void context?.close();
   }, []);
 
-  async function toggleSound() {
-    const next = !soundEnabled;
-    updatePreferences({ enabled: next });
-    if (next) {
-      await playChime(true);
-      return;
-    }
-    const context = audioContext.current;
-    audioContext.current = null;
-    setAudioReady(false);
-    void context?.close();
-  }
-
   function testChime() {
-    void playChime(true);
+    void playChime();
   }
 
   function openReservation(reservation: PublicReservation) {
@@ -167,7 +152,7 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
             stessa utility, e a decidere è l'ordine nel foglio di stile, non
             l'ordine scritto qui. `min-h`/`min-w` sono proprietà diverse e
             vincono comunque, così il bersaglio resta da 44px sotto il dito. */}
-        <Button variant="ghost" size="icon" className="notification-bell-trigger relative min-h-11 min-w-11 touch-manipulation lg:min-h-9 lg:min-w-9" data-sound-status={!soundEnabled ? "muted" : audioReady ? "armed" : "pending"} aria-label="Apri notifiche operative">
+        <Button variant="ghost" size="icon" className="notification-bell-trigger relative min-h-11 min-w-11 touch-manipulation lg:min-h-9 lg:min-w-9" data-sound-status={audioReady ? "armed" : "pending"} aria-label="Apri notifiche operative">
           {unread > 0 ? <BellRing /> : <Bell />}
           {unread > 0 && <span className="absolute right-0.5 top-0.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 font-mono text-[9px] font-semibold text-primary-foreground">{Math.min(unread, 9)}{unread > 9 ? "+" : ""}</span>}
         </Button>
@@ -178,16 +163,17 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
             <div><p className="font-heading text-lg">Notifiche operative</p><p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><MapPin className="size-3" />{location.shortName}</p></div>
             <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium", feedState === "offline" ? "border-destructive/25 bg-destructive/10 text-destructive" : "border-emerald-400/20 bg-emerald-400/8 text-emerald-200")}><span className={cn("size-1.5 rounded-full", feedState === "offline" ? "bg-destructive" : "bg-emerald-400", feedState === "syncing" && "animate-pulse")} />{feedState === "offline" ? "Riprovo" : streamState === "live" ? "In diretta" : "Controllo"}</span>
           </div>
-          <div className={cn("mt-4 rounded-xl border p-3.5", soundEnabled ? "border-primary/20 bg-primary/[0.055]" : "border-white/8 bg-white/[0.025]")}>
+          {/* La campanella non si spegne più: l'unica cosa che può ancora
+              renderla muta è il browser, che pretende un tocco prima di far
+              suonare qualsiasi cosa. Finché quel tocco non arriva il riquadro
+              lo dice, e resta acceso. */}
+          <div className={cn("mt-4 rounded-xl border p-3.5", audioReady ? "border-primary/20 bg-primary/[0.055]" : "border-amber-400/25 bg-amber-400/[0.07]")}>
             <div className="flex items-start gap-3">
-              <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl border", soundEnabled ? "border-primary/20 bg-primary/12 text-primary" : "border-white/10 bg-white/[0.035] text-muted-foreground")}>{soundEnabled ? <BellRing className={cn("size-4", audioReady && "signal-pulse")} /> : <VolumeX className="size-4" />}</span>
-              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{!soundEnabled ? "Campanella disattivata" : audioReady ? "Campanella pronta" : "Attiva la campanella"}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{!soundEnabled ? "Questa dashboard rimane silenziosa finche non riattivi l'avviso." : audioReady ? "Ogni nuova prenotazione ricevera un segnale immediato." : "Un tocco abilita l'audio per questa dashboard, come richiesto dal browser."}</p></div>
+              <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl border", audioReady ? "border-primary/20 bg-primary/12 text-primary" : "border-amber-400/25 bg-amber-400/10 text-amber-300")}>{audioReady ? <BellRing className="size-4 signal-pulse" /> : <Volume2 className="size-4" />}</span>
+              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{audioReady ? "Campanella pronta" : "Abilita l'audio di questo dispositivo"}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{audioReady ? "Ogni nuova prenotazione suona: l'avviso non si puo disattivare." : "Il browser fa suonare solo dopo un tocco su questa pagina. Premi qui sotto: e l'unico passaggio che manca."}</p></div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => void toggleSound()} className={cn("flex min-h-10 touch-manipulation items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors", soundEnabled ? "border-white/10 bg-card/70 text-foreground hover:border-primary/40" : "border-primary/30 bg-primary text-primary-foreground hover:bg-primary/90")} aria-pressed={soundEnabled}>
-                {soundEnabled ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}{soundEnabled ? "Disattiva" : "Attiva"}
-              </button>
-              <button type="button" onClick={testChime} disabled={!soundEnabled} className="flex min-h-10 touch-manipulation items-center justify-center gap-2 rounded-lg border border-white/10 bg-card/70 px-3 text-xs font-semibold text-foreground transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-45">
+            <div className="mt-3">
+              <button type="button" onClick={testChime} className={cn("flex min-h-10 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors", audioReady ? "border-white/10 bg-card/70 text-foreground hover:border-primary/40" : "border-amber-400/30 bg-amber-400/90 text-[#1b1400] hover:bg-amber-300")}>
                 <Bell className="size-3.5" />{audioReady ? "Prova suono" : "Abilita audio"}
               </button>
             </div>

@@ -3,7 +3,7 @@ import { restaurantLocations } from "@/config/brand";
 import {
   claimReservationAnnouncement,
   defaultNotificationPreferences,
-  legacyNotificationToggleKey,
+  minimumNotificationVolume,
   notificationPreferencesKey,
   readNotificationPreferences,
   writeNotificationPreferences,
@@ -32,42 +32,46 @@ describe("preferenze sonore della dashboard", () => {
 
   it("parte con la campanella accesa: una sala muta è il guasto peggiore", () => {
     expect(readNotificationPreferences(yuko.id)).toEqual(defaultNotificationPreferences);
-    expect(defaultNotificationPreferences.enabled).toBe(true);
+  });
+
+  it("non ha più un modo per spegnere la campanella", () => {
+    // L'interruttore c'era, ed era il modo più facile di perdere una
+    // prenotazione: zittito una volta, quel tablet restava muto per sempre.
+    // Qui si fissa che nemmeno un salvataggio scritto a mano possa rimetterlo.
+    window.localStorage.setItem(notificationPreferencesKey(yuko.id), JSON.stringify({ enabled: false, soundId: "campanella", volume: 80 }));
+    expect(readNotificationPreferences(yuko.id)).not.toHaveProperty("enabled");
+    expect(defaultNotificationPreferences).not.toHaveProperty("enabled");
   });
 
   it("tiene separate le impostazioni di Ardea e di Portici", () => {
-    writeNotificationPreferences(yuko.id, { enabled: true, soundId: "gong-morbido", volume: 40 });
-    writeNotificationPreferences(kousushi.id, { enabled: false, soundId: "doppio-tocco", volume: 100 });
+    writeNotificationPreferences(yuko.id, { soundId: "gong-morbido", volume: 40 });
+    writeNotificationPreferences(kousushi.id, { soundId: "doppio-tocco", volume: 100 });
 
     // Due sale, due livelli di rumore: la scelta di una non deve toccare l'altra.
-    expect(readNotificationPreferences(yuko.id)).toEqual({ enabled: true, soundId: "gong-morbido", volume: 40 });
-    expect(readNotificationPreferences(kousushi.id)).toEqual({ enabled: false, soundId: "doppio-tocco", volume: 100 });
+    expect(readNotificationPreferences(yuko.id)).toEqual({ soundId: "gong-morbido", volume: 40 });
+    expect(readNotificationPreferences(kousushi.id)).toEqual({ soundId: "doppio-tocco", volume: 100 });
     expect(notificationPreferencesKey(yuko.id)).not.toBe(notificationPreferencesKey(kousushi.id));
   });
 
   it("sopravvive a un logout: le preferenze non stanno nella sessione", () => {
-    writeNotificationPreferences(yuko.id, { enabled: true, soundId: "doppio-tocco", volume: 55 });
+    writeNotificationPreferences(yuko.id, { soundId: "doppio-tocco", volume: 55 });
     // Un nuovo accesso non tocca localStorage: rileggere deve dare lo stesso.
     expect(readNotificationPreferences(yuko.id).soundId).toBe("doppio-tocco");
     expect(readNotificationPreferences(yuko.id).volume).toBe(55);
   });
 
-  it("rispetta chi aveva già spento la campanella prima della libreria", () => {
-    window.localStorage.setItem(legacyNotificationToggleKey(yuko.id), "off");
-    // Cambiare formato di salvataggio non deve riaccendere un avviso che
-    // qualcuno aveva zittito di proposito.
-    expect(readNotificationPreferences(yuko.id).enabled) .toBe(false);
-  });
-
   it("riporta un volume fuori scala dentro i limiti", () => {
-    writeNotificationPreferences(yuko.id, { enabled: true, soundId: "campanella", volume: 999 });
+    writeNotificationPreferences(yuko.id, { soundId: "campanella", volume: 999 });
     expect(readNotificationPreferences(yuko.id).volume).toBe(100);
-    writeNotificationPreferences(yuko.id, { enabled: true, soundId: "campanella", volume: -30 });
-    expect(readNotificationPreferences(yuko.id).volume).toBe(0);
+    // Zero non è un volume: è l'interruttore rimesso sotto un altro nome.
+    writeNotificationPreferences(yuko.id, { soundId: "campanella", volume: -30 });
+    expect(readNotificationPreferences(yuko.id).volume).toBe(minimumNotificationVolume);
+    writeNotificationPreferences(yuko.id, { soundId: "campanella", volume: 0 });
+    expect(readNotificationPreferences(yuko.id).volume).toBe(minimumNotificationVolume);
   });
 
   it("ripiega sul suono predefinito se quello salvato non esiste più", () => {
-    window.localStorage.setItem(notificationPreferencesKey(yuko.id), JSON.stringify({ enabled: true, soundId: "suono-rimosso", volume: 70 }));
+    window.localStorage.setItem(notificationPreferencesKey(yuko.id), JSON.stringify({ soundId: "suono-rimosso", volume: 70 }));
     expect(readNotificationPreferences(yuko.id).soundId).toBe(defaultNotificationPreferences.soundId);
   });
 

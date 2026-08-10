@@ -19,7 +19,6 @@ import { privacyPolicyVersion } from "@/config/privacy-policy";
 import { deliverReceipt, drawReceipt, receiptFileName } from "@/lib/booking-receipt";
 
 type Fields = { firstName: string; lastName: string; phone: string; email: string; notes: string; allergies: string; accessibilityNeeds: string; privacyConsent: boolean; marketingConsent: boolean };
-type BookableTable = { id: string; kind: "table" | "combination"; label: string; areaName: string; seats: number; isAccessible: boolean; recommended: boolean };
 type Completion = { type: "reservation"; code: string; token: string } | { type: "waitlist"; id: string };
 
 const detailCopy = {
@@ -50,20 +49,13 @@ const flowCopy = {
     privacyRead: "Leggi l’informativa",
     privacyVersion: (version: string) => `versione ${version}`,
     receiptTitle: "Conferma prenotazione",
-    receiptDownload: "Scarica conferma prenotazione",
+    receiptSave: "Salva la conferma",
     receiptWorking: "Preparo l’immagine…",
-    receiptDone: "Immagine salvata. Controlla i download o la galleria.",
+    receiptAlt: "Conferma della prenotazione da salvare",
+    receiptHint: "Tieni premuta l’immagine per salvarla nella galleria, oppure usa il pulsante.",
     receiptFailed: "Non è stato possibile creare l’immagine. Fai uno screenshot di questa schermata: il codice è quello che conta.",
-    tableTitle: "Tavolo",
-    tableHint: (time: string) => `Scegli dove sederti alle ${time}. Vedi solo i tavoli liberi per il tuo gruppo.`,
-    tableRecommended: "consigliato",
-    tableSeats: (seats: number) => `fino a ${seats} posti`,
-    tableAccessible: "accessibile",
-    tableNoneTitle: "Nessun tavolo libero a questo orario",
-    tableNoneBody: "Qualcuno ha prenotato mentre stavi scegliendo. Torna agli orari e prova una fascia vicina.",
-    tableLabel: "Tavolo",
+    newBooking: "Fai un’altra prenotazione",
     emailInvalid: "Controlla l’indirizzo email: così scritto non è valido. Puoi anche lasciarlo vuoto.",
-    emailReason: "Il ristorante ti avvisa al cellulare. L’email serve solo se vuoi ricevere la ricevuta anche lì.",
     saveCodeTitle: "Salva questo codice adesso",
     saveCodeBody: "Non riceverai email di conferma. Fai uno screenshot di questa schermata o annota data, ora e codice: ti servono per presentarti e per modificare o annullare.",
     saveCodeEarly: "Non inviamo email di conferma: a fine prenotazione salva uno screenshot con data, ora e codice.",
@@ -90,20 +82,13 @@ const flowCopy = {
     privacyRead: "Read the privacy notice",
     privacyVersion: (version: string) => `version ${version}`,
     receiptTitle: "Booking confirmation",
-    receiptDownload: "Download booking confirmation",
+    receiptSave: "Save the confirmation",
     receiptWorking: "Preparing the image…",
-    receiptDone: "Image saved. Check your downloads or photo gallery.",
+    receiptAlt: "Booking confirmation image to save",
+    receiptHint: "Press and hold the image to save it to your gallery, or use the button.",
     receiptFailed: "The image could not be created. Take a screenshot of this screen: the code is what matters.",
-    tableTitle: "Table",
-    tableHint: (time: string) => `Choose where to sit at ${time}. You only see tables free for your group.`,
-    tableRecommended: "recommended",
-    tableSeats: (seats: number) => `up to ${seats} seats`,
-    tableAccessible: "accessible",
-    tableNoneTitle: "No table is free at this time",
-    tableNoneBody: "Someone booked while you were choosing. Go back to the times and try a nearby slot.",
-    tableLabel: "Table",
+    newBooking: "Make another booking",
     emailInvalid: "Check the email address: it is not valid as written. You can also leave it empty.",
-    emailReason: "The restaurant will call your mobile. Email is only useful if you also want the receipt there.",
     saveCodeTitle: "Save this code now",
     saveCodeBody: "You will not receive a confirmation email. Take a screenshot of this screen, or write down the date, time and code: you need them to turn up and to change or cancel.",
     saveCodeEarly: "We do not send confirmation emails: at the end, save a screenshot with the date, time and code.",
@@ -130,20 +115,13 @@ const flowCopy = {
     privacyRead: "Leer la información de privacidad",
     privacyVersion: (version: string) => `versión ${version}`,
     receiptTitle: "Confirmación de reserva",
-    receiptDownload: "Descargar confirmación de reserva",
+    receiptSave: "Guardar la confirmación",
     receiptWorking: "Preparando la imagen…",
-    receiptDone: "Imagen guardada. Revisa tus descargas o la galería.",
+    receiptAlt: "Imagen de confirmación de la reserva para guardar",
+    receiptHint: "Mantén pulsada la imagen para guardarla en la galería, o usa el botón.",
     receiptFailed: "No se ha podido crear la imagen. Haz una captura de esta pantalla: el código es lo que importa.",
-    tableTitle: "Mesa",
-    tableHint: (time: string) => `Elige dónde sentarte a las ${time}. Solo ves las mesas libres para tu grupo.`,
-    tableRecommended: "recomendada",
-    tableSeats: (seats: number) => `hasta ${seats} plazas`,
-    tableAccessible: "accesible",
-    tableNoneTitle: "No hay mesas libres a esta hora",
-    tableNoneBody: "Alguien ha reservado mientras elegías. Vuelve a los horarios y prueba una franja cercana.",
-    tableLabel: "Mesa",
+    newBooking: "Hacer otra reserva",
     emailInvalid: "Revisa el email: no es válido tal como está escrito. También puedes dejarlo vacío.",
-    emailReason: "El restaurante te llamará al móvil. El email solo sirve si también quieres el recibo allí.",
     saveCodeTitle: "Guarda este código ahora",
     saveCodeBody: "No recibirás un email de confirmación. Haz una captura de esta pantalla o anota fecha, hora y código: los necesitas para presentarte y para cambiar o anular.",
     saveCodeEarly: "No enviamos emails de confirmación: al final, guarda una captura con la fecha, la hora y el código.",
@@ -176,12 +154,6 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
   const [requestedTime, setRequestedTime] = useState("20:00");
   const [slots, setSlots] = useState<PublicAvailabilityOption[]>([]);
   const [selected, setSelected] = useState<PublicAvailabilityOption | null>(null);
-  // L'orario scelto ma non ancora bloccato: fra la scelta dell'ora e quella del
-  // tavolo non esiste ancora nessuna disponibilità riservata.
-  const [pendingSlot, setPendingSlot] = useState<PublicAvailabilityOption | null>(null);
-  const [tableOptions, setTableOptions] = useState<BookableTable[] | null>(null);
-  const [chosenTable, setChosenTable] = useState<BookableTable | null>(null);
-  const [loadingTables, setLoadingTables] = useState(false);
   const [holdId, setHoldId] = useState<string | null>(null);
   const [waitlistMode, setWaitlistMode] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -189,10 +161,15 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
   const [restrictions, setRestrictions] = useState<string[]>([]);
   const [manualReviewRequired, setManualReviewRequired] = useState(false);
   const [completion, setCompletion] = useState<Completion | null>(null);
-  const [receiptState, setReceiptState] = useState<"idle" | "working" | "done" | "failed">("idle");
+  // La ricevuta si prepara da sola appena esiste il codice, e vive come
+  // immagine dentro la pagina: vedi `receipt` più sotto.
+  const [receipt, setReceipt] = useState<{ blob: Blob; url: string } | null>(null);
+  const [receiptState, setReceiptState] = useState<"working" | "ready" | "failed">("working");
   const [fields, setFields] = useState<Fields>({ firstName: "", lastName: "", phone: "", email: "", notes: "", allergies: "", accessibilityNeeds: "", privacyConsent: false, marketingConsent: false });
   const sessionId = useMemo(() => `web_${crypto.randomUUID()}`, []);
-  const idempotencyKey = useMemo(() => crypto.randomUUID(), []);
+  // Non un `useMemo`: chi prenota due volte di fila deve ottenere due
+  // prenotazioni, e una chiave riusata restituirebbe in silenzio la prima.
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const hasMountedBookingFlow = useRef(false);
   const requiresManualHandling = features.requiresManualApproval || features.requiresDeposit || partySize > features.maximumPartySize;
   const selectedDateLabel = date ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(`${date}T12:00:00`)) : flow.dateNotSelected;
@@ -217,7 +194,6 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
     if (!date) return;
     if (holdId) await releaseCurrentHold();
     setSlots([]); setSelected(null); setHoldId(null); setError(null); setRestrictions([]); setManualReviewRequired(false);
-    setPendingSlot(null); setTableOptions(null); setChosenTable(null);
     setLoading(true);
     try {
       const response = await fetch("/api/public/v1/availability", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, date, partySize, source: "web" }) });
@@ -230,46 +206,24 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
     finally { setLoading(false); }
   }
 
-  /** L'orario scelto: da qui si passa ai tavoli, non ancora ai dati. */
+  /**
+   * L'orario scelto: la disponibilità viene riservata subito e si passa ai dati.
+   *
+   * Il cliente non sceglie il tavolo. Quale sia è una decisione di sala — la
+   * fanno gli accostamenti, i gruppi che arrivano dopo, chi non si presenta —
+   * e chiederla a chi prenota aggiungeva un passaggio in cui si poteva solo
+   * sbagliare. Senza `tableSelectionId` il server assegna da sé, ed è la stessa
+   * assegnazione che lo staff può poi cambiare dal pannello.
+   */
   async function chooseSlot(slot: PublicAvailabilityOption) {
     if (!date) return;
-    setLoadingTables(true); setError(null); setChosenTable(null); setTableOptions(null);
-    setPendingSlot(slot);
-    try {
-      if (holdId) await releaseCurrentHold();
-      const response = await fetch("/api/public/v1/tables", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, date, startAt: slot.startAt, partySize }) });
-      const payload = await response.json() as { success: boolean; data?: { tables: BookableTable[] }; error?: { message: string } };
-      if (!response.ok || !payload.data) throw new Error(payload.error?.message ?? t.error);
-      setTableOptions(payload.data.tables);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : t.error); setPendingSlot(null); }
-    finally { setLoadingTables(false); }
-  }
-
-  /**
-   * Il tavolo scelto: solo adesso la disponibilità viene riservata.
-   *
-   * Bloccarla già alla scelta dell'ora significherebbe tenere occupato un
-   * tavolo che il cliente non ha ancora accettato, e togliere dalla lista degli
-   * altri il posto che questo qui potrebbe rifiutare.
-   */
-  async function chooseTable(option: BookableTable) {
-    const slot = pendingSlot;
-    if (!date || !slot) return;
     setLoading(true); setError(null);
     try {
       if (holdId) await releaseCurrentHold();
-      const response = await fetch("/api/public/v1/holds", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, date, partySize, source: "web", startAt: slot.startAt, sessionId, tableSelectionId: option.id }) });
-      const payload = await response.json() as { success: boolean; data?: { id: string }; error?: { code?: string; message: string; details?: { tables?: BookableTable[] } } };
-      if (!response.ok || !payload.data) {
-        // Il tavolo è stato preso mentre il cliente decideva: la lista si
-        // aggiorna sul posto e l'orario resta quello, così non ricomincia.
-        if (payload.error?.code === "TABLE_NO_LONGER_AVAILABLE") {
-          setTableOptions(payload.error.details?.tables ?? []);
-          setChosenTable(null);
-        }
-        throw new Error(payload.error?.message ?? t.error);
-      }
-      setSelected(slot); setChosenTable(option); setHoldId(payload.data.id); setWaitlistMode(false); setStep(2);
+      const response = await fetch("/api/public/v1/holds", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locationId: location.id, date, partySize, source: "web", startAt: slot.startAt, sessionId }) });
+      const payload = await response.json() as { success: boolean; data?: { id: string }; error?: { code?: string; message: string } };
+      if (!response.ok || !payload.data) throw new Error(payload.error?.message ?? t.error);
+      setSelected(slot); setHoldId(payload.data.id); setWaitlistMode(false); setStep(2);
     } catch (cause) { setError(cause instanceof Error ? cause.message : t.error); }
     finally { setLoading(false); }
   }
@@ -316,27 +270,85 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
 
   function setField<K extends keyof Fields>(key: K, value: Fields[K]) { setFields((current) => ({ ...current, [key]: value })); }
 
-  async function downloadReceipt(code: string) {
+  /**
+   * La ricevuta si disegna da sola appena la prenotazione esiste.
+   *
+   * Prima si disegnava alla pressione del pulsante, e lì stava il guasto: fra
+   * il tocco e la consegna c'erano il caricamento del logo e `toBlob`, cioè
+   * abbastanza attese perché il browser considerasse **finito il gesto
+   * dell'utente**. Senza gesto valido iOS ignora in silenzio il `download` di
+   * un link e blocca `window.open`: non si scaricava e non si apriva niente,
+   * mentre il codice annunciava "Immagine salvata".
+   *
+   * Preparandola qui, il pulsante non deve più aspettare nulla e la consegna
+   * parte dentro il gesto. E soprattutto l'immagine è già **visibile nella
+   * pagina**: su iPhone si tiene premuta e si salva in Foto, che è l'unica via
+   * che nessuna webview può togliere.
+   */
+  useEffect(() => {
+    if (!completion || completion.type !== "reservation") return;
+    let cancelled = false;
+    let created: string | null = null;
+    // Niente `setReceiptState("working")` qui: è già lo stato iniziale, e
+    // `startNewBooking` lo riporta lì. Scriverlo dentro l'effetto costerebbe un
+    // render in più per dire una cosa già vera.
+    void (async () => {
+      try {
+        const blob = await drawReceipt({
+          reservationCode: completion.code,
+          restaurantName: location.name,
+          restaurantCity: location.city,
+          dateLabel: selectedDateLabel,
+          timeLabel: selected ? formatTimeInZone(selected.startAt) : requestedTime,
+          partyLabel: `${partySize} ${dictionary.common.guests}`,
+          guestName: `${fields.firstName} ${fields.lastName}`.trim(),
+          punctualityNotice: features.punctualityNotice,
+          accentColor: location.accentColor,
+          logoUrl: location.logoPath,
+          labels: { title: flow.receiptTitle, code: t.code, restaurant: "Ristorante", date: t.fieldDate, time: t.fieldTime, party: t.fieldParty, guest: "Intestatario", punctuality: "Puntualità" },
+        });
+        if (cancelled) return;
+        if (!blob) { setReceiptState("failed"); return; }
+        created = URL.createObjectURL(blob);
+        setReceipt({ blob, url: created });
+        setReceiptState("ready");
+      } catch { if (!cancelled) setReceiptState("failed"); }
+    })();
+    return () => { cancelled = true; if (created) URL.revokeObjectURL(created); };
+    // Il codice è l'unica cosa che deve far ridisegnare: il resto è già fermo
+    // quando la schermata di conferma compare.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completion]);
+
+  /**
+   * Ricominciare da capo dopo aver prenotato.
+   *
+   * Senza questo l'unica via era ricaricare la pagina: i pulsanti in cima
+   * portano tutti a `#booking-content`, che sulla schermata di conferma non
+   * esisteva, e il collegamento del logo rimanda a questo stesso indirizzo
+   * lasciando lo stato dov'era. Sembravano pulsanti rotti.
+   */
+  function startNewBooking() {
+    setCompletion(null);
+    setReceipt(null);
     setReceiptState("working");
-    try {
-      const blob = await drawReceipt({
-        reservationCode: code,
-        restaurantName: location.name,
-        restaurantCity: location.city,
-        dateLabel: selectedDateLabel,
-        timeLabel: selected ? formatTimeInZone(selected.startAt) : requestedTime,
-        partyLabel: `${partySize} ${dictionary.common.guests}`,
-        tableLabel: chosenTable ? `${chosenTable.label} · ${chosenTable.areaName}` : undefined,
-        guestName: `${fields.firstName} ${fields.lastName}`.trim(),
-        punctualityNotice: features.punctualityNotice,
-        accentColor: location.accentColor,
-        logoUrl: location.logoPath,
-        labels: { title: flow.receiptTitle, code: t.code, restaurant: "Ristorante", date: t.fieldDate, time: t.fieldTime, party: t.fieldParty, table: flow.tableLabel, guest: "Intestatario", punctuality: "Puntualità" },
-      });
-      if (!blob) { setReceiptState("failed"); return; }
-      const outcome = await deliverReceipt(blob, receiptFileName(code));
-      setReceiptState(outcome === "failed" ? "failed" : "done");
-    } catch { setReceiptState("failed"); }
+    setIdempotencyKey(crypto.randomUUID());
+    setStep(1);
+    setPartySize(Math.max(2, features.minimumPartySize));
+    setPartySizeSelected(false);
+    setDate(firstBookableServiceDate(features.calendarRules));
+    setSlots([]); setSelected(null); setHoldId(null);
+    setWaitlistMode(false); setError(null); setRestrictions([]); setManualReviewRequired(false);
+    setFields({ firstName: "", lastName: "", phone: "", email: "", notes: "", allergies: "", accessibilityNeeds: "", privacyConsent: false, marketingConsent: false });
+    // Gli orari vanno richiesti di nuovo anche se persone e data coincidono con
+    // quelle di prima: nel frattempo il posto appena preso non è più libero.
+    lastLoadedKey.current = null;
+  }
+
+  /** Parte dentro il gesto: il blob è già pronto, non c'è niente da aspettare. */
+  function saveReceipt(code: string) {
+    if (!receipt) return;
+    void deliverReceipt(receipt.blob, receiptFileName(code));
   }
 
   // Persone e data sono le uniche due informazioni che servono per sapere cosa
@@ -357,7 +369,9 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
   if (completion) {
     const calendarUrl = selected ? buildGoogleCalendarUrl({ location, selected, partySize, customerName: `${fields.firstName} ${fields.lastName}` }) : undefined;
     const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}`;
-    return <section className="mx-auto max-w-2xl px-5 py-16 text-center sm:py-24" aria-live="polite">
+    // L'ancora vive anche qui: i pulsanti "Inizia la prenotazione" in cima
+    // puntano a questo identificatore e senza di esso non facevano nulla.
+    return <section id="booking-content" tabIndex={-1} className="mx-auto max-w-2xl scroll-mt-14 px-5 py-16 text-center outline-none sm:py-24" aria-live="polite">
       <div className="surface-3d mx-auto overflow-hidden rounded-xl border border-white/10 bg-card px-6 py-10 sm:px-12 sm:py-14">
       <div className="signal-pulse mx-auto mb-7 flex size-16 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-400/10 text-emerald-300"><CheckCircle2 className="size-8" /></div>
       <p className="mb-3 font-mono text-xs uppercase tracking-[0.24em] text-primary">{completion.type === "reservation" ? t.code : t.waitlist}</p>
@@ -379,22 +393,28 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
           <SummaryCell label={t.fieldDate} value={selectedDateLabel} />
           <SummaryCell label={t.fieldTime} value={selected ? formatTimeInZone(selected.startAt) : requestedTime} />
           <SummaryCell label={t.fieldParty} value={`${partySize} ${dictionary.common.guests}`} />
-          {chosenTable && <SummaryCell label={flow.tableLabel} value={`${chosenTable.label} · ${chosenTable.areaName}`} />}
           <SummaryCell label="Intestatario" value={`${fields.firstName} ${fields.lastName}`} />
         </div>
         <div className="mx-auto mb-7 max-w-md text-left"><PunctualityNotice text={features.punctualityNotice} /></div>
-        {/* Il primo pulsante della schermata, non uno fra tanti: è ciò che
-            sostituisce l'email di conferma che non arriverà. */}
-        <div className="mb-4">
-          <Button size="lg" onClick={() => void downloadReceipt(completion.code)} disabled={receiptState === "working"} className="min-h-14 w-full text-base">
-            {receiptState === "working" ? <LoaderCircle className="animate-spin" /> : <Download />}
-            {receiptState === "working" ? flow.receiptWorking : flow.receiptDownload}
-          </Button>
-          {receiptState === "done" && <p role="status" className="mt-2.5 text-xs text-emerald-300">{flow.receiptDone}</p>}
-          {receiptState === "failed" && <p role="alert" className="mt-2.5 text-xs text-amber-200">{flow.receiptFailed}</p>}
+        {/* La ricevuta sta nella pagina, non dietro un pulsante: è ciò che
+            sostituisce l'email di conferma che non arriverà, e un'immagine che
+            si vede si può sempre tenere premuta e salvare — anche dove il
+            download di un file viene ignorato. */}
+        <div className="mb-7">
+          {receiptState === "working" && <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-white/15 text-sm text-muted-foreground"><LoaderCircle className="mr-2 size-4 animate-spin" />{flow.receiptWorking}</div>}
+          {receiptState === "failed" && <p role="alert" className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-left text-xs leading-5 text-amber-100/85">{flow.receiptFailed}</p>}
+          {receiptState === "ready" && receipt && <>
+            {/* Non `next/image`: la sorgente è un blob creato qui, che
+                l'ottimizzatore non può né conoscere né servire. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={receipt.url} alt={flow.receiptAlt} className="w-full rounded-xl border border-white/10" />
+            <p className="mt-2.5 text-xs leading-5 text-muted-foreground">{flow.receiptHint}</p>
+            <Button size="lg" onClick={() => saveReceipt(completion.code)} className="mt-3 min-h-14 w-full text-base"><Download />{flow.receiptSave}</Button>
+          </>}
         </div>
         <div className="grid gap-3 sm:grid-cols-2"><Button asChild size="lg" variant="outline"><Link href={`/${locale}/booking/manage/${completion.token}`}>{t.manage}<ArrowRight /></Link></Button>{calendarUrl && <Button asChild size="lg" variant="outline"><a href={calendarUrl} target="_blank" rel="noreferrer"><CalendarPlus />Aggiungi al calendario</a></Button>}<Button asChild variant="outline"><a href={directionsUrl} target="_blank" rel="noreferrer"><Navigation />Indicazioni</a></Button>{hasPhone && <Button asChild variant="ghost"><a href={location.phoneHref}><PhoneCall />Chiama {location.shortName}</a></Button>}</div>
-      </> : <><p className="mx-auto my-8 max-w-md text-muted-foreground">Ti contatteremo appena si apre una disponibilità compatibile con la tua richiesta.</p><p className="font-mono text-xs text-muted-foreground">ID {completion.id.slice(0, 8).toUpperCase()}</p>{hasPhone && <Button asChild variant="outline" className="mt-7"><a href={location.phoneHref}><PhoneCall />Chiama {location.shortName}</a></Button>}</>}
+        <Button variant="ghost" onClick={startNewBooking} className="mt-3 w-full text-muted-foreground"><CalendarDays />{flow.newBooking}</Button>
+      </> : <><p className="mx-auto my-8 max-w-md text-muted-foreground">Ti contatteremo appena si apre una disponibilità compatibile con la tua richiesta.</p><p className="font-mono text-xs text-muted-foreground">ID {completion.id.slice(0, 8).toUpperCase()}</p>{hasPhone && <Button asChild variant="outline" className="mt-7"><a href={location.phoneHref}><PhoneCall />Chiama {location.shortName}</a></Button>}<Button variant="ghost" onClick={startNewBooking} className="mt-3 w-full text-muted-foreground"><CalendarDays />{flow.newBooking}</Button></>}
       </div>
     </section>;
   }
@@ -442,29 +462,11 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
             ? <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><Clock3 className="size-3.5 shrink-0" />{flow.partySizeRequired}</p>
             : <><p className="mb-6 text-sm text-muted-foreground">{t.timeHint}</p>
         {loading && <div className="flex h-36 items-center justify-center text-muted-foreground"><LoaderCircle className="mr-2 size-5 animate-spin" />{t.loading}</div>}
-        {!loading && slots.length > 0 && <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{slots.map((slot) => { const isPending = pendingSlot?.startAt === slot.startAt; return <button type="button" key={slot.startAt} onClick={() => chooseSlot(slot)} aria-pressed={isPending} className={cn("tile group min-h-[5.25rem] px-4 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", isPending && "border-primary ring-2 ring-primary/25")}><span className="flex items-center justify-between gap-2"><span className="font-mono text-2xl font-semibold tracking-tight">{formatTimeInZone(slot.startAt)}</span>{isPending ? <Check className="size-4 text-primary" /> : <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />}</span><span className="mt-2 block text-[11px] leading-4 text-muted-foreground">{slot.durationMinutes} min · {flow.instantConfirmation}</span></button>; })}</div>}
+        {!loading && slots.length > 0 && <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{slots.map((slot) => { const isChosen = selected?.startAt === slot.startAt; return <button type="button" key={slot.startAt} onClick={() => void chooseSlot(slot)} disabled={loading} aria-pressed={isChosen} className={cn("tile group min-h-[5.25rem] px-4 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50", isChosen && "border-primary ring-2 ring-primary/25")}><span className="flex items-center justify-between gap-2"><span className="font-mono text-2xl font-semibold tracking-tight">{formatTimeInZone(slot.startAt)}</span>{isChosen ? <Check className="size-4 text-primary" /> : <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />}</span><span className="mt-2 block text-[11px] leading-4 text-muted-foreground">{slot.durationMinutes} min · {flow.instantConfirmation}</span></button>; })}</div>}
         {!loading && slots.length === 0 && <div className="surface-3d rounded-2xl border border-dashed bg-card/70 p-6"><p className="font-medium">{requiresManualHandling || manualReviewRequired ? flow.staffReviewTitle : t.unavailable}</p><p className="mt-2 text-sm text-muted-foreground">{requiresManualHandling || manualReviewRequired ? flow.staffReviewDescription : features.waitlistEnabled ? flow.waitlistDescription : flow.waitlistDisabled}</p>{restrictions.length > 0 && <ul className="mt-4 space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">{restrictions.map((restriction) => <li key={restriction} className="flex gap-2"><Info className="mt-0.5 size-4 shrink-0 text-amber-600" />{restriction}</li>)}</ul>}<div className="mt-5 flex flex-wrap items-end gap-3">{features.waitlistEnabled ? <><div><Label htmlFor="requested-time" className="text-xs">{flow.preferredTime}</Label><Input id="requested-time" type="time" value={requestedTime} onChange={(event) => setRequestedTime(event.target.value)} className="mt-2 w-36 bg-background" /></div><Button variant="outline" onClick={() => { setWaitlistMode(true); setStep(2); }}>{requiresManualHandling || manualReviewRequired ? flow.sendStaffRequest : t.waitlist}</Button></> : hasPhone ? <Button asChild variant="outline"><a href={location.phoneHref}><PhoneCall />{flow.callRestaurant}</a></Button> : <p className="text-sm text-muted-foreground">I recapiti saranno disponibili a breve.</p>}</div></div>}
             </>}
         </div>}
 
-        {/* La scelta del tavolo vive dentro questo passaggio invece di
-            aggiungerne uno: da smartphone è la differenza fra scorrere e
-            ricominciare. */}
-        {pendingSlot && <div className="mt-9 border-t pt-8" aria-live="polite">
-          <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{flow.tableTitle}</p>
-          <p className="mb-6 text-sm text-muted-foreground">{flow.tableHint(formatTimeInZone(pendingSlot.startAt))}</p>
-          {loadingTables && <div className="flex h-32 items-center justify-center text-muted-foreground"><LoaderCircle className="mr-2 size-5 animate-spin" />{t.loading}</div>}
-          {!loadingTables && tableOptions && tableOptions.length === 0 && <div className="surface-3d rounded-2xl border border-dashed bg-card/70 p-6"><p className="font-medium">{flow.tableNoneTitle}</p><p className="mt-2 text-sm text-muted-foreground">{flow.tableNoneBody}</p></div>}
-          {!loadingTables && tableOptions && tableOptions.length > 0 && <ul role="list" className="grid gap-2.5 sm:grid-cols-2">{tableOptions.map((option) => <li key={option.id}>
-            <button type="button" onClick={() => chooseTable(option)} disabled={loading} aria-pressed={chosenTable?.id === option.id} className={cn("tile flex w-full min-h-16 items-center justify-between gap-3 px-4 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50", chosenTable?.id === option.id && "border-primary ring-2 ring-primary/25")}>
-              <span className="min-w-0">
-                <span className="flex items-center gap-2"><span className="truncate font-semibold">{option.label}</span>{option.recommended && <span className="shrink-0 rounded-full border border-primary/35 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{flow.tableRecommended}</span>}</span>
-                <span className="mt-1 block truncate text-[11px] leading-4 text-muted-foreground">{option.areaName} · {flow.tableSeats(option.seats)}{option.isAccessible ? ` · ${flow.tableAccessible}` : ""}</span>
-              </span>
-              <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-            </button>
-          </li>)}</ul>}
-        </div>}
       </Step>}
 
       {step === 2 && <Step step={2} title={t.detailsTitle} icon={<ShieldCheck />}>
@@ -472,7 +474,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
         {/* Detto qui, prima che il cliente compili: a fine flusso il codice
             esiste solo sullo schermo e va salvato da lui. */}
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-400/35 bg-amber-400/10 p-4"><Camera className="mt-0.5 size-4 shrink-0 text-amber-300" /><p className="text-xs leading-5 text-amber-100/85">{flow.saveCodeEarly}</p></div>
-        <div className="rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><LockKeyhole className="size-4 text-primary" />Contatto della prenotazione</p><div className="grid gap-5 sm:grid-cols-2"><Field id="firstName" label={t.firstName} value={fields.firstName} onChange={(value) => setField("firstName", value)} autoComplete="given-name" required /><Field id="lastName" label={t.lastName} value={fields.lastName} onChange={(value) => setField("lastName", value)} autoComplete="family-name" required /><Field id="phone" label={t.phone} value={fields.phone} onChange={(value) => setField("phone", value)} type="tel" autoComplete="tel" required /><Field id="email" label={`${t.email} (${details.optional})`} value={fields.email} onChange={(value) => setField("email", value)} type="email" autoComplete="email" /></div><p className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><Info className="mt-0.5 size-3.5 shrink-0 text-primary" />{flow.emailReason}</p></div>
+        <div className="rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><LockKeyhole className="size-4 text-primary" />Contatto della prenotazione</p><div className="grid gap-5 sm:grid-cols-2"><Field id="firstName" label={t.firstName} value={fields.firstName} onChange={(value) => setField("firstName", value)} autoComplete="given-name" required /><Field id="lastName" label={t.lastName} value={fields.lastName} onChange={(value) => setField("lastName", value)} autoComplete="family-name" required /><Field id="phone" label={t.phone} value={fields.phone} onChange={(value) => setField("phone", value)} type="tel" autoComplete="tel" required /><Field id="email" label={`${t.email} (${details.optional})`} value={fields.email} onChange={(value) => setField("email", value)} type="email" autoComplete="email" /></div></div>
         <div className="mt-4 rounded-2xl border bg-card/70 p-5 sm:p-6"><p className="mb-5 flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4 text-primary" />Preferenze per il servizio</p><div><Label htmlFor="notes">{details.notes} <span className="font-normal text-muted-foreground">({details.optional})</span></Label><Textarea id="notes" value={fields.notes} onChange={(event) => setField("notes", event.target.value)} className="mt-2 min-h-24 bg-background" placeholder="Es. compleanno, seggiolone o richiesta particolare…" /></div><div className="mt-5 grid gap-5 sm:grid-cols-2"><Field id="allergies" label={`${details.allergies} (${details.optional})`} value={fields.allergies} onChange={(value) => setField("allergies", value)} /><Field id="accessibilityNeeds" label={`${details.accessibility} (${details.optional})`} value={fields.accessibilityNeeds} onChange={(value) => setField("accessibilityNeeds", value)} /></div></div>
         {/* Il consenso deve poter essere informato nel momento in cui lo si dà:
             il collegamento nel piè di pagina è troppo lontano dalla casella, e
@@ -488,7 +490,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
             può far perdere il tavolo. */}
         <PunctualityNotice text={features.punctualityNotice} />
         <dl className="surface-3d divide-y rounded-2xl border bg-card px-5">{[
-          [t.fieldParty, `${partySize} ${dictionary.common.guests}`], [t.fieldDate, selectedDateLabel], [t.fieldTime, selected ? formatTimeInZone(selected.startAt) : requestedTime], ...(chosenTable ? [[flow.tableLabel, `${chosenTable.label} · ${chosenTable.areaName}`]] : []), [t.firstName, `${fields.firstName} ${fields.lastName}`], [t.phone, fields.phone], ...(fields.allergies ? [[details.allergies, fields.allergies]] : []), ...(fields.accessibilityNeeds ? [[details.accessibility, fields.accessibilityNeeds]] : []),
+          [t.fieldParty, `${partySize} ${dictionary.common.guests}`], [t.fieldDate, selectedDateLabel], [t.fieldTime, selected ? formatTimeInZone(selected.startAt) : requestedTime], [t.firstName, `${fields.firstName} ${fields.lastName}`], [t.phone, fields.phone], ...(fields.allergies ? [[details.allergies, fields.allergies]] : []), ...(fields.accessibilityNeeds ? [[details.accessibility, fields.accessibilityNeeds]] : []),
         ].map(([label, value]) => <div key={label} className="grid grid-cols-[120px_1fr] gap-4 py-4 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl>
         {/* Tornava al passaggio 4, che non esiste: la pagina restava vuota e
             la prenotazione moriva lì. */}

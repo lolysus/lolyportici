@@ -3,7 +3,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import {
   defaultNotificationPreferences,
-  legacyNotificationToggleKey,
   notificationPreferencesKey,
   readNotificationPreferences,
   writeNotificationPreferences,
@@ -39,7 +38,7 @@ function snapshot(locationId: string): NotificationPreferences {
 export function useNotificationPreferences(locationId: string) {
   const subscribe = useCallback((onChange: () => void) => {
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === notificationPreferencesKey(locationId) || event.key === legacyNotificationToggleKey(locationId)) onChange();
+      if (event.key === notificationPreferencesKey(locationId)) onChange();
     };
     window.addEventListener("storage", handleStorage);
     window.addEventListener(SAME_TAB_EVENT, onChange);

@@ -11,17 +11,21 @@ import { defaultNotificationSoundId, findNotificationSound } from "@/lib/notific
  * Per questo vivono in `localStorage` e non nelle impostazioni del ristorante
  * salvate sul server: quelle sono uguali per tutti i dispositivi, e sarebbe la
  * cosa sbagliata.
+ *
+ * **Non c'è più un interruttore per spegnere la campanella.** C'era, ed era il
+ * modo più facile di perdere una prenotazione: basta che qualcuno la zittisca
+ * durante un turno tranquillo perché resti muta per sempre su quel tablet,
+ * senza che nessun altro se ne accorga. Restano il suono e il volume — chi
+ * lavora in sala sceglie *come* la sente, non *se* la sente.
  */
 
 export interface NotificationPreferences {
-  enabled: boolean;
   soundId: string;
   /** 0–100, come lo legge chi muove il cursore. */
   volume: number;
 }
 
 export const defaultNotificationPreferences: NotificationPreferences = {
-  enabled: true,
   soundId: defaultNotificationSoundId,
   volume: 80,
 };
@@ -29,12 +33,6 @@ export const defaultNotificationPreferences: NotificationPreferences = {
 function preferencesKey(locationId: string) {
   return `regia-sushi-notification-preferences:${locationId}`;
 }
-
-/** La chiave storica del solo interruttore, prima che esistesse la libreria. */
-export function legacyNotificationToggleKey(locationId: string) {
-  return `regia-sushi-notification-sound:${locationId}`;
-}
-const legacyToggleKey = legacyNotificationToggleKey;
 
 export function notificationPreferencesKey(locationId: string) {
   return preferencesKey(locationId);
@@ -44,15 +42,9 @@ export function readNotificationPreferences(locationId: string): NotificationPre
   if (typeof window === "undefined") return defaultNotificationPreferences;
   try {
     const raw = window.localStorage.getItem(preferencesKey(locationId));
-    if (!raw) {
-      // Chi aveva già spento la campanella con la versione precedente non deve
-      // ritrovarsela accesa perché è cambiato il formato del salvataggio.
-      const legacy = window.localStorage.getItem(legacyToggleKey(locationId));
-      return { ...defaultNotificationPreferences, enabled: legacy !== "off" };
-    }
+    if (!raw) return defaultNotificationPreferences;
     const parsed = JSON.parse(raw) as Partial<NotificationPreferences>;
     return {
-      enabled: parsed.enabled !== false,
       soundId: findNotificationSound(parsed.soundId).id,
       volume: clampVolume(parsed.volume),
     };
@@ -67,17 +59,23 @@ export function writeNotificationPreferences(locationId: string, preferences: No
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(preferencesKey(locationId), JSON.stringify(preferences));
-    // Allineata anche la chiave storica: il resto del pannello la legge ancora.
-    window.localStorage.setItem(legacyToggleKey(locationId), preferences.enabled ? "on" : "off");
   } catch {
     // Con lo storage non disponibile la scelta vale per questa sessione e basta.
   }
 }
 
+/**
+ * Il volume più basso ammesso.
+ *
+ * Zero non è un volume, è l'interruttore di spegnimento sotto un altro nome: e
+ * quello è stato tolto di proposito. Dieci è poco, ma si sente.
+ */
+export const minimumNotificationVolume = 10;
+
 function clampVolume(value: unknown) {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) return defaultNotificationPreferences.volume;
-  return Math.min(100, Math.max(0, Math.round(numeric)));
+  return Math.min(100, Math.max(minimumNotificationVolume, Math.round(numeric)));
 }
 
 /* ── Una sola campanella con più schede aperte ─────────────────────────────── */
