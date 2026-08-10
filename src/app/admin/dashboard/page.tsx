@@ -15,10 +15,9 @@ export default async function DashboardPage() {
   const location = await getActiveAdminLocation();
   await reconcileReservationLifecycle(location.id);
   const repository = getRepository(location.id);
-  const [reservations, waitlist, calls, settings] = await Promise.all([
+  const [reservations, waitlist, settings] = await Promise.all([
     repository.listReservations(),
     repository.listWaitlist(),
-    repository.listCalls(),
     getRestaurantSettings(location.id),
   ]);
   const today = new Intl.DateTimeFormat("it", { weekday: "long", day: "numeric", month: "long", timeZone: location.timezone }).format(new Date());
@@ -40,6 +39,6 @@ export default async function DashboardPage() {
       description={`Il servizio di ${location.city} è in preparazione. ${modeDescription}`}
       actions={<><Badge variant="outline" className="h-9 px-3">{serviceLabel}</Badge><Button asChild><Link href={`/it/book/${location.slug}`}><CalendarPlus />Nuova prenotazione</Link></Button></>}
     />
-    <DashboardView reservations={reservations} waitlist={waitlist} calls={calls} location={location} settings={settings} />
+    <DashboardView reservations={reservations} waitlist={waitlist} location={location} settings={settings} />
   </>;
 }

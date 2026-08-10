@@ -18,8 +18,6 @@ export const permissions = [
   "customers:read",
   "customers:write",
   "analytics:read",
-  "calls:read",
-  "knowledge:write",
   "settings:write",
   "staff:write",
 ] as const;
@@ -34,9 +32,7 @@ export const permissionLabels: Record<Permission, string> = {
   "customers:read": "Vede ospiti",
   "customers:write": "Gestisce ospiti",
   "analytics:read": "Vede analytics",
-  "calls:read": "Vede chiamate AI",
-  "knowledge:write": "Gestisce knowledge base",
-  "settings:write": "Modifica regole e AI",
+  "settings:write": "Modifica regole",
   "staff:write": "Gestisce accessi e ruoli",
 };
 
@@ -48,7 +44,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
   manager: all,
   receptionist: ["reservations:read", "reservations:write", "floor:read", "customers:read", "customers:write"],
   waiter: ["reservations:read", "floor:read", "floor:write", "customers:read"],
-  phone_operator: ["reservations:read", "reservations:write", "customers:read", "calls:read"],
+  phone_operator: ["reservations:read", "reservations:write", "customers:read"],
   analyst: ["analytics:read", "reservations:read"],
 };
 

@@ -2,7 +2,6 @@ import { z } from "zod";
 import { assertSameOrigin, failure, success, validationFailure } from "@/lib/api/response";
 import { requirePermission } from "@/lib/auth/dal";
 import { getRestaurantSettings, updateRestaurantSettings } from "@/domains/settings/settings-service";
-import { synchronizeVoiceAgent } from "@/domains/voice/voice-agent-sync-service";
 import { getAdminLocationFromRequest } from "@/lib/admin/location";
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
@@ -100,17 +99,6 @@ const settingsSchema = z.object({
     accessibilityInfo: z.string().trim().min(5).max(300),
     dietaryNotice: z.string().trim().min(10).max(500),
   }),
-  voiceAI: z.object({
-    assistantName: z.string().trim().min(2).max(80),
-    greeting: z.string().trim().min(10).max(500),
-    defaultLanguage: z.enum(["it", "en", "es"]),
-    allowNewReservations: z.boolean(),
-    allowModifyReservations: z.boolean(),
-    allowCancellation: z.boolean(),
-    allowWaitlist: z.boolean(),
-    transferOnAllergies: z.boolean(),
-    transferPartySize: z.number().int().min(2).max(100),
-  }),
 });
 
 // Next passa sempre la richiesta a un route handler: dichiararla opzionale
@@ -133,8 +121,7 @@ export async function PATCH(request: Request) {
     const parsed = settingsSchema.safeParse(await request.json());
     if (!parsed.success) return validationFailure(parsed.error.flatten());
     const settings = await updateRestaurantSettings(parsed.data, location.id);
-    const voiceAgent = await synchronizeVoiceAgent(settings);
-    return Response.json({ success: true, data: settings, meta: { voiceAgent } });
+    return success(settings);
   } catch (error) {
     return failure(error);
   }

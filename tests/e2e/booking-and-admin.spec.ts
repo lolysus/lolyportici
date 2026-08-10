@@ -162,7 +162,7 @@ test("each restaurant has its own reserved entrance and rejects the other's", as
   expect(unknown?.status()).toBe(404);
 });
 
-test("a manager saves operational settings, knowledge and a staff invitation", async ({ page }) => {
+test("a manager saves operational settings and sees the single staff account", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
@@ -178,22 +178,7 @@ test("a manager saves operational settings, knowledge and a staff invitation", a
   await page.getByRole("button", { name: "Salva e applica" }).click();
   await expect(page.getByRole("button", { name: "Configurazione applicata" })).toBeVisible();
 
-  await page.goto("/admin/knowledge-base");
-  await page.getByRole("button", { name: "Nuovo contenuto" }).click();
-  await expect(page.getByLabel("Categoria")).toHaveValue("Nuova");
-  await page.getByLabel("Categoria").fill("Accoglienza");
-  await page.getByLabel("Domanda").fill("Posso arrivare in anticipo?");
-  await page.getByLabel("Risposta verificata").fill("Contatta il ristorante prima del servizio.");
-  await page.getByRole("switch").nth(1).click();
-  await page.getByRole("button", { name: "Salva contenuto" }).click();
-  await expect(page.getByRole("button", { name: "Salvato" })).toBeVisible();
-
   await page.goto("/admin/staff");
-  await page.getByRole("button", { name: "Invita persona" }).click();
-  await page.getByLabel("Nome", { exact: true }).fill("Giulia");
-  await page.getByLabel("Cognome").fill("Collaudo");
-  await page.getByLabel("Email").fill("giulia.collaudo@example.test");
-  await page.getByRole("button", { name: "Invia invito" }).click();
-  await expect(page.getByRole("status")).toContainText("Invito simulato");
+  await expect(page.getByText("Account protetto")).toBeVisible();
   expect(pageErrors).toEqual([]);
 });

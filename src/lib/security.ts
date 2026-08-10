@@ -36,20 +36,6 @@ function withinTolerance(timestamp: number, unit: "seconds" | "milliseconds") {
   return Number.isFinite(milliseconds) && Math.abs(Date.now() - milliseconds) <= 5 * 60_000;
 }
 
-export function verifyRetellSignature(
-  rawBody: string,
-  signature: string | null,
-  apiKey = process.env.RETELL_API_KEY ?? process.env.RETELL_WEBHOOK_SECRET,
-) {
-  if (allowUnsignedDemo(apiKey)) return true;
-  if (!apiKey || !signature) return false;
-  const match = /^v=(\d+),d=([0-9a-f]+)$/i.exec(signature);
-  if (!match || !withinTolerance(Number(match[1]), "milliseconds")) return false;
-  const expected = createHmac("sha256", apiKey).update(`${rawBody}${match[1]}`).digest();
-  const actual = Buffer.from(match[2], "hex");
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
-}
-
 export function verifyTelnyxSignature(
   rawBody: string,
   signature: string | null,

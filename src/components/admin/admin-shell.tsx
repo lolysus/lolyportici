@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Armchair, BarChart3, BookOpenText, Bot, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, PhoneCall, Search, Settings2, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
+import { Armchair, BarChart3, CalendarPlus, CalendarRange, CircleHelp, CircleUserRound, ContactRound, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings2, Sparkles, UsersRound, type LucideIcon } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { RealtimeStatus } from "@/components/admin/realtime-status";
@@ -38,7 +38,6 @@ const navGroups: NavGroup[] = [
     title: "Ospiti",
     items: [
       { href: "/admin/customers", label: "Ospiti", short: "Ospiti", icon: ContactRound, permission: "customers:read" },
-      { href: "/admin/calls", label: "Chiamate AI", short: "Chiamate", icon: PhoneCall, permission: "calls:read" },
       { href: "/admin/analytics", label: "Andamento", short: "Dati", icon: BarChart3, permission: "analytics:read" },
     ],
   },
@@ -46,9 +45,7 @@ const navGroups: NavGroup[] = [
     title: "Configurazione",
     items: [
       { href: "/admin/settings", label: "Impostazioni", short: "Regole", icon: Settings2, permission: "settings:write" },
-      { href: "/admin/knowledge-base", label: "Knowledge base", short: "Risposte", icon: BookOpenText, permission: "knowledge:write" },
       { href: "/admin/staff", label: "Personale", short: "Team", icon: CircleUserRound, permission: "staff:write" },
-      { href: "/admin/integrations", label: "Integrazioni", short: "Canali", icon: Bot, permission: "settings:write" },
       { href: "/admin/help", label: "Guida operativa", short: "Guida", icon: CircleHelp, permission: "reservations:read" },
     ],
   },
@@ -151,7 +148,7 @@ export function AdminShell({ session, activeLocation, scopedRestaurantSlug, chil
         <Button asChild size="sm" className="hidden xl:inline-flex"><Link href={`/prenota/${activeLocation.slug}`}><CalendarPlus />Pagina prenotazioni</Link></Button>
         <OperationalNotifications key={activeLocation.id} location={activeLocation} />
       </header>
-      {session.demo && <Link href={scopedHref("/admin/integrations")} className="flex items-center justify-center gap-2 border-b border-primary/15 bg-primary/8 px-4 py-2 text-center text-xs text-primary hover:bg-primary/12"><Sparkles className="size-3.5" /><span>Ambiente sandbox · dati temporanei</span><span className="font-semibold underline underline-offset-4">Completa la configurazione</span></Link>}
+      {session.demo && <Link href={scopedHref("/admin/settings")} className="flex items-center justify-center gap-2 border-b border-primary/15 bg-primary/8 px-4 py-2 text-center text-xs text-primary hover:bg-primary/12"><Sparkles className="size-3.5" /><span>Ambiente sandbox · dati temporanei</span><span className="font-semibold underline underline-offset-4">Completa la configurazione</span></Link>}
       <main id="admin-content" tabIndex={-1} className="mx-auto max-w-[1540px] scroll-mt-20 px-3.5 py-5 pb-28 outline-none sm:px-4 md:px-7 md:py-8 md:pb-10">{children}</main>
     </div>
     <MobileAdminNav items={mobileNav} pathname={pathname} />

@@ -6,21 +6,12 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   verifyResendSignature,
-  verifyRetellSignature,
   verifyTelnyxSignature,
 } from "@/lib/security";
 
 const body = JSON.stringify({ id: "event-1", type: "test" });
 
 describe("provider webhook signatures", () => {
-  it("verifies Retell's timestamped HMAC format", () => {
-    const timestamp = String(Date.now());
-    const secret = "retell-test-key";
-    const digest = createHmac("sha256", secret).update(`${body}${timestamp}`).digest("hex");
-    expect(verifyRetellSignature(body, `v=${timestamp},d=${digest}`, secret)).toBe(true);
-    expect(verifyRetellSignature(`${body} `, `v=${timestamp},d=${digest}`, secret)).toBe(false);
-  });
-
   it("verifies Telnyx Ed25519 signatures", () => {
     const timestamp = String(Math.floor(Date.now() / 1000));
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");

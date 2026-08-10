@@ -102,15 +102,4 @@ export type RestaurantSettings = {
     accessibilityInfo: string;
     dietaryNotice: string;
   };
-  voiceAI: {
-    assistantName: string;
-    greeting: string;
-    defaultLanguage: "it" | "en" | "es";
-    allowNewReservations: boolean;
-    allowModifyReservations: boolean;
-    allowCancellation: boolean;
-    allowWaitlist: boolean;
-    transferOnAllergies: boolean;
-    transferPartySize: number;
-  };
 };

@@ -27,7 +27,6 @@ type StoredConditions = {
   notifications?: Partial<RestaurantSettings["notifications"]>;
   guestExperience?: Partial<RestaurantSettings["guestExperience"]>;
   operations?: Partial<RestaurantSettings["operations"]>;
-  voiceAI?: Partial<RestaurantSettings["voiceAI"]>;
   explicitManualApproval?: boolean;
 };
 
@@ -107,17 +106,6 @@ const defaults: RestaurantSettings = {
     accessibilityInfo: "Accesso senza barriere disponibile su richiesta.",
     dietaryNotice: "Segnala allergie e intolleranze durante la prenotazione: lo staff confermerà ogni dettaglio.",
   },
-  voiceAI: {
-    assistantName: "Assistente prenotazioni",
-    greeting: "Buongiorno, sono l’assistente virtuale del ristorante. Come posso aiutarla?",
-    defaultLanguage: "it",
-    allowNewReservations: true,
-    allowModifyReservations: true,
-    allowCancellation: true,
-    allowWaitlist: true,
-    transferOnAllergies: true,
-    transferPartySize: 10,
-  },
 };
 
 const globalSettings = globalThis as typeof globalThis & {
@@ -129,8 +117,6 @@ function defaultSettingsForLocation(locationId: string) {
   const location = getRestaurantLocationById(locationId);
   if (!location) return settings;
 
-  settings.voiceAI.assistantName = `Assistente ${location.name}`;
-  settings.voiceAI.greeting = `Buongiorno, sono l’assistente virtuale di ${location.name}. Come posso aiutarla?`;
   settings.service.maximumCovers = location.capacity;
   settings.contact = {
     phone: location.phone,
@@ -262,7 +248,6 @@ function storedConditions(settings: RestaurantSettings): StoredConditions {
     notifications: settings.notifications,
     guestExperience: settings.guestExperience,
     operations: settings.operations,
-    voiceAI: settings.voiceAI,
     explicitManualApproval: settings.rules.requiresManualApproval,
   };
 }
@@ -359,7 +344,6 @@ function settingsFromRows(
     features: { ...locationDefaults.features, ...conditions.features },
     notifications: { ...locationDefaults.notifications, ...conditions.notifications },
     guestExperience: { ...locationDefaults.guestExperience, ...conditions.guestExperience },
-    voiceAI: { ...locationDefaults.voiceAI, ...conditions.voiceAI },
   };
 }
 

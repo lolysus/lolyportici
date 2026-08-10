@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   AlertTriangle,
-  AudioWaveform,
   BellRing,
   CalendarClock,
   CheckCircle2,
@@ -28,7 +27,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,7 +61,6 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [voiceAgentSync, setVoiceAgentSync] = useState<"configured" | "sandbox" | "pending" | null>(null);
 
   const activeWindows = settings.schedule.reduce((total, day) => total + Number(day.lunch.enabled) + Number(day.dinner.enabled), 0);
   const today = settings.schedule.find((day) => day.dayOfWeek === new Date().getDay());
@@ -75,7 +72,6 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
     activeWindows > 0,
     settings.service.onlineBookingEnabled || settings.service.phoneBookingEnabled,
     settings.guestExperience.arrivalMessage.trim().length >= 10,
-    settings.voiceAI.greeting.trim().length >= 10,
     settings.notifications.emailConfirmationEnabled || settings.notifications.smsConfirmationEnabled,
   ];
   const configurationHealth = Math.round((configurationChecks.filter(Boolean).length / configurationChecks.length) * 100);
@@ -112,7 +108,6 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
     });
     const payload = await response.json() as {
       data?: RestaurantSettings;
-      meta?: { voiceAgent?: { status?: "configured" | "sandbox" | "pending" } };
       error?: { message: string };
     };
     setPending(false);
@@ -121,7 +116,6 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
       return;
     }
     setSettings(payload.data);
-    setVoiceAgentSync(payload.meta?.voiceAgent?.status ?? null);
     setDirty(false);
     setSaved(true);
   }
@@ -162,7 +156,6 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
         <TabsTrigger value="booking"><SlidersHorizontal />Prenotazioni</TabsTrigger>
         <TabsTrigger value="guests"><Sparkles />Ospiti</TabsTrigger>
         <TabsTrigger value="notifications"><BellRing />Avvisi</TabsTrigger>
-        <TabsTrigger value="voice"><AudioWaveform />AI voce</TabsTrigger>
       </TabsList>
 
       <TabsContent value="contact">
@@ -240,7 +233,6 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
           <Field id="turnaround" label="Buffer di riassetto" type="number" min={0} max={120} value={String(settings.service.turnaroundMinutes)} setValue={(value) => updateSection("service", { turnaroundMinutes: Number(value) })} suffix="min" hint="Tempo di riassetto fra un tavolo e il successivo." />
           <div className="hidden sm:block" />
           <SwitchRow id="online-booking" label="Prenotazioni online" description="Mostra disponibilità e consente conferme dal sito quando la sede è operativa." checked={settings.service.onlineBookingEnabled} setChecked={(value) => updateSection("service", { onlineBookingEnabled: value })} />
-          <SwitchRow id="phone-booking" label="Prenotazioni AI telefonica" description="Abilita disponibilità, hold e conferme attraverso l’assistente vocale." checked={settings.service.phoneBookingEnabled} setChecked={(value) => updateSection("service", { phoneBookingEnabled: value })} />
         </SettingsCard>
       </TabsContent>
 
@@ -325,21 +317,6 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
           <SwitchRow id="staff-large-party-alerts" label="Avvisi gruppi importanti" description={`Evidenzia le prenotazioni da ${settings.operations.largePartyAlertSize} coperti in su.`} checked={settings.notifications.staffLargePartyAlertsEnabled} setChecked={(value) => updateSection("notifications", { staffLargePartyAlertsEnabled: value })} />
           <SwitchRow id="staff-waitlist-alerts" label="Avvisi lista d’attesa" description={`Segnala quando si raggiungono ${settings.operations.waitlistAlertCount} richieste in attesa.`} checked={settings.notifications.staffWaitlistAlertsEnabled} setChecked={(value) => updateSection("notifications", { staffWaitlistAlertsEnabled: value })} />
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs leading-5 text-muted-foreground sm:col-span-2"><p className="flex items-center gap-2 font-semibold text-foreground"><MessageCircleMore className="size-4 text-primary" />Gerarchia delle comunicazioni</p><p className="mt-1">L’interruttore generale nelle funzioni ospite può sospendere tutti gli invii senza perdere la configurazione dei singoli canali.</p></div>
-        </SettingsCard>
-      </TabsContent>
-
-      <TabsContent value="voice">
-        <SettingsCard title="Comportamento AI telefonica" description="Policy operative applicate per la sede selezionata agli strumenti Retell e Telnyx.">
-          <Field id="voice-name" label="Nome assistente" type="text" value={settings.voiceAI.assistantName} setValue={(value) => updateSection("voiceAI", { assistantName: value })} />
-          <div><Label htmlFor="voice-language">Lingua predefinita</Label><Select value={settings.voiceAI.defaultLanguage} onValueChange={(value) => updateSection("voiceAI", { defaultLanguage: value as RestaurantSettings["voiceAI"]["defaultLanguage"] })}><SelectTrigger id="voice-language" className="mt-2 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="it">Italiano</SelectItem><SelectItem value="en">English</SelectItem><SelectItem value="es">Español</SelectItem></SelectContent></Select></div>
-          <div className="sm:col-span-2"><Label htmlFor="voice-greeting">Messaggio iniziale</Label><Textarea id="voice-greeting" value={settings.voiceAI.greeting} onChange={(event) => updateSection("voiceAI", { greeting: event.target.value })} className="mt-2 min-h-24" /></div>
-          <SwitchRow id="voice-new" label="Crea nuove prenotazioni" description="Permette all’AI di creare e confermare una prenotazione." checked={settings.voiceAI.allowNewReservations} setChecked={(value) => updateSection("voiceAI", { allowNewReservations: value })} />
-          <SwitchRow id="voice-modify" label="Modifica prenotazioni" description="Permette all’AI di aggiornare richieste esistenti." checked={settings.voiceAI.allowModifyReservations} setChecked={(value) => updateSection("voiceAI", { allowModifyReservations: value })} />
-          <SwitchRow id="voice-cancel" label="Cancella prenotazioni" description="Permette all’AI di annullare dopo l’identificazione dell’ospite." checked={settings.voiceAI.allowCancellation} setChecked={(value) => updateSection("voiceAI", { allowCancellation: value })} />
-          <SwitchRow id="voice-waitlist" label="Gestisce lista d’attesa" description="Permette all’AI di registrare richieste senza disponibilità." checked={settings.voiceAI.allowWaitlist} setChecked={(value) => updateSection("voiceAI", { allowWaitlist: value })} />
-          <SwitchRow id="voice-allergies" label="Trasferisci in caso di allergie" description="L’AI raccoglie il dato, rilascia l’hold e richiede conferma umana." checked={settings.voiceAI.transferOnAllergies} setChecked={(value) => updateSection("voiceAI", { transferOnAllergies: value })} />
-          <Field id="voice-large-party" label="Trasferisci gruppi da" type="number" min={2} max={100} value={String(settings.voiceAI.transferPartySize)} setValue={(value) => updateSection("voiceAI", { transferPartySize: Number(value) })} suffix="ospiti" />
-          {voiceAgentSync && <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs leading-5 text-muted-foreground sm:col-span-2"><span className="font-semibold text-foreground">Sincronizzazione agente:</span>{" "}{voiceAgentSync === "configured" ? "configurazione esterna aggiornata." : voiceAgentSync === "sandbox" ? "policy attive nelle API; collega Retell per aggiornare l’agente esterno." : "policy salvate; la sincronizzazione esterna verrà ritentata."}</div>}
         </SettingsCard>
       </TabsContent>
     </Tabs>
