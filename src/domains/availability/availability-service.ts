@@ -2,6 +2,7 @@ import type { AvailabilityInput, AvailabilityOption, AvailabilityResult } from "
 import { dateKeyInZone, formatTimeInZone, localDateTimeToUtc } from "@/lib/datetime";
 import type { RestaurantSettings } from "@/types/settings";
 import type {
+  CapacityBand,
   Reservation,
   ReservationHold,
   ServicePeriod,
@@ -17,6 +18,7 @@ export interface AvailabilityContext {
   reservations: Reservation[];
   holds: ReservationHold[];
   closures: SpecialClosure[];
+  capacityBands?: CapacityBand[];
   durationRules?: RestaurantSettings["durations"];
   bookingConstraints?: {
     minimumPartySize: number;
@@ -296,6 +298,8 @@ function optionFor(input: AvailabilityInput, context: AvailabilityContext, start
   const arrivals = context.reservations.filter((reservation) => blockingStatuses.has(reservation.status) && reservation.startAt === startAt).length
     + context.holds.filter((hold) => hold.status === "active" && new Date(hold.expiresAt).getTime() > now && hold.startAt === startAt).length;
   if (arrivals >= service.maximumArrivalsPerSlot) return null;
+  const band = context.capacityBands?.find((item) => item.isActive && startTime >= item.startTime && startTime < item.endTime);
+  if (band && arrivals >= band.maxArrivals) return null;
   const assignment = findBestTableAssignment(input, context, startAt, endAt);
   if (!assignment) return null;
   return {

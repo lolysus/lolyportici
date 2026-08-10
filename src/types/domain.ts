@@ -21,6 +21,23 @@ export const reservationStatuses = [
 ] as const;
 
 export type ReservationStatus = (typeof reservationStatuses)[number];
+
+/**
+ * Un tetto agli arrivi in una fascia oraria, indipendente dai tavoli fisici.
+ *
+ * `ServicePeriod.maximumArrivalsPerSlot` vale per l'intero servizio: non
+ * distingue le 19:00 dalle 22:00. Una fascia qui si sovrappone al servizio e,
+ * dove esiste, restringe ulteriormente quel limite — non lo sostituisce. Vale
+ * ogni giorno della settimana.
+ */
+export interface CapacityBand {
+  id: string;
+  locationId: string;
+  startTime: string;
+  endTime: string;
+  maxArrivals: number;
+  isActive: boolean;
+}
 export type ReservationSource = "web" | "phone_ai" | "phone_staff" | "walk_in" | "admin" | "waitlist" | "integration";
 export type TableStatus = "available" | "reserved" | "arriving" | "occupied" | "late" | "cleaning" | "blocked" | "out_of_service";
 
@@ -120,6 +137,13 @@ export interface ReservationHold {
   expiresAt: string;
   status: "active" | "converted" | "released" | "expired";
   createdAt: string;
+  /**
+   * Il canale con cui è nato l'hold — assente nelle letture che non ne hanno
+   * bisogno. `confirmHold` lo riporta sulla prenotazione: senza, una
+   * prenotazione presa al telefono risulterebbe "web" come una online, e i
+   * filtri per canale in agenda mentirebbero.
+   */
+  source?: ReservationSource;
 }
 
 export interface Customer {

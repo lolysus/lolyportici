@@ -5,12 +5,12 @@ import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { checkAvailability } from "@/domains/availability/availability-service";
 import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
 import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-machine";
-import { CapacityExceededError, HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNotFoundError } from "@/domains/bookings/errors";
+import { CapacityBandNotFoundError, CapacityExceededError, HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNotFoundError } from "@/domains/bookings/errors";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { hashManagementToken, managementTokenForIdempotency } from "@/lib/security";
 import { formatTimeInZone } from "@/lib/datetime";
-import type { ClosureInput, ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
-import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableCombination, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
+import type { CapacityBandChanges, CapacityBandInput, ClosureInput, ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
+import type { CapacityBand, Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableCombination, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 type Row = Record<string, unknown>;
 
@@ -28,6 +28,14 @@ function mapTableRow(row: Row): TableResource {
     shape: asString(row.shape, "round") as TableResource["shape"], positionX: asNumber(row.position_x), positionY: asNumber(row.position_y),
     width: asNumber(row.width, 80), height: asNumber(row.height, 80), isAccessible: asBoolean(row.is_accessible),
     isOutdoor: asBoolean(row.is_outdoor), isStrategic: asBoolean(row.is_strategic), status: asString(row.status, "available") as TableResource["status"],
+  };
+}
+
+function capacityBand(row: Row): CapacityBand {
+  return {
+    id: asString(row.id), locationId: asString(row.location_id),
+    startTime: asString(row.start_time).slice(0, 5), endTime: asString(row.end_time).slice(0, 5),
+    maxArrivals: asNumber(row.max_arrivals), isActive: asBoolean(row.is_active),
   };
 }
 
@@ -204,6 +212,43 @@ export class SupabaseReservationRepository implements ReservationRepository {
     if (error) throw error;
   }
 
+  async listCapacityBands(): Promise<CapacityBand[]> {
+    const db = getSupabaseAdmin();
+    const { data, error } = await db.from("capacity_bands").select("*").eq("location_id", this.locationId).order("start_time");
+    if (error) throw error;
+    return ((data ?? []) as Row[]).map(capacityBand);
+  }
+
+  async createCapacityBand(input: CapacityBandInput): Promise<CapacityBand> {
+    const db = getSupabaseAdmin();
+    const { data, error } = await db
+      .from("capacity_bands")
+      .insert({ location_id: this.locationId, start_time: input.startTime, end_time: input.endTime, max_arrivals: input.maxArrivals, is_active: input.isActive ?? true })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return capacityBand(data as Row);
+  }
+
+  async updateCapacityBand(id: string, changes: CapacityBandChanges): Promise<CapacityBand> {
+    const db = getSupabaseAdmin();
+    const payload: Row = {};
+    if (changes.startTime !== undefined) payload.start_time = changes.startTime;
+    if (changes.endTime !== undefined) payload.end_time = changes.endTime;
+    if (changes.maxArrivals !== undefined) payload.max_arrivals = changes.maxArrivals;
+    if (changes.isActive !== undefined) payload.is_active = changes.isActive;
+    const { data, error } = await db.from("capacity_bands").update(payload).eq("id", id).eq("location_id", this.locationId).select("*").single();
+    if (error) throw error;
+    if (!data) throw new CapacityBandNotFoundError();
+    return capacityBand(data as Row);
+  }
+
+  async deleteCapacityBand(id: string): Promise<void> {
+    const db = getSupabaseAdmin();
+    const { error } = await db.from("capacity_bands").delete().eq("id", id).eq("location_id", this.locationId);
+    if (error) throw error;
+  }
+
   async deleteTable(id: string): Promise<void> {
     const db = getSupabaseAdmin();
     await this.tableById(id);
@@ -220,7 +265,7 @@ export class SupabaseReservationRepository implements ReservationRepository {
 
   async getAvailabilityContext() {
     const db = getSupabaseAdmin();
-    const [locationResult, tablesResult, combinationsResult, combinationItemsResult, servicesResult, reservationsResult, holdsResult, closuresResult, rulesResult] = await Promise.all([
+    const [locationResult, tablesResult, combinationsResult, combinationItemsResult, servicesResult, reservationsResult, holdsResult, closuresResult, rulesResult, capacityBandsResult] = await Promise.all([
       db.from("locations").select("booking_enabled,status,restaurants(status)").eq("id", this.locationId).maybeSingle(),
       db.from("restaurant_tables").select("*,dining_areas(name)").eq("location_id", this.locationId).eq("is_active", true),
       db.from("table_combinations").select("*").eq("location_id", this.locationId).eq("is_active", true),
@@ -230,8 +275,9 @@ export class SupabaseReservationRepository implements ReservationRepository {
       db.from("reservation_holds").select("*").eq("location_id", this.locationId).eq("status", "active"),
       db.from("special_openings_closures").select("*").eq("location_id", this.locationId),
       db.from("booking_rules").select("minimum_party_size,maximum_party_size,minimum_notice_minutes,maximum_advance_days,requires_manual_approval,requires_deposit,deposit_amount,conditions").eq("location_id", this.locationId).eq("is_active", true).order("created_at").limit(1).maybeSingle(),
+      db.from("capacity_bands").select("*").eq("location_id", this.locationId).eq("is_active", true),
     ]);
-    const firstError = [locationResult.error, tablesResult.error, combinationsResult.error, combinationItemsResult.error, servicesResult.error, reservationsResult.error, holdsResult.error, closuresResult.error, rulesResult.error].find(Boolean);
+    const firstError = [locationResult.error, tablesResult.error, combinationsResult.error, combinationItemsResult.error, servicesResult.error, reservationsResult.error, holdsResult.error, closuresResult.error, rulesResult.error, capacityBandsResult.error].find(Boolean);
     if (firstError) throw firstError;
     const tableRows = (tablesResult.data ?? []) as Row[];
     const tables: TableResource[] = tableRows.map((row) => ({
@@ -264,6 +310,7 @@ export class SupabaseReservationRepository implements ReservationRepository {
     const restaurant = Array.isArray(locationResult.data?.restaurants) ? locationResult.data.restaurants[0] : locationResult.data?.restaurants;
     return {
       tables, combinations, servicePeriods, reservations, holds, closures,
+      capacityBands: ((capacityBandsResult.data ?? []) as Row[]).map(capacityBand),
       durationRules: conditions.durationByParty,
       bookingConstraints: rule ? {
         minimumPartySize: rule.minimum_party_size,

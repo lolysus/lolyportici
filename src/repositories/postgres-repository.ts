@@ -6,13 +6,13 @@ import { privacyPolicyVersion } from "@/config/privacy-policy";
 import { checkAvailability, listBookableTableOptions } from "@/domains/availability/availability-service";
 import { resolveHoldAssignment } from "@/domains/bookings/hold-assignment";
 import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
-import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNoLongerAvailableError, TableNotFoundError } from "@/domains/bookings/errors";
+import { CapacityBandNotFoundError, HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNoLongerAvailableError, TableNotFoundError } from "@/domains/bookings/errors";
 import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-machine";
 import { formatTimeInZone } from "@/lib/datetime";
 import { getPostgres } from "@/lib/postgres";
 import { hashManagementToken, managementTokenForIdempotency } from "@/lib/security";
-import type { ClosureInput, ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
-import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableCombination, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
+import type { CapacityBandChanges, CapacityBandInput, ClosureInput, ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
+import type { CapacityBand, Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableCombination, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 type Row = Record<string, unknown>;
 const text = (value: unknown, fallback = "") => typeof value === "string" ? value : fallback;
@@ -44,6 +44,14 @@ function tableResource(row: Row): TableResource {
     shape: text(row.shape) as TableResource["shape"], positionX: number(row.position_x), positionY: number(row.position_y),
     width: number(row.width, 80), height: number(row.height, 80), isAccessible: bool(row.is_accessible), isOutdoor: bool(row.is_outdoor),
     isStrategic: bool(row.is_strategic), status: text(row.status, "available") as TableResource["status"],
+  };
+}
+
+function capacityBand(row: Row): CapacityBand {
+  return {
+    id: text(row.id), locationId: text(row.location_id),
+    startTime: text(row.start_time).slice(0, 5), endTime: text(row.end_time).slice(0, 5),
+    maxArrivals: number(row.max_arrivals), isActive: bool(row.is_active),
   };
 }
 
@@ -251,6 +259,43 @@ export class PostgresReservationRepository implements ReservationRepository {
     await sql`delete from public.special_openings_closures where id=${id} and location_id=${this.locationId}`;
   }
 
+  async listCapacityBands(): Promise<CapacityBand[]> {
+    const sql = getPostgres();
+    const rows = await sql<Row[]>`
+      select * from public.capacity_bands
+      where location_id=${this.locationId}
+      order by start_time`;
+    return rows.map(capacityBand);
+  }
+
+  async createCapacityBand(input: CapacityBandInput): Promise<CapacityBand> {
+    const sql = getPostgres();
+    const rows = await sql<Row[]>`
+      insert into public.capacity_bands (location_id,start_time,end_time,max_arrivals,is_active)
+      values (${this.locationId},${input.startTime},${input.endTime},${input.maxArrivals},${input.isActive ?? true})
+      returning *`;
+    return capacityBand(rows[0]);
+  }
+
+  async updateCapacityBand(id: string, changes: CapacityBandChanges): Promise<CapacityBand> {
+    const sql = getPostgres();
+    const [existing] = await sql<Row[]>`select * from public.capacity_bands where id=${id} and location_id=${this.locationId}`;
+    if (!existing) throw new CapacityBandNotFoundError();
+    const merged = { ...capacityBand(existing), ...changes };
+    const rows = await sql<Row[]>`
+      update public.capacity_bands set
+        start_time=${merged.startTime}, end_time=${merged.endTime},
+        max_arrivals=${merged.maxArrivals}, is_active=${merged.isActive}, updated_at=now()
+      where id=${id} and location_id=${this.locationId}
+      returning *`;
+    return capacityBand(rows[0]);
+  }
+
+  async deleteCapacityBand(id: string): Promise<void> {
+    const sql = getPostgres();
+    await sql`delete from public.capacity_bands where id=${id} and location_id=${this.locationId}`;
+  }
+
   async deleteTable(id: string): Promise<void> {
     const sql = getPostgres();
     await this.tableById(id);
@@ -269,7 +314,7 @@ export class PostgresReservationRepository implements ReservationRepository {
 
   async getAvailabilityContext() {
     const sql = getPostgres();
-    const [locations, tableRows, combinationRows, itemRows, serviceRows, reservationRows, holdRows, closureRows, ruleRows] = await Promise.all([
+    const [locations, tableRows, combinationRows, itemRows, serviceRows, reservationRows, holdRows, closureRows, ruleRows, capacityBandRows] = await Promise.all([
       sql<Row[]>`select l.booking_enabled,l.status,r.status as restaurant_status from public.locations l join public.restaurants r on r.id=l.restaurant_id where l.id=${this.locationId}`,
       sql<Row[]>`select t.*,a.name as dining_area_name from public.restaurant_tables t join public.dining_areas a on a.id=t.dining_area_id where t.location_id=${this.locationId} and t.is_active`,
       sql<Row[]>`select * from public.table_combinations where location_id=${this.locationId} and is_active`,
@@ -279,6 +324,7 @@ export class PostgresReservationRepository implements ReservationRepository {
       sql<Row[]>`select * from public.reservation_holds where location_id=${this.locationId} and status='active' and expires_at>now()`,
       sql<Row[]>`select * from public.special_openings_closures where location_id=${this.locationId}`,
       sql<Row[]>`select * from public.booking_rules where location_id=${this.locationId} and is_active order by created_at limit 1`,
+      sql<Row[]>`select * from public.capacity_bands where location_id=${this.locationId} and is_active`,
     ]);
     const tables: TableResource[] = tableRows.map(tableResource);
     const combinations: TableCombination[] = combinationRows.map((row) => ({
@@ -308,6 +354,7 @@ export class PostgresReservationRepository implements ReservationRepository {
     const conditions = (rule?.conditions ?? {}) as { durationByParty?: Record<string, number> };
     return {
       tables, combinations, servicePeriods, reservations: reservationRows.map(reservation), holds, closures,
+      capacityBands: capacityBandRows.map(capacityBand),
       durationRules: conditions.durationByParty as never,
       bookingConstraints: rule ? {
         minimumPartySize: number(rule.minimum_party_size), maximumPartySize: number(rule.maximum_party_size),

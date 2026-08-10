@@ -51,6 +51,9 @@ export class InvalidWaitlistStateError extends DomainError {
 export class TableNotFoundError extends DomainError {
   constructor() { super("TABLE_NOT_FOUND", "Tavolo non trovato.", 404); }
 }
+export class CapacityBandNotFoundError extends DomainError {
+  constructor() { super("CAPACITY_BAND_NOT_FOUND", "Fascia di capienza non trovata.", 404); }
+}
 export class TableCodeAlreadyUsedError extends DomainError {
   constructor(code: string) { super("TABLE_CODE_IN_USE", `Esiste già un tavolo con il numero ${code}.`, 409); }
 }

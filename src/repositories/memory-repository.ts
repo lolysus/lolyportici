@@ -4,7 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getRestaurantLocationById, restaurantConfig } from "@/config/brand";
 import { resolveHoldAssignment } from "@/domains/bookings/hold-assignment";
 import { checkAvailability, findBestTableAssignment } from "@/domains/availability/availability-service";
-import { HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNotFoundError } from "@/domains/bookings/errors";
+import { CapacityBandNotFoundError, HoldExpiredError, ReservationNotFoundError, SlotUnavailableError, TableCodeAlreadyUsedError, TableConflictError, TableInUseError, TableNotFoundError } from "@/domains/bookings/errors";
 import { assertCustomerCanCancelReservation, assertCustomerCanModifyReservation } from "@/domains/bookings/customer-reservation-policy";
 import { assertWaitlistTransition } from "@/domains/bookings/waitlist-state-machine";
 import { assertTransition } from "@/domains/bookings/state-machine";
@@ -12,12 +12,13 @@ import { normalizeEmail, normalizePhone } from "@/domains/customers/normalizatio
 import { dateKeyInZone, formatTimeInZone } from "@/lib/datetime";
 import { getInMemoryRestaurantSettings } from "@/domains/settings/settings-service";
 import { createDemoReservations, createDemoWaitlist, demoCalls, demoCombinations, demoCustomers, demoServices, demoTables } from "@/repositories/demo-data";
-import type { ClosureInput, ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
-import type { Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
+import type { CapacityBandChanges, CapacityBandInput, ClosureInput, ConfirmedReservation, ConfirmHoldInput, CreateHoldInput, PublicReservation, ReservationRepository, TableChanges, TableInput, VoiceEscalationInput } from "@/repositories/repository";
+import type { CapacityBand, Customer, Reservation, ReservationEvent, ReservationHold, ServicePeriod, SpecialClosure, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 interface MemoryState {
   reservations: Reservation[];
   closures: Map<string, SpecialClosure[]>;
+  capacityBands: Map<string, CapacityBand[]>;
   holds: ReservationHold[];
   waitlist: WaitlistEntry[];
   customers: Customer[];
@@ -47,10 +48,22 @@ function closuresFor(locationId: string) {
   return list;
 }
 
+/** Le fasce di capienza della sede, create su richiesta la prima volta. */
+function capacityBandsFor(locationId: string) {
+  const bands = state().capacityBands;
+  let list = bands.get(locationId);
+  if (!list) {
+    list = [];
+    bands.set(locationId, list);
+  }
+  return list;
+}
+
 function state(): MemoryState {
   globalMemory.__sushiMemory ??= {
     reservations: createDemoReservations(),
     closures: new Map(),
+    capacityBands: new Map(),
     holds: [],
     waitlist: createDemoWaitlist(),
     customers: [...demoCustomers],
@@ -128,6 +141,7 @@ function context(locationId: string) {
     reservations: memory.reservations.filter((reservation) => reservation.locationId === locationId),
     holds: memory.holds.filter((hold) => hold.locationId === locationId),
     closures: closuresFor(locationId),
+    capacityBands: capacityBandsFor(locationId).filter((band) => band.isActive),
     durationRules: settings.durations,
     bookingConstraints: {
       minimumPartySize: settings.rules.minimumPartySize,
@@ -236,6 +250,30 @@ export class MemoryReservationRepository implements ReservationRepository {
     if (index >= 0) closures.splice(index, 1);
   }
 
+  async listCapacityBands(): Promise<CapacityBand[]> {
+    return [...capacityBandsFor(this.locationId)].sort((left, right) => left.startTime.localeCompare(right.startTime));
+  }
+
+  async createCapacityBand(input: CapacityBandInput): Promise<CapacityBand> {
+    const band: CapacityBand = { id: randomUUID(), locationId: this.locationId, isActive: true, ...input };
+    capacityBandsFor(this.locationId).push(band);
+    return band;
+  }
+
+  async updateCapacityBand(id: string, changes: CapacityBandChanges): Promise<CapacityBand> {
+    const bands = capacityBandsFor(this.locationId);
+    const band = bands.find((item) => item.id === id);
+    if (!band) throw new CapacityBandNotFoundError();
+    Object.assign(band, changes);
+    return band;
+  }
+
+  async deleteCapacityBand(id: string): Promise<void> {
+    const bands = capacityBandsFor(this.locationId);
+    const index = bands.findIndex((band) => band.id === id);
+    if (index >= 0) bands.splice(index, 1);
+  }
+
   async deleteTable(id: string): Promise<void> {
     const tables = tablesFor(this.locationId);
     const index = tables.findIndex((table) => table.id === id);
@@ -269,6 +307,7 @@ export class MemoryReservationRepository implements ReservationRepository {
         expiresAt: new Date(now.getTime() + restaurantConfig.holdMinutes * 60_000).toISOString(),
         status: "active",
         createdAt: now.toISOString(),
+        source: input.availability.source,
       };
       state().holds.push(hold);
       return structuredClone(hold);
@@ -327,7 +366,7 @@ export class MemoryReservationRepository implements ReservationRepository {
         servicePeriodId: demoServices.find((service) => formatTimeInZone(hold.startAt) >= service.startTime && formatTimeInZone(hold.startAt) < service.endTime)?.id ?? demoServices[0].id,
         reservationCode: `${getRestaurantLocationById(hold.locationId)?.reservationCodePrefix ?? "RS"}-${String(memory.reservations.length + 2401).padStart(4, "0")}`,
         managementTokenHash: tokenHash(managementToken),
-        source: "web",
+        source: hold.source ?? "web",
         status: "confirmed",
         partySize: hold.partySize,
         reservationDate: dateKeyInZone(hold.startAt),
@@ -346,7 +385,7 @@ export class MemoryReservationRepository implements ReservationRepository {
       };
       hold.status = "converted";
       memory.reservations.push(reservation);
-      event(reservation.id, "reservation_confirmed", "web", undefined, reservation);
+      event(reservation.id, "reservation_confirmed", reservation.source, undefined, reservation);
       const result = { reservation: toPublic(reservation), managementToken };
       memory.idempotency.set(idempotencyKey, result);
       return structuredClone(result);

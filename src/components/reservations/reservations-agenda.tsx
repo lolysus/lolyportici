@@ -23,6 +23,7 @@ import {
   UserRound,
   UserRoundCheck,
 } from "lucide-react";
+import { ManualReservationDialog } from "@/components/reservations/manual-reservation-dialog";
 import { ReservationSourceBadge, reservationSourceInfo } from "@/components/reservations/reservation-source-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -135,6 +136,15 @@ export function ReservationsAgenda({ initialReservations, servicePeriods, closur
   function openDetails(id: string) { setSelectedId(id); syncLocation(selectedDate, id); }
   function closeDetails() { setSelectedId(null); syncLocation(selectedDate); }
 
+  // Il flusso manuale conferma già la prenotazione lato server: qui basta
+  // mostrarla, non rifare il salvataggio. Se cade sulla data che si sta già
+  // guardando, si apre da sé, così chi l'ha appena presa al telefono la vede
+  // subito in agenda senza cercarla.
+  function handleManuallyCreated(reservation: PublicReservation) {
+    setRows((current) => [...current, reservation]);
+    if (reservation.reservationDate === selectedDate) openDetails(reservation.id);
+  }
+
   async function mutate(id: string, changes: { status?: ReservationStatus; customerNotes?: string }) {
     setError(null);
     const response = await fetch("/api/admin/v1/reservations", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...changes }) });
@@ -166,11 +176,12 @@ export function ReservationsAgenda({ initialReservations, servicePeriods, closur
 
   return <>
     <ServiceDayNavigator selectedDate={selectedDate} onChange={changeDate} totalReservations={dayReservations.length} activeCovers={activeCovers} pendingApprovals={pendingApprovals} serviceCount={dayServices.length} />
-    <section className="surface-3d-dark mb-5 grid gap-3 rounded-2xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_190px_190px_auto]" aria-label="Filtri prenotazioni">
+    <section className="surface-3d-dark mb-5 grid gap-3 rounded-2xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_190px_190px_auto_auto]" aria-label="Filtri prenotazioni">
       <div className="relative min-w-0"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome, telefono, codice, tavolo…" className="border-0 bg-background pl-9" /></div>
       <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-full bg-background"><Filter /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">Da gestire</SelectItem><SelectItem value="all">Tutti gli stati</SelectItem><SelectItem value="pending_approval">Da approvare</SelectItem><SelectItem value="confirmed">Confermate</SelectItem><SelectItem value="arriving">In arrivo</SelectItem><SelectItem value="late">In ritardo</SelectItem><SelectItem value="arrived">Arrivati</SelectItem><SelectItem value="seated">In servizio</SelectItem><SelectItem value="completed">Completate</SelectItem><SelectItem value="cancelled">Cancellate</SelectItem><SelectItem value="no_show">No-show</SelectItem></SelectContent></Select>
       <Select value={source} onValueChange={setSource}><SelectTrigger className="w-full bg-background"><SelectValue placeholder="Tutti i canali" /></SelectTrigger><SelectContent><SelectItem value="all">Tutti i canali</SelectItem>{(Object.entries(reservationSourceInfo) as Array<[ReservationSource, (typeof reservationSourceInfo)[ReservationSource]]>).map(([value, info]) => <SelectItem key={value} value={value}>{info.label}</SelectItem>)}</SelectContent></Select>
       <Badge variant="outline" className="h-9 justify-center px-3">{filteredRows.length} nel giorno</Badge>
+      <ManualReservationDialog defaultDate={selectedDate} onCreated={handleManuallyCreated} />
     </section>
 
     {dayClosures.length > 0 && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-sm"><CalendarCheck2 className="mt-0.5 size-4 shrink-0 text-amber-500" /><div><p className="font-semibold">Regola di calendario applicata</p><p className="mt-1 text-muted-foreground">{dayClosures.map((closure) => closure.reason).join(" · ")}</p></div></div>}

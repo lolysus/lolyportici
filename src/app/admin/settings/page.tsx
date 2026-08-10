@@ -1,3 +1,4 @@
+import { CapacityBandsPanel } from "@/components/admin/capacity-bands-panel";
 import { ClosuresPanel } from "@/components/admin/closures-panel";
 import { PageHeading } from "@/components/admin/page-heading";
 import { NotificationSoundSettings } from "@/components/admin/notification-sound-settings";
@@ -10,9 +11,10 @@ import { getRepository } from "@/repositories";
 export default async function SettingsPage() {
   await requirePermission("settings:write");
   const location = await getActiveAdminLocation();
-  const [settings, closures] = await Promise.all([
+  const [settings, closures, capacityBands] = await Promise.all([
     getRestaurantSettings(location.id),
     getRepository(location.id).listClosures(),
+    getRepository(location.id).listCapacityBands(),
   ]);
   return <>
     <PageHeading
@@ -27,5 +29,6 @@ export default async function SettingsPage() {
         che salva sul server, perché non si salvano lì. */}
     <div className="mt-6"><NotificationSoundSettings key={location.id} location={location} /></div>
     <div className="mt-6"><ClosuresPanel key={location.id} initialClosures={closures} /></div>
+    <div className="mt-6"><CapacityBandsPanel key={location.id} initialBands={capacityBands} /></div>
   </>;
 }

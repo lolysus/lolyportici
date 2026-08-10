@@ -1,6 +1,6 @@
 import type { AvailabilityContext } from "@/domains/availability/availability-service";
 import type { AvailabilityInput } from "@/types/api";
-import type { Customer, Reservation, ReservationEvent, ReservationHold, ReservationStatus, SpecialClosure, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
+import type { CapacityBand, Customer, Reservation, ReservationEvent, ReservationHold, ReservationStatus, SpecialClosure, TableResource, VoiceCall, WaitlistEntry } from "@/types/domain";
 
 export type PublicReservation = Omit<Reservation, "managementTokenHash" | "internalNotes">;
 
@@ -58,6 +58,15 @@ export interface TableInput {
 
 export type TableChanges = Partial<TableInput> & { status?: TableResource["status"] };
 
+export interface CapacityBandInput {
+  startTime: string;
+  endTime: string;
+  maxArrivals: number;
+  isActive?: boolean;
+}
+
+export type CapacityBandChanges = Partial<CapacityBandInput>;
+
 /**
  * Una chiusura straordinaria: ferie, festivo, evento privato.
  *
@@ -81,6 +90,10 @@ export interface ReservationRepository {
   listClosures(): Promise<SpecialClosure[]>;
   createClosure(input: ClosureInput): Promise<SpecialClosure>;
   deleteClosure(id: string): Promise<void>;
+  listCapacityBands(): Promise<CapacityBand[]>;
+  createCapacityBand(input: CapacityBandInput): Promise<CapacityBand>;
+  updateCapacityBand(id: string, changes: CapacityBandChanges): Promise<CapacityBand>;
+  deleteCapacityBand(id: string): Promise<void>;
   createHold(input: CreateHoldInput): Promise<ReservationHold>;
   releaseHold(holdId: string, sessionId?: string): Promise<void>;
   confirmHold(input: ConfirmHoldInput): Promise<ConfirmedReservation>;
