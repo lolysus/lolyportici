@@ -30,11 +30,15 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 function detectPlatform() {
-  if (typeof navigator === "undefined") return { ios: false, android: false };
+  if (typeof navigator === "undefined") return { ios: false, android: false, iosOtherBrowser: false };
   const ua = navigator.userAgent;
   const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const android = /android/i.test(ua);
-  return { ios, android };
+  // Su iPhone solo Safari crea una PWA che riceve notifiche. Chrome, Firefox o
+  // Edge su iOS (crios/fxios/edgios) non hanno "Aggiungi a Home" utile: chi apre
+  // il link lì va mandato in Safari, altrimenti installa un'app muta.
+  const iosOtherBrowser = ios && /crios|fxios|edgios|opios/i.test(ua);
+  return { ios, android, iosOtherBrowser };
 }
 
 function isStandalone() {
@@ -52,7 +56,7 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
 }) {
   const [ready, setReady] = useState(false);
   const [standalone, setStandalone] = useState(false);
-  const [platform, setPlatform] = useState({ ios: false, android: false });
+  const [platform, setPlatform] = useState({ ios: false, android: false, iosOtherBrowser: false });
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [subscribed, setSubscribed] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -240,7 +244,15 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
           <Button asChild size="lg" className="min-h-12 w-full text-base" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}><Link href={loginHref}>Accedi<ArrowRight /></Link></Button>
         </>}
 
-        {authenticated && platform.ios && !standalone && <>
+        {authenticated && platform.ios && !standalone && platform.iosOtherBrowser && <>
+          <StatusCard tone="warning" icon={<TriangleAlert />} title="Apri questo link in Safari" body="Su iPhone solo Safari può installare un’app che riceve notifiche. In questo browser non funziona." />
+          <ol className="space-y-3">
+            <Step n={1}>Tocca il menu <strong>⋯</strong> in alto e scegli <strong>“Apri in Safari”</strong>. Oppure copia l’indirizzo e incollalo in Safari.</Step>
+            <Step n={2}>In Safari torna su questa pagina e segui i due tocchi per aggiungere l’app.</Step>
+          </ol>
+        </>}
+
+        {authenticated && platform.ios && !standalone && !platform.iosOtherBrowser && <>
           <StatusCard tone="neutral" icon={<SquarePlus />} title="Aggiungi l’app alla schermata Home" body="Su iPhone le notifiche funzionano solo dall’app installata. Bastano due tocchi:" />
           <ol className="space-y-3">
             <Step n={1}>Tocca <Share className="mx-1 inline size-4 align-text-bottom" /> <strong>Condividi</strong> nella barra di Safari, in basso.</Step>
