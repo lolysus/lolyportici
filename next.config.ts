@@ -41,6 +41,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Gli APK dell'app Android: il tipo giusto fa aprire l'installer del
+        // sistema al tocco del file, invece di un download anonimo.
+        source: "/app/:file*.apk",
+        headers: [
+          { key: "Content-Type", value: "application/vnd.android.package-archive" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },

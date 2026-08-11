@@ -1,0 +1,18 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "it.yukoardea.staff",
+      "sha256_cert_fingerprints": ["82:AE:55:9C:58:C7:72:DB:E7:BE:06:FD:A0:BA:18:DD:42:41:F1:68:9D:8B:32:F5:C2:42:B5:21:2B:42:29:15"]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "it.kousushiportici.staff",
+      "sha256_cert_fingerprints": ["50:14:4E:C7:8F:A9:39:5C:2B:A4:7C:1A:BC:6F:74:B1:4B:01:C5:41:0F:6A:DF:33:0F:DB:C7:A8:10:9B:58:9F"]
+    }
+  }
+]

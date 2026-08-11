@@ -15,11 +15,6 @@ type Restaurant = {
   surface: string;
 };
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
-
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -59,7 +54,6 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
   const [platform, setPlatform] = useState({ ios: false, android: false, iosOtherBrowser: false });
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [subscribed, setSubscribed] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testDone, setTestDone] = useState(false);
@@ -102,16 +96,10 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
       }).catch(() => undefined);
     }
 
-    const onPrompt = (event: Event) => {
-      event.preventDefault();
-      setDeferredPrompt(event as BeforeInstallPromptEvent);
-    };
-    const onInstalled = () => { setDeferredPrompt(null); setStandalone(true); };
-    window.addEventListener("beforeinstallprompt", onPrompt);
+    const onInstalled = () => setStandalone(true);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
       cancelled = true;
-      window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, [supportsPush]);
@@ -199,14 +187,8 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
     }
   }, []);
 
-  const install = useCallback(async () => {
-    if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-  }, [deferredPrompt]);
-
   const accentStyle = { "--app-accent": restaurant.accent, "--app-accent-fg": restaurant.accentForeground } as React.CSSProperties;
+  const apkHref = `/app/${restaurant.slug}.apk`;
 
   return <main style={accentStyle} className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-5 pb-16 pt-8">
     <header className="text-center">
@@ -239,36 +221,58 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
       </>}
 
       {pushAvailable && !(subscribed && permission === "granted") && <>
-        {!authenticated && <>
-          <StatusCard tone="neutral" icon={<LogIn />} title="Prima accedi al pannello" body={`Le notifiche contengono i dati dei clienti: puoi riceverle solo dopo esserti autenticato come staff di ${restaurant.shortName}.`} />
-          <Button asChild size="lg" className="min-h-12 w-full text-base" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}><Link href={loginHref}>Accedi<ArrowRight /></Link></Button>
-        </>}
-
-        {authenticated && platform.ios && !standalone && platform.iosOtherBrowser && <>
-          <StatusCard tone="warning" icon={<TriangleAlert />} title="Apri questo link in Safari" body="Su iPhone solo Safari può installare un’app che riceve notifiche. In questo browser non funziona." />
-          <ol className="space-y-3">
-            <Step n={1}>Tocca il menu <strong>⋯</strong> in alto e scegli <strong>“Apri in Safari”</strong>. Oppure copia l’indirizzo e incollalo in Safari.</Step>
-            <Step n={2}>In Safari torna su questa pagina e segui i due tocchi per aggiungere l’app.</Step>
-          </ol>
-        </>}
-
-        {authenticated && platform.ios && !standalone && !platform.iosOtherBrowser && <>
-          <StatusCard tone="neutral" icon={<SquarePlus />} title="Aggiungi l’app alla schermata Home" body="Su iPhone le notifiche funzionano solo dall’app installata. Bastano due tocchi:" />
-          <ol className="space-y-3">
-            <Step n={1}>Tocca <Share className="mx-1 inline size-4 align-text-bottom" /> <strong>Condividi</strong> nella barra di Safari, in basso.</Step>
-            <Step n={2}>Scorri e tocca <strong>“Aggiungi a Home”</strong>, poi <strong>Aggiungi</strong>.</Step>
-            <Step n={3}>Apri l’app <strong>{restaurant.shortName}</strong> dalla schermata Home, accedi e torna qui per attivare le notifiche.</Step>
-          </ol>
-        </>}
-
-        {authenticated && !(platform.ios && !standalone) && <>
-          {staffName && <p className="text-center text-sm text-muted-foreground">Ciao {staffName.split(" ")[0]} — un ultimo passo.</p>}
-          <Button onClick={() => void enable()} disabled={busy} size="lg" className="min-h-14 w-full text-base font-semibold" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}>
-            {busy ? <LoaderCircle className="animate-spin" /> : <BellRing />}
-            {busy ? "Attivazione…" : "Attiva le notifiche"}
+        {/* Android nel browser: l'app vera da scaricare, il percorso che l'utente
+            ha chiesto. Un tap scarica l'APK, poi si installa e si attivano le
+            notifiche da dentro. */}
+        {platform.android && !standalone && <>
+          <StatusCard tone="neutral" icon={<Download />} title={`Scarica l’app ${restaurant.shortName} per Android`} body="Un’app vera sulla schermata Home. Ti bastano tre passaggi." />
+          <Button asChild size="lg" className="min-h-14 w-full text-base font-semibold" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}>
+            <a href={apkHref} download>{<Download />}Scarica l’app (APK)</a>
           </Button>
-          {deferredPrompt && !standalone && <Button onClick={() => void install()} variant="outline" size="lg" className="min-h-12 w-full text-base"><Download />Installa l’app sul telefono</Button>}
-          {!standalone && !deferredPrompt && !platform.ios && <p className="text-center text-xs leading-5 text-muted-foreground">Suggerimento: dal menu del browser scegli “Installa app” o “Aggiungi a schermata Home” per tenerla a portata di mano.</p>}
+          <ol className="space-y-3">
+            <Step n={1}>Apri il file scaricato e tocca <strong>Installa</strong>. Se il telefono lo chiede, consenti l’installazione <strong>“da questa origine”</strong> (è un passaggio normale di Android).</Step>
+            <Step n={2}>Apri l’app <strong>{restaurant.shortName}</strong> appena installata.</Step>
+            <Step n={3}>Accedi e tocca <strong>“Attiva le notifiche”</strong>. Fatto.</Step>
+          </ol>
+          <p className="text-center text-xs leading-5 text-muted-foreground">
+            Preferisci non installare?{" "}
+            {authenticated
+              ? <button type="button" onClick={() => void enable()} disabled={busy} className="underline underline-offset-4 hover:text-foreground">Attiva le notifiche nel browser</button>
+              : <Link href={loginHref} className="underline underline-offset-4 hover:text-foreground">Accedi e attivale nel browser</Link>}
+          </p>
+        </>}
+
+        {!(platform.android && !standalone) && <>
+          {!authenticated && <>
+            <StatusCard tone="neutral" icon={<LogIn />} title="Prima accedi al pannello" body={`Le notifiche contengono i dati dei clienti: puoi riceverle solo dopo esserti autenticato come staff di ${restaurant.shortName}.`} />
+            <Button asChild size="lg" className="min-h-12 w-full text-base" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}><Link href={loginHref}>Accedi<ArrowRight /></Link></Button>
+          </>}
+
+          {authenticated && platform.ios && !standalone && platform.iosOtherBrowser && <>
+            <StatusCard tone="warning" icon={<TriangleAlert />} title="Apri questo link in Safari" body="Su iPhone solo Safari può installare un’app che riceve notifiche. In questo browser non funziona." />
+            <ol className="space-y-3">
+              <Step n={1}>Tocca il menu <strong>⋯</strong> in alto e scegli <strong>“Apri in Safari”</strong>. Oppure copia l’indirizzo e incollalo in Safari.</Step>
+              <Step n={2}>In Safari torna su questa pagina e segui i due tocchi per aggiungere l’app.</Step>
+            </ol>
+          </>}
+
+          {authenticated && platform.ios && !standalone && !platform.iosOtherBrowser && <>
+            <StatusCard tone="neutral" icon={<SquarePlus />} title="Aggiungi l’app alla schermata Home" body="Su iPhone le notifiche funzionano solo dall’app installata. Bastano due tocchi:" />
+            <ol className="space-y-3">
+              <Step n={1}>Tocca <Share className="mx-1 inline size-4 align-text-bottom" /> <strong>Condividi</strong> nella barra di Safari, in basso.</Step>
+              <Step n={2}>Scorri e tocca <strong>“Aggiungi a Home”</strong>, poi <strong>Aggiungi</strong>.</Step>
+              <Step n={3}>Apri l’app <strong>{restaurant.shortName}</strong> dalla schermata Home, accedi e torna qui per attivare le notifiche.</Step>
+            </ol>
+          </>}
+
+          {authenticated && !(platform.ios && !standalone) && <>
+            {staffName && <p className="text-center text-sm text-muted-foreground">Ciao {staffName.split(" ")[0]} — un ultimo passo.</p>}
+            <Button onClick={() => void enable()} disabled={busy} size="lg" className="min-h-14 w-full text-base font-semibold" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}>
+              {busy ? <LoaderCircle className="animate-spin" /> : <BellRing />}
+              {busy ? "Attivazione…" : "Attiva le notifiche"}
+            </Button>
+            {!standalone && !platform.ios && <p className="text-center text-xs leading-5 text-muted-foreground">Suggerimento: dal menu del browser puoi anche scegliere “Installa app” per tenerla a portata di mano.</p>}
+          </>}
         </>}
       </>}
 
