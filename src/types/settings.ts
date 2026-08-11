@@ -82,6 +82,15 @@ export type RestaurantSettings = {
     staffWaitlistAlertsEnabled: boolean;
   };
   guestExperience: {
+    /**
+     * Titolo e occhiello della pagina di prenotazione.
+     *
+     * Prima venivano dal dizionario di traduzione: stesso testo, identico su
+     * Ardea e Portici, che nessuno poteva cambiare senza toccare il codice.
+     * Vuoto = torna al testo di default della lingua.
+     */
+    heroEyebrow: string;
+    heroTitle: string;
     arrivalMessage: string;
     /**
      * Cosa accade a chi arriva in ritardo, scritto dal ristorante.

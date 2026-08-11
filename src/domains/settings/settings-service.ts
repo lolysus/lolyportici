@@ -98,6 +98,10 @@ const defaults: RestaurantSettings = {
     staffWaitlistAlertsEnabled: true,
   },
   guestExperience: {
+    // Vuoti = usa il testo predefinito della lingua (dal dizionario). Appena il
+    // ristoratore scrive qualcosa, quello vince sulla pagina di prenotazione.
+    heroEyebrow: "",
+    heroTitle: "",
     arrivalMessage: "Ti aspettiamo cinque minuti prima dell’orario di prenotazione.",
     punctualityNotice: "Ti invitiamo a presentarti puntuale. In caso di ritardo, il tavolo potrà essere assegnato al cliente successivo e la prenotazione verrà posticipata in base alla prima disponibilità utile.",
     highlight: "",

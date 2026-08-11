@@ -87,6 +87,9 @@ const settingsSchema = z.object({
     staffWaitlistAlertsEnabled: z.boolean(),
   }),
   guestExperience: z.object({
+    // Occhiello e titolo della pagina di prenotazione: vuoti = testo predefinito.
+    heroEyebrow: z.string().trim().max(80),
+    heroTitle: z.string().trim().max(120),
     arrivalMessage: z.string().trim().min(10).max(300),
     // Non può restare vuoto: è la condizione che fa perdere il tavolo, e una
     // ricevuta che non la riporta lascia il ristorante senza appoggio quando

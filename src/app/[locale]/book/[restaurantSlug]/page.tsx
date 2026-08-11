@@ -122,11 +122,14 @@ export default async function BookingPage({ params }: { params: Promise<{ locale
             <span className="signal-pulse size-1.5 rounded-full bg-primary" />
             {bookingStatus.message}
           </div>
-          <p className="mb-4 font-mono text-xs uppercase tracking-[0.22em] text-primary">{dictionary.booking.eyebrow}</p>
+          {/* Occhiello e titolo si possono personalizzare dal pannello: se il
+              ristoratore ha scritto un testo suo vince, altrimenti resta quello
+              predefinito della lingua. */}
+          <p className="mb-4 font-mono text-xs uppercase tracking-[0.22em] text-primary">{settings.guestExperience.heroEyebrow.trim() || dictionary.booking.eyebrow}</p>
           {/* Su telefono il titolo occupava quasi tutto il primo schermo e il
               modulo restava fuori vista: qui pesa meno e lascia salire il
               resto. */}
-          <h1 className="max-w-3xl text-balance font-heading text-[2.15rem] font-semibold leading-[1.06] tracking-[-0.04em] sm:text-6xl sm:leading-[1.02] lg:text-7xl">{dictionary.booking.title}</h1>
+          <h1 className="max-w-3xl text-balance font-heading text-[2.15rem] font-semibold leading-[1.06] tracking-[-0.04em] sm:text-6xl sm:leading-[1.02] lg:text-7xl">{settings.guestExperience.heroTitle.trim() || dictionary.booking.title}</h1>
           <p className="mt-4 max-w-xl text-[15px] leading-6 text-white/58 sm:mt-5 sm:text-lg sm:leading-7">{settings.guestExperience.arrivalMessage}</p>
           {highlight ? <p className="mt-5 flex max-w-xl items-center gap-3 border-l-[3px] border-primary bg-primary/10 py-3 pl-3.5 pr-4 text-[15px] font-semibold leading-6 text-white sm:mt-6 sm:pl-4 sm:pr-5 sm:text-lg">
             <Car className="size-5 shrink-0 text-primary" aria-hidden />
