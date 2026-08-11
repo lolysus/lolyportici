@@ -2,6 +2,7 @@ import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { failure, success, validationFailure } from "@/lib/api/response";
 import { getRepository } from "@/repositories";
 import { sendReservationConfirmation } from "@/domains/notifications/notification-service";
+import { notifyStaffOfReservation } from "@/domains/notifications/staff-push-notification";
 import { webReservationCreateSchema } from "@/validators/booking";
 import { getRestaurantSettings } from "@/domains/settings/settings-service";
 import { getRestaurantLocationById, defaultRestaurantLocation } from "@/config/brand";
@@ -16,6 +17,11 @@ export async function POST(request: Request) {
     const { locationId: _locationId, ...confirmation } = parsed.data;
     void _locationId;
     const result = await getRepository(location.id).confirmHold(confirmation);
+    // Il personale che ha installato l'app riceve una notifica push: parte a
+    // parte, e un errore qui non deve far fallire la prenotazione appena creata.
+    void notifyStaffOfReservation(location, result.reservation).catch((error: unknown) => {
+      console.error("[push] avviso staff non riuscito", error);
+    });
     const settings = await getRestaurantSettings(location.id);
     const notification = settings.features.automaticNotificationsEnabled
       ? await sendReservationConfirmation(result.reservation, {

@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/auth/dal";
 import { getAdminLocationFromRequest } from "@/lib/admin/location";
 import { getRepository } from "@/repositories";
 import { formatTimeInZone } from "@/lib/datetime";
+import { notifyStaffOfReservation } from "@/domains/notifications/staff-push-notification";
 
 /**
  * Le prenotazioni prese da chi lavora in sala: al telefono o al banco.
@@ -101,6 +102,11 @@ export async function POST(request: Request) {
         accessibilityNeeds: customer.accessibilityNeeds || undefined,
       },
       customerNotes,
+    });
+    // Anche una prenotazione presa a mano avvisa gli altri dispositivi della
+    // sede: chi la registra la vede già, ma chi è in cucina o all'altro tavolo no.
+    void notifyStaffOfReservation(location, result.reservation).catch((error: unknown) => {
+      console.error("[push] avviso staff non riuscito", error);
     });
     return success(result, { status: 201 });
   } catch (error) { return failure(error); }

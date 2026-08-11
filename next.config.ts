@@ -30,6 +30,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Il service worker non va messo in cache: un aggiornamento dell'app
+        // deve poter sostituire quello vecchio subito, non al prossimo giro di
+        // cache. `Service-Worker-Allowed: /` gli lascia governare tutta l'origine
+        // pur essendo servito dalla radice.
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
