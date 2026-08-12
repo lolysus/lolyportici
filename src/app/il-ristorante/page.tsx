@@ -4,8 +4,10 @@ import { notFound } from "next/navigation";
 import { Accessibility, ArrowRight, Car, Leaf, Sofa, Sun, UtensilsCrossed } from "lucide-react";
 import { SiteShell } from "@/components/site/site-shell";
 import { PhotoPanel } from "@/components/site/photo-panel";
+import { Reveal } from "@/components/site/reveal";
 import { siteRestaurant } from "@/lib/site-host";
 import { loadSiteData } from "@/lib/site-data";
+import type { SitePhotoName } from "@/lib/site-photos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const restaurant = await siteRestaurant();
@@ -22,6 +24,12 @@ export default async function IlRistorantePage() {
   const site = await loadSiteData(restaurant);
   const city = restaurant.city.split("·")[0].trim();
   const parking = site.guest.highlight.trim() || site.guest.parkingInfo.trim();
+  const hasPhotos = restaurant.slug === "yuko";
+  const gallery: { photo: SitePhotoName; label: string }[] = [
+    { photo: "tavola-tovagliolo", label: "La tavola" },
+    { photo: "udon", label: "Dalla cucina" },
+    { photo: "har-gow", label: "Dim sum al vapore" },
+  ];
 
   const spaces = [
     { icon: Sofa, title: "Sala interna", value: site.seating.indoor > 0 ? `${site.seating.indoor} posti` : "Ambiente curato", note: "Accogliente a pranzo come a cena." },
@@ -47,7 +55,7 @@ export default async function IlRistorantePage() {
 
     {/* Esperienza */}
     <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 lg:grid-cols-2 lg:py-20">
-      <PhotoPanel restaurant={restaurant} label="La sala" className="min-h-[300px] lg:min-h-[420px]" />
+      <PhotoPanel restaurant={restaurant} label="La sala" photo={hasPhotos ? "interno-scala" : undefined} priority className="min-h-[360px] lg:min-h-[460px]" />
       <div>
         <h2 className="max-w-md text-balance font-heading text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">Un rito quotidiano, fatto bene.</h2>
         <p className="mt-5 max-w-lg leading-7 text-white/60">
@@ -83,6 +91,16 @@ export default async function IlRistorantePage() {
           <p className="mt-4 font-semibold">{item.title}</p>
           <p className="mt-2 text-sm leading-6 text-white/55">{item.text}</p>
         </div>)}
+      </div>
+    </section>}
+
+    {/* Atmosfera */}
+    {hasPhotos && <section className="mx-auto max-w-6xl px-5 py-16 lg:py-20">
+      <h2 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">Un assaggio dell’atmosfera</h2>
+      <div className="mt-9 grid gap-5 sm:grid-cols-3">
+        {gallery.map((item, i) => <Reveal key={item.photo} delay={i * 100}>
+          <PhotoPanel restaurant={restaurant} label={item.label} photo={item.photo} className="aspect-[3/4]" />
+        </Reveal>)}
       </div>
     </section>}
 
