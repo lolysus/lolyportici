@@ -65,8 +65,11 @@ export function proxy(request: NextRequest) {
 
   const ownBooking = `/${restaurantConfig.defaultLocale}/book/${restaurant.slug}`;
 
-  // La radice del dominio è la pagina del ristorante, non la scelta fra i due.
+  // La radice del dominio: dove il sito è pubblicato mostra la home (la
+  // prenotazione vive su /prenotazione); altrove porta dritto al modulo di
+  // prenotazione, come prima.
   if (pathname === "/") {
+    if (restaurant.sitePublished) return NextResponse.next();
     return NextResponse.redirect(new URL(`${ownBooking}${search}`, request.url));
   }
 

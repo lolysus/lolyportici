@@ -129,7 +129,7 @@ const flowCopy = {
   },
 } as const;
 
-type BookingFeatures = {
+export type BookingFeatures = {
   onlineBookingEnabled: boolean;
   waitlistEnabled: boolean;
   minimumPartySize: number;

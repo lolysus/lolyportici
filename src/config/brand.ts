@@ -36,6 +36,14 @@ export interface ManagedRestaurant {
   capacity: number;
   tables: number;
   serviceNote: string;
+  /**
+   * Il ristorante ha il sito vetrina pubblicato sul proprio dominio.
+   *
+   * Dove è `true`, la radice del dominio mostra il sito (home, il ristorante,
+   * dove siamo) e la prenotazione vive su `/prenotazione`. Dove è `false`, la
+   * radice porta ancora direttamente al modulo di prenotazione, come prima.
+   */
+  sitePublished: boolean;
   theme: {
     primary: string;
     primaryForeground: string;
@@ -109,6 +117,7 @@ export const restaurantLocations = [
     capacity: 200,
     tables: 15,
     serviceNote: "Sushi & Fusion · prenotazioni online",
+    sitePublished: true,
     theme: {
       primary: "#D5AF55",
       primaryForeground: "#15110A",
@@ -145,6 +154,7 @@ export const restaurantLocations = [
     capacity: 70,
     tables: 12,
     serviceNote: "Sushi giapponese · prenotazioni online",
+    sitePublished: false,
     theme: {
       primary: "#E60012",
       primaryForeground: "#FFFFFF",
