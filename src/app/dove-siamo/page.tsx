@@ -5,6 +5,7 @@ import { Accessibility, ArrowRight, Car, Clock3, MapPin, MessageCircle, Navigati
 import { SiteShell } from "@/components/site/site-shell";
 import { siteRestaurant } from "@/lib/site-host";
 import { loadSiteData, weeklyOpening } from "@/lib/site-data";
+import { restaurantOgImage } from "@/lib/og-image";
 
 export async function generateMetadata(): Promise<Metadata> {
   const restaurant = await siteRestaurant();
@@ -12,7 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const city = restaurant.city.split("·")[0].trim();
   const title = `Dove siamo e orari · ${restaurant.name}`;
   const description = `${restaurant.name}: ${restaurant.address}. Orari, indicazioni e contatti — con ampio parcheggio privato a ${city}.`;
-  return { title, description, alternates: { canonical: "/dove-siamo" }, openGraph: { type: "website", title, description, siteName: restaurant.name } };
+  const og = restaurantOgImage(restaurant.slug);
+  const images = og ? [og] : undefined;
+  return { title, description, alternates: { canonical: "/dove-siamo" }, openGraph: { type: "website", title, description, siteName: restaurant.name, images }, twitter: { card: "summary_large_image", title, description, images: images?.map((image) => image.url) } };
 }
 
 export default async function DoveSiamoPage() {

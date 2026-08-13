@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { siteRestaurant } from "@/lib/site-host";
 import { loadSiteData } from "@/lib/site-data";
+import { restaurantOgImage } from "@/lib/og-image";
 import { SiteShell } from "@/components/site/site-shell";
 import { HomeView } from "@/components/site/home-view";
 
@@ -11,11 +12,14 @@ export async function generateMetadata(): Promise<Metadata> {
   const city = restaurant.city.split("·")[0].trim();
   const title = `${restaurant.name} · Sushi & Fusion a ${city}`;
   const description = `Cucina giapponese e fusion a ${city}, con ampio parcheggio privato. Prenota il tuo tavolo online: disponibilità in tempo reale e conferma immediata.`;
+  const og = restaurantOgImage(restaurant.slug);
+  const images = og ? [og] : undefined;
   return {
     title,
     description,
     alternates: { canonical: "/" },
-    openGraph: { type: "website", title, description, siteName: restaurant.name },
+    openGraph: { type: "website", title, description, siteName: restaurant.name, images },
+    twitter: { card: "summary_large_image", title, description, images: images?.map((image) => image.url) },
   };
 }
 

@@ -12,6 +12,7 @@ import { dateKeyInZone, localDateTimeToUtc } from "@/lib/datetime";
 import { getBookingPath, getGoogleMapsDirectionsUrl, getRequestUrl } from "@/lib/public-url";
 import { restaurantThemeStyle } from "@/lib/brand-theme";
 import { buildPhoneHref, buildWhatsappHref } from "@/lib/contact";
+import { restaurantOgImage } from "@/lib/og-image";
 import { cn } from "@/lib/utils";
 import { buildServiceTimeSlots, dayOfWeekForDateKey } from "@/lib/service-calendar";
 import { getRestaurantSettings } from "@/domains/settings/settings-service";
@@ -47,6 +48,9 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const canonical = await getRequestUrl(getBookingPath(locale, location));
   const languages = await Promise.all(restaurantConfig.supportedLocales.map(async (language) => [language, await getRequestUrl(getBookingPath(language, location))] as const));
 
+  const og = restaurantOgImage(location.slug);
+  const images = og ? [og] : undefined;
+
   return {
     title,
     description,
@@ -54,7 +58,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
       canonical,
       languages: Object.fromEntries(languages),
     },
-    openGraph: { type: "website", title, description, siteName: brandConfig.platformName, url: canonical },
+    openGraph: { type: "website", title, description, siteName: brandConfig.platformName, url: canonical, images },
+    twitter: { card: "summary_large_image", title, description, images: images?.map((image) => image.url) },
   };
 }
 

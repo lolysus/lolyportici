@@ -8,6 +8,7 @@ import { Reveal } from "@/components/site/reveal";
 import { siteRestaurant } from "@/lib/site-host";
 import { loadSiteData } from "@/lib/site-data";
 import type { SitePhotoName } from "@/lib/site-photos";
+import { restaurantOgImage } from "@/lib/og-image";
 
 export async function generateMetadata(): Promise<Metadata> {
   const restaurant = await siteRestaurant();
@@ -15,7 +16,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const city = restaurant.city.split("·")[0].trim();
   const title = `Il ristorante · ${restaurant.name}`;
   const description = `${restaurant.name}: cucina giapponese e fusion a ${city}, sala interna${restaurant.seating.outdoor > 0 ? " e spazio all’aperto" : ""} e ampio parcheggio privato.`;
-  return { title, description, alternates: { canonical: "/il-ristorante" }, openGraph: { type: "website", title, description, siteName: restaurant.name } };
+  const og = restaurantOgImage(restaurant.slug);
+  const images = og ? [og] : undefined;
+  return { title, description, alternates: { canonical: "/il-ristorante" }, openGraph: { type: "website", title, description, siteName: restaurant.name, images }, twitter: { card: "summary_large_image", title, description, images: images?.map((image) => image.url) } };
 }
 
 export default async function IlRistorantePage() {

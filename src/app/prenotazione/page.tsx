@@ -5,6 +5,7 @@ import { BookingWizard } from "@/components/public-booking/booking-wizard";
 import { SiteShell } from "@/components/site/site-shell";
 import { siteRestaurant } from "@/lib/site-host";
 import { loadSiteData } from "@/lib/site-data";
+import { restaurantOgImage } from "@/lib/og-image";
 import { loadBookingPageData } from "@/lib/booking-page-data";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -13,7 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const city = restaurant.city.split("·")[0].trim();
   const title = `Prenota un tavolo · ${restaurant.name}`;
   const description = `Prenota online da ${restaurant.name} a ${city}: scegli data, orario e numero di persone. Disponibilità in tempo reale e conferma immediata.`;
-  return { title, description, alternates: { canonical: "/prenotazione" }, openGraph: { type: "website", title, description, siteName: restaurant.name } };
+  const og = restaurantOgImage(restaurant.slug);
+  const images = og ? [og] : undefined;
+  return { title, description, alternates: { canonical: "/prenotazione" }, openGraph: { type: "website", title, description, siteName: restaurant.name, images }, twitter: { card: "summary_large_image", title, description, images: images?.map((image) => image.url) } };
 }
 
 export default async function PrenotazionePage() {
