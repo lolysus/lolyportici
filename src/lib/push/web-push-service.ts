@@ -63,6 +63,8 @@ export interface StaffPushPayload {
   tag?: string;
   /** L'icona della sede, così la notifica ha il colore giusto in cima. */
   icon?: string;
+  /** Quando è nato l'evento (ms epoch): il telefono mostra l'ora giusta. */
+  timestamp?: number;
 }
 
 export async function savePushSubscription(locationId: string, input: PushSubscriptionInput) {

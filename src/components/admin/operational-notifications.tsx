@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Bell, BellRing, CalendarCheck2, Check, Clock3, MapPin, RefreshCw, Volume2, X } from "lucide-react";
+import { AlertTriangle, Bell, BellRing, CalendarCheck2, CalendarDays, Check, Clock3, MapPin, PartyPopper, Phone, RefreshCw, UsersRound, Volume2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { RestaurantLocation } from "@/config/brand";
+import { formatTimeInZone } from "@/lib/datetime";
+import { restaurantThemeStyle } from "@/lib/brand-theme";
 import { useReservationStream } from "@/hooks/use-reservation-stream";
 import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
 import { claimReservationAnnouncement } from "@/lib/notification-preferences";
@@ -25,6 +28,7 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
   const [preferences] = useNotificationPreferences(location.id);
   const [audioReady, setAudioReady] = useState(false);
   const [toast, setToast] = useState<PublicReservation | null>(null);
+  const [toastExtra, setToastExtra] = useState(0);
   const [feedState, setFeedState] = useState<FeedState>("syncing");
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const seenIds = useRef<Set<string> | null>(null);
@@ -72,13 +76,14 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
         if (created.length > 0) {
           setUnread((current) => current + created.length);
           setToast(created[0]);
+          setToastExtra(created.length - 1);
           // Con più schede del pannello aperte suonerebbero tutte: la prima che
           // rivendica la prenotazione annuncia, le altre mostrano e restano
           // zitte. L'avviso a schermo resta in ognuna, perché lì il doppione
           // non disturba.
           if (created.some((row) => claimReservationAnnouncement(location.id, row.id))) void playChime();
           if (toastTimer.current) clearTimeout(toastTimer.current);
-          toastTimer.current = setTimeout(() => setToast(null), 8000);
+          toastTimer.current = setTimeout(() => { setToast(null); setToastExtra(0); }, 11000);
         }
       }
       seenIds.current = nextIds;
@@ -194,15 +199,44 @@ export function OperationalNotifications({ location }: { location: RestaurantLoc
       </PopoverContent>
     </Popover>
 
-    {toast && <div role="status" aria-live="polite" className="surface-3d-dark fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-3 z-[90] w-[min(390px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-primary/25 bg-card text-foreground shadow-2xl md:bottom-5 md:right-5">
+    {toast && typeof document !== "undefined" && createPortal(<div role="status" aria-live="polite" style={restaurantThemeStyle(location)} className="dark surface-3d-dark fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-3 z-[100] w-[min(400px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-primary/30 bg-card text-foreground shadow-2xl md:bottom-5 md:right-5">
       <div className="service-route h-0.5" />
       <div className="flex items-start gap-3 p-4">
         <span className="signal-pulse flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground"><BellRing className="size-4" /></span>
-        <div className="min-w-0 flex-1"><p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">Nuova prenotazione - {location.shortName}</p><p className="mt-1 font-medium">{toast.customer.firstName} {toast.customer.lastName}</p><p className="mt-1 text-xs text-muted-foreground">{toast.partySize} ospiti - {toast.reservationCode}</p><button type="button" onClick={() => openReservation(toast)} className="mt-3 text-xs font-semibold text-primary underline-offset-4 hover:underline">Apri prenotazione</button></div>
-        <button type="button" onClick={() => setToast(null)} className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Chiudi notifica"><X className="size-4" /></button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary">Nuova prenotazione · {location.shortName}</p>
+            {toastExtra > 0 && <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[9px] font-semibold text-primary">+{toastExtra} altre</span>}
+          </div>
+          <p className="mt-1 truncate font-heading text-lg">{toast.customer.firstName} {toast.customer.lastName}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {!isToday(toast.reservationDate, location.timezone) && <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5 text-primary" />{formatReservationDay(toast.reservationDate)}</span>}
+            <span className="inline-flex items-center gap-1"><Clock3 className="size-3.5 text-primary" />{formatTimeInZone(toast.startAt, location.timezone)}</span>
+            <span className="inline-flex items-center gap-1"><UsersRound className="size-3.5 text-primary" />{toast.partySize} {toast.partySize === 1 ? "ospite" : "ospiti"}</span>
+            <span className="inline-flex items-center gap-1 font-mono">{toast.reservationCode}</span>
+          </div>
+          {toast.specialOccasion && <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary"><PartyPopper className="size-3.5" />{toast.specialOccasion}</p>}
+          {toast.customer.allergies && <p className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-2 py-1.5 text-xs font-medium text-amber-200"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" />Allergie: {toast.customer.allergies}</p>}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => openReservation(toast)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5"><CalendarCheck2 className="size-3.5" />Apri prenotazione</button>
+            {toast.customer.phone && <a href={`tel:${toast.customer.phone}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/12 px-3 text-xs font-medium text-foreground hover:border-primary/40"><Phone className="size-3.5 text-primary" />Chiama</a>}
+          </div>
+        </div>
+        <button type="button" onClick={() => { setToast(null); setToastExtra(0); }} className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Chiudi notifica"><X className="size-4" /></button>
       </div>
-    </div>}
+    </div>, document.body)}
   </>;
+}
+
+/** Il giorno della prenotazione è oggi (nel fuso della sede)? */
+function isToday(dateKey: string, timezone: string) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  return dateKey === today;
+}
+
+function formatReservationDay(dateKey: string) {
+  const date = new Date(`${dateKey}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? dateKey : new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "numeric", month: "short" }).format(date);
 }
 
 function formatCreatedAt(value: string) {

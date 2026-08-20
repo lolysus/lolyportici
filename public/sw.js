@@ -33,10 +33,16 @@ self.addEventListener("push", (event) => {
     renotify: true,
     icon: data.icon || "/brands/notification-badge.png",
     badge: "/brands/notification-badge.png",
-    vibrate: [90, 40, 90],
+    // Vibrazione più decisa: in sala, col telefono in tasca o appoggiato,
+    // deve farsi sentire.
+    vibrate: [120, 50, 120, 50, 160],
     // In sala il telefono è appoggiato e nessuno lo guarda: la notifica deve
     // restare finché qualcuno non la tocca, non svanire da sola.
     requireInteraction: true,
+    // L'ora vera dell'evento (non quella di consegna), se il server la manda.
+    timestamp: typeof data.timestamp === "number" ? data.timestamp : Date.now(),
+    // Un pulsante diretto per aprire l'agenda dalla notifica stessa.
+    actions: [{ action: "open", title: "Apri agenda" }],
     data: { url: data.url || "/" },
   };
 
