@@ -54,12 +54,18 @@ export function PrintReservationsButton({
   restaurantName,
   city,
   timezone,
+  label = "Stampa prenotazioni",
+  subtitle,
+  variant = "outline",
 }: {
   reservations: PublicReservation[];
   tables: TableResource[];
   restaurantName: string;
   city: string;
   timezone: string;
+  label?: string;
+  subtitle?: string;
+  variant?: "default" | "outline";
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -160,7 +166,7 @@ export function PrintReservationsButton({
       <header>
         <div class="brand">${esc(restaurantName)} · ${esc(city)}</div>
         <h1>Prenotazioni</h1>
-        <div class="meta">Stampato il ${esc(now)} · ${printable.length} prenotazioni totali</div>
+        <div class="meta">Stampato il ${esc(now)} · ${printable.length} ${printable.length === 1 ? "prenotazione" : "prenotazioni"}${subtitle ? ` · ${esc(subtitle)}` : ""}</div>
       </header>
       ${sections}${empty}
     </body></html>`;
@@ -208,9 +214,9 @@ export function PrintReservationsButton({
   }
 
   return (
-    <Button type="button" variant="outline" onClick={handlePrint} disabled={busy}>
+    <Button type="button" variant={variant} onClick={handlePrint} disabled={busy}>
       <Printer />
-      {busy ? "Preparo…" : "Stampa prenotazioni"}
+      {busy ? "Preparo…" : label}
     </Button>
   );
 }
