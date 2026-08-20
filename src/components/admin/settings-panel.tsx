@@ -265,7 +265,7 @@ export function SettingsPanel({ initialSettings, location }: SettingsPanelProps)
         <div className="grid gap-6 xl:grid-cols-2">
           <SettingsCard title="Regole di prenotazione" description="Limiti applicati prima di proporre gli orari disponibili.">
             <Field id="min-party" label="Minimo ospiti" type="number" min={1} max={20} value={String(settings.rules.minimumPartySize)} setValue={(value) => updateSection("rules", { minimumPartySize: Number(value) })} />
-            <Field id="max-party" label="Massimo per conferma online" type="number" min={1} max={100} value={String(settings.rules.maximumPartySize)} setValue={(value) => updateSection("rules", { maximumPartySize: Number(value) })} />
+            <p className="rounded-lg border border-dashed bg-card/40 px-3 py-2 text-xs text-muted-foreground">Nessun limite massimo di persone: i tavoli grandi si prenotano online come gli altri.</p>
             <SwitchRow id="manual-approval" label="Verifica manuale permanente" description="Mantiene ogni richiesta in approvazione anche quando la sede è operativa." checked={settings.rules.requiresManualApproval} setChecked={(value) => updateSection("rules", { requiresManualApproval: value })} />
             <SwitchRow id="requires-deposit" label="Caparra da verificare" description="Richiede il controllo dello staff prima della conferma." checked={settings.rules.requiresDeposit} setChecked={(value) => updateSection("rules", { requiresDeposit: value })} />
             {settings.rules.requiresDeposit && <Field id="deposit-amount" label="Importo caparra" type="number" min={0} max={10000} value={String(settings.rules.depositAmount)} setValue={(value) => updateSection("rules", { depositAmount: Number(value) })} suffix="€" />}

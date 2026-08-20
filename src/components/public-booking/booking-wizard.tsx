@@ -171,7 +171,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
   // prenotazioni, e una chiave riusata restituirebbe in silenzio la prima.
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const hasMountedBookingFlow = useRef(false);
-  const requiresManualHandling = features.requiresManualApproval || features.requiresDeposit || partySize > features.maximumPartySize;
+  const requiresManualHandling = features.requiresManualApproval || features.requiresDeposit;
   const selectedDateLabel = date ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(`${date}T12:00:00`)) : flow.dateNotSelected;
   const depositAmount = new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(features.depositAmount);
   const hasPhone = Boolean(location.phoneHref);
@@ -449,7 +449,7 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
           <button type="button" onClick={() => { setPartySize(11); setPartySizeSelected(true); }} aria-pressed={partySizeSelected && partySize > 10} className="tile col-span-5 min-h-12 px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-2">{t.partyMore}</button>
         </div>
         {partySizeSelected && partySize > 10 && <div className="mt-5 max-w-xs"><Label htmlFor="large-party-size">{flow.exactPartySize}</Label><Input id="large-party-size" type="number" min={11} max={100} value={partySize} onChange={(event) => { setPartySize(Math.max(11, Number(event.target.value))); setPartySizeSelected(true); }} className="mt-2 h-12 bg-card"/></div>}
-        {requiresManualHandling && <p className="mt-5 flex items-start gap-2 rounded-xl border border-accent/35 bg-accent/15 p-4 text-sm"><Info className="mt-0.5 size-4 shrink-0" />{partySize > features.maximumPartySize ? flow.largeParty(features.maximumPartySize) : features.requiresDeposit ? flow.deposit(depositAmount) : flow.staffReview}</p>}
+        {requiresManualHandling && <p className="mt-5 flex items-start gap-2 rounded-xl border border-accent/35 bg-accent/15 p-4 text-sm"><Info className="mt-0.5 size-4 shrink-0" />{features.requiresDeposit ? flow.deposit(depositAmount) : flow.staffReview}</p>}
 
         {date ? <div className="mt-9 border-t pt-8">
           <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{t.fieldDate}</p>

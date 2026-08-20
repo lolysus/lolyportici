@@ -264,7 +264,9 @@ function daysFromToday(inputDate: string, context: AvailabilityContext) {
 function violatesGlobalConstraints(input: AvailabilityInput, context: AvailabilityContext) {
   if (context.locationAvailable === false) return true;
   const rules = context.bookingConstraints;
-  if (rules && (input.partySize < rules.minimumPartySize || input.partySize > rules.maximumPartySize || rules.requiresManualApproval)) return true;
+  // Nessun tetto al numero di persone: i tavoli grandi si prenotano come gli
+  // altri. Resta solo il minimo e l'eventuale approvazione manuale della sede.
+  if (rules && (input.partySize < rules.minimumPartySize || rules.requiresManualApproval)) return true;
   const advance = daysFromToday(input.date, context);
   return advance < 0 || Boolean(rules && advance > rules.maximumAdvanceDays);
 }
@@ -334,10 +336,9 @@ export function getAvailableSlots(input: AvailabilityInput, context: Availabilit
 export function checkAvailability(input: AvailabilityInput, context: AvailabilityContext): AvailabilityResult {
   const restrictions: string[] = [];
   const rules = context.bookingConstraints;
-  const requiresManualApproval = input.partySize > (rules?.maximumPartySize ?? 10) || Boolean(rules?.requiresManualApproval) || Boolean(rules?.requiresDeposit);
+  const requiresManualApproval = Boolean(rules?.requiresManualApproval) || Boolean(rules?.requiresDeposit);
   if (context.locationAvailable === false) restrictions.push("La sede non accetta prenotazioni in questo momento.");
   if (rules && input.partySize < rules.minimumPartySize) restrictions.push(`Il numero minimo di ospiti è ${rules.minimumPartySize}.`);
-  if (input.partySize > (rules?.maximumPartySize ?? 10)) restrictions.push(`I gruppi oltre ${rules?.maximumPartySize ?? 10} persone richiedono approvazione manuale.`);
   if (rules?.requiresManualApproval) restrictions.push("Le nuove richieste richiedono conferma manuale del personale.");
   if (rules?.requiresDeposit) restrictions.push(`È richiesto un deposito di € ${(rules.depositAmount ?? 0).toFixed(2)} e la conferma del personale.`);
   const advance = daysFromToday(input.date, context);
