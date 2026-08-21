@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BellRing, Check, Download, LoaderCircle, LogIn, Share, TriangleAlert } from "lucide-react";
+import { ArrowDown, ArrowRight, BellRing, Check, Download, LoaderCircle, LogIn, Share, SquarePlus, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type Restaurant = {
@@ -260,17 +260,30 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
 
           {platform.ios && !standalone && !platform.iosOtherBrowser && <>
             <Button onClick={() => setIosGuide(true)} size="lg" className="min-h-14 w-full text-base font-semibold" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}>
-              <Download />Installa l’app {restaurant.shortName}
+              <Download />Aggiungi l’app alla Home
             </Button>
-            {!iosGuide
-              ? <p className="text-center text-xs leading-5 text-muted-foreground">Un’app vera sulla schermata Home, veloce e con le notifiche. Tocca il pulsante e completa in Safari.</p>
-              : <div className="space-y-3 rounded-2xl border border-primary/30 bg-primary/[0.06] p-4">
-                  <p className="text-sm font-semibold">Ultimi due tocchi in Safari, in basso 👇</p>
-                  <p className="flex items-center gap-2 text-sm"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>Tocca <Share className="inline size-4" /> <strong>Condividi</strong></p>
-                  <p className="flex items-center gap-2 text-sm"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">2</span>Scorri e tocca <strong>“Aggiungi alla schermata Home”</strong></p>
-                  <p className="text-xs leading-5 text-muted-foreground">Poi apri l’app <strong>{restaurant.shortName}</strong> dalla Home{authenticated ? "" : ", accedi"} e tocca <strong>“Attiva le notifiche”</strong>. Fatto.</p>
-                </div>}
-            <p className="text-center text-xs leading-5 text-muted-foreground">iPhone/iPad con iOS 16.4 o successivo. Apple non consente il download diretto: sulla schermata Home è comunque un’app a tutti gli effetti.</p>
+            <p className="text-center text-xs leading-5 text-muted-foreground">Un’app vera sulla schermata Home, veloce e con le notifiche. iOS 16.4+.</p>
+
+            {/* Guida lampo: al tocco compare un aiuto grande con una freccia che
+                punta al tasto Condividi di Safari (in basso). È il massimo che
+                Apple consente: due tocchi e l'app è sulla Home. */}
+            {iosGuide && <div className="fixed inset-0 z-[80] flex flex-col justify-end bg-black/60 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" onClick={() => setIosGuide(false)}>
+              <div className="mx-auto w-full max-w-sm rounded-3xl border border-primary/40 bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                <div className="flex items-start justify-between">
+                  <p className="font-heading text-xl">Ci sei quasi — 2 tocchi</p>
+                  <button type="button" onClick={() => setIosGuide(false)} aria-label="Chiudi" className="rounded-md p-1 text-muted-foreground hover:bg-muted"><X className="size-5" /></button>
+                </div>
+                <div className="mt-4 space-y-3">
+                  <p className="flex items-center gap-3 text-base"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary">1</span>Tocca <Share className="inline size-5 text-primary" /> <strong>Condividi</strong>, qui sotto nella barra</p>
+                  <p className="flex items-center gap-3 text-base"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary">2</span><SquarePlus className="inline size-5 text-primary" /> <strong>“Aggiungi alla schermata Home”</strong></p>
+                </div>
+                <p className="mt-4 text-xs leading-5 text-muted-foreground">L’app <strong>{restaurant.shortName}</strong> compare sulla Home. Aprila{authenticated ? "" : ", accedi"} e tocca “Attiva le notifiche”.</p>
+                <div className="mt-3 flex flex-col items-center text-primary">
+                  <span className="text-xs font-semibold">Il tasto Condividi è qui sotto</span>
+                  <ArrowDown className="size-8 animate-bounce" />
+                </div>
+              </div>
+            </div>}
           </>}
 
           {/* Non iPhone-da-installare: qui conta l'accesso (le notifiche hanno i
