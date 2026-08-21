@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Accessibility, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Camera, Check, CheckCircle2, Clock3, Download, Info, LoaderCircle, LockKeyhole, Navigation, PhoneCall, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
+import { Accessibility, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Camera, Check, CheckCircle2, Clock3, Download, Info, LoaderCircle, LockKeyhole, Moon, Navigation, PhoneCall, ShieldCheck, Sparkles, Sun, UsersRound } from "lucide-react";
 import type { RestaurantLocation } from "@/config/brand";
 import { BookingDatePicker } from "@/components/public-booking/booking-date-picker";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,8 @@ const flowCopy = {
     noBookableDateDescription: "Nella finestra di prenotazione configurata non ci sono servizi disponibili online. Contatta il ristorante per una richiesta assistita.",
     callRestaurant: "Chiama il ristorante",
     instantConfirmation: "conferma immediata",
+    lunch: "Pranzo",
+    dinner: "Cena",
     staffReviewTitle: "Richiesta da verificare dal personale",
     staffReviewDescription: "Indica l’orario preferito: il personale verifica la disponibilità, l’eventuale caparra e ti ricontatta.",
     waitlistDescription: "Lascia l’orario preferito: ti avviseremo appena si libera disponibilità.",
@@ -71,6 +73,8 @@ const flowCopy = {
     noBookableDateDescription: "There are no online services within the configured booking window. Contact the restaurant for assisted booking.",
     callRestaurant: "Call the restaurant",
     instantConfirmation: "instant confirmation",
+    lunch: "Lunch",
+    dinner: "Dinner",
     staffReviewTitle: "Request to be reviewed by the team",
     staffReviewDescription: "Choose your preferred time: the team will check availability, any deposit, and contact you without holding a table.",
     waitlistDescription: "Leave your preferred time and we will notify you as soon as availability opens up.",
@@ -104,6 +108,8 @@ const flowCopy = {
     noBookableDateDescription: "No hay servicios online en la ventana de reserva configurada. Contacta con el restaurante para una solicitud asistida.",
     callRestaurant: "Llamar al restaurante",
     instantConfirmation: "confirmación inmediata",
+    lunch: "Comida",
+    dinner: "Cena",
     staffReviewTitle: "Solicitud pendiente de revisión del equipo",
     staffReviewDescription: "Indica la hora preferida: el equipo comprobará disponibilidad, posible depósito y te contactará sin bloquear una mesa.",
     waitlistDescription: "Deja tu hora preferida y te avisaremos en cuanto haya disponibilidad.",
@@ -419,6 +425,19 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
     </section>;
   }
 
+  // Un orario prima delle 17 è pranzo, dopo è cena: separare i due servizi
+  // rende la scelta immediata invece di una lista unica in cui pranzo e cena si
+  // confondono.
+  const slotHour = (startAt: string) => Number(formatTimeInZone(startAt).split(":")[0]);
+  const renderSlot = (slot: PublicAvailabilityOption) => {
+    const isChosen = selected?.startAt === slot.startAt;
+    return <button type="button" key={slot.startAt} onClick={() => void chooseSlot(slot)} disabled={loading} aria-pressed={isChosen} className={cn("tile group min-h-[5.25rem] px-4 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50", isChosen && "border-primary ring-2 ring-primary/25")}><span className="flex items-center justify-between gap-2"><span className="font-mono text-2xl font-semibold tracking-tight">{formatTimeInZone(slot.startAt)}</span>{isChosen ? <Check className="size-4 text-primary" /> : <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />}</span><span className="mt-2 block text-[11px] leading-4 text-muted-foreground">{slot.durationMinutes} min · {flow.instantConfirmation}</span></button>;
+  };
+  const slotServices = [
+    { key: "pranzo", label: flow.lunch, icon: <Sun className="size-3.5" />, list: slots.filter((slot) => slotHour(slot.startAt) < 17) },
+    { key: "cena", label: flow.dinner, icon: <Moon className="size-3.5" />, list: slots.filter((slot) => slotHour(slot.startAt) >= 17) },
+  ].filter((group) => group.list.length > 0);
+
   // La barra di avanzamento va a filo schermo con un margine negativo fisso di
   // 20px, ma il padding effettivo del contenitore non è sempre esattamente
   // quello: la differenza usciva dallo schermo come scroll orizzontale.
@@ -462,7 +481,10 @@ export function BookingWizard({ dictionary, locale, location, features }: { dict
             ? <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><Clock3 className="size-3.5 shrink-0" />{flow.partySizeRequired}</p>
             : <><p className="mb-6 text-sm text-muted-foreground">{t.timeHint}</p>
         {loading && <div className="flex h-36 items-center justify-center text-muted-foreground"><LoaderCircle className="mr-2 size-5 animate-spin" />{t.loading}</div>}
-        {!loading && slots.length > 0 && <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{slots.map((slot) => { const isChosen = selected?.startAt === slot.startAt; return <button type="button" key={slot.startAt} onClick={() => void chooseSlot(slot)} disabled={loading} aria-pressed={isChosen} className={cn("tile group min-h-[5.25rem] px-4 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50", isChosen && "border-primary ring-2 ring-primary/25")}><span className="flex items-center justify-between gap-2"><span className="font-mono text-2xl font-semibold tracking-tight">{formatTimeInZone(slot.startAt)}</span>{isChosen ? <Check className="size-4 text-primary" /> : <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />}</span><span className="mt-2 block text-[11px] leading-4 text-muted-foreground">{slot.durationMinutes} min · {flow.instantConfirmation}</span></button>; })}</div>}
+        {!loading && slots.length > 0 && <div className="space-y-6">{slotServices.map((group) => <div key={group.key}>
+          <p className="mb-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-primary">{group.icon}{group.label}<span className="font-sans normal-case tracking-normal text-muted-foreground">· {group.list.length} {group.list.length === 1 ? "orario" : "orari"}</span></p>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{group.list.map(renderSlot)}</div>
+        </div>)}</div>}
         {!loading && slots.length === 0 && <div className="surface-3d rounded-2xl border border-dashed bg-card/70 p-6"><p className="font-medium">{requiresManualHandling || manualReviewRequired ? flow.staffReviewTitle : t.unavailable}</p><p className="mt-2 text-sm text-muted-foreground">{requiresManualHandling || manualReviewRequired ? flow.staffReviewDescription : features.waitlistEnabled ? flow.waitlistDescription : flow.waitlistDisabled}</p>{restrictions.length > 0 && <ul className="mt-4 space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">{restrictions.map((restriction) => <li key={restriction} className="flex gap-2"><Info className="mt-0.5 size-4 shrink-0 text-amber-600" />{restriction}</li>)}</ul>}<div className="mt-5 flex flex-wrap items-end gap-3">{features.waitlistEnabled ? <><div><Label htmlFor="requested-time" className="text-xs">{flow.preferredTime}</Label><Input id="requested-time" type="time" value={requestedTime} onChange={(event) => setRequestedTime(event.target.value)} className="mt-2 w-36 bg-background" /></div><Button variant="outline" onClick={() => { setWaitlistMode(true); setStep(2); }}>{requiresManualHandling || manualReviewRequired ? flow.sendStaffRequest : t.waitlist}</Button></> : hasPhone ? <Button asChild variant="outline"><a href={location.phoneHref}><PhoneCall />{flow.callRestaurant}</a></Button> : <p className="text-sm text-muted-foreground">I recapiti saranno disponibili a breve.</p>}</div></div>}
             </>}
         </div>}
