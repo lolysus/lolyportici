@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarPlus } from "lucide-react";
 import { PageHeading } from "@/components/admin/page-heading";
 import { ReservationsAgenda } from "@/components/reservations/reservations-agenda";
-import { PrintReservationsButton } from "@/components/reservations/print-reservations-button";
+import { PrintReservationsMenu } from "@/components/reservations/print-reservations-button";
 import { Button } from "@/components/ui/button";
 import { requirePermission } from "@/lib/auth/dal";
 import { dateKeyInZone } from "@/lib/datetime";
@@ -22,7 +22,7 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
   const initialDate = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : selectedReservation?.reservationDate ?? dateKeyInZone(new Date());
 
   return <>
-    <PageHeading eyebrow={location.shortName} title="Agenda prenotazioni" description={`Calendario operativo di ${location.city}, collegato a servizi, capienza e canali reali.`} actions={<><PrintReservationsButton reservations={reservations} tables={availabilityContext.tables} restaurantName={location.name} city={location.city} timezone={location.timezone} label="Stampa tutte" subtitle="tutte le date" /><Button asChild><Link href={`/prenota/${location.slug}`}><CalendarPlus />Apri booking</Link></Button></>} />
+    <PageHeading eyebrow={location.shortName} title="Agenda prenotazioni" description={`Calendario operativo di ${location.city}, collegato a servizi, capienza e canali reali.`} actions={<><PrintReservationsMenu reservations={reservations} tables={availabilityContext.tables} restaurantName={location.name} city={location.city} timezone={location.timezone} /><Button asChild><Link href={`/prenota/${location.slug}`}><CalendarPlus />Apri booking</Link></Button></>} />
     <ReservationsAgenda initialReservations={reservations} servicePeriods={availabilityContext.servicePeriods} closures={availabilityContext.closures} tables={availabilityContext.tables} initialDate={initialDate} initialSelectedId={selectedReservation?.id} restaurantName={location.name} city={location.city} timezone={location.timezone} />
   </>;
 }
