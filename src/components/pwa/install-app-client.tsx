@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BellRing, Check, Download, LoaderCircle, LogIn, Share, SquarePlus, TriangleAlert } from "lucide-react";
+import { ArrowRight, BellRing, Check, Download, LoaderCircle, LogIn, Share, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type Restaurant = {
@@ -58,6 +58,9 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
   const [testing, setTesting] = useState(false);
   const [testDone, setTestDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Su iPhone il pulsante "Installa" non può installare da solo (Apple lo
+  // vieta): al tocco mostra gli ultimi due passaggi obbligati in Safari.
+  const [iosGuide, setIosGuide] = useState(false);
   // La disponibilità delle push si chiede al backend (Railway), non si deduce
   // dall'ambiente della pagina (Vercel), dove le chiavi VAPID non arrivano: la
   // chiave pubblica c'è → le notifiche sono configurate. `null` = ancora ignoto.
@@ -256,13 +259,18 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
           </>}
 
           {platform.ios && !standalone && !platform.iosOtherBrowser && <>
-            <StatusCard tone="neutral" icon={<SquarePlus />} title={`Scarica l’app ${restaurant.shortName} su iPhone`} body="Un’app vera sulla schermata Home, veloce e con le notifiche. Bastano tre tocchi in Safari:" />
-            <ol className="space-y-3">
-              <Step n={1}>Tocca <Share className="mx-1 inline size-4 align-text-bottom" /> <strong>Condividi</strong> nella barra di Safari, in basso.</Step>
-              <Step n={2}>Scorri e tocca <strong>“Aggiungi alla schermata Home”</strong>, poi <strong>Aggiungi</strong>.</Step>
-              <Step n={3}>Apri l’app <strong>{restaurant.shortName}</strong> dalla Home{authenticated ? "" : ", accedi"} e tocca <strong>“Attiva le notifiche”</strong>. Fatto.</Step>
-            </ol>
-            <p className="text-center text-xs leading-5 text-muted-foreground">Funziona su iPhone e iPad con iOS 16.4 o successivo. Le notifiche arrivano solo dall’app aperta dalla Home almeno una volta.</p>
+            <Button onClick={() => setIosGuide(true)} size="lg" className="min-h-14 w-full text-base font-semibold" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}>
+              <Download />Installa l’app {restaurant.shortName}
+            </Button>
+            {!iosGuide
+              ? <p className="text-center text-xs leading-5 text-muted-foreground">Un’app vera sulla schermata Home, veloce e con le notifiche. Tocca il pulsante e completa in Safari.</p>
+              : <div className="space-y-3 rounded-2xl border border-primary/30 bg-primary/[0.06] p-4">
+                  <p className="text-sm font-semibold">Ultimi due tocchi in Safari, in basso 👇</p>
+                  <p className="flex items-center gap-2 text-sm"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>Tocca <Share className="inline size-4" /> <strong>Condividi</strong></p>
+                  <p className="flex items-center gap-2 text-sm"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">2</span>Scorri e tocca <strong>“Aggiungi alla schermata Home”</strong></p>
+                  <p className="text-xs leading-5 text-muted-foreground">Poi apri l’app <strong>{restaurant.shortName}</strong> dalla Home{authenticated ? "" : ", accedi"} e tocca <strong>“Attiva le notifiche”</strong>. Fatto.</p>
+                </div>}
+            <p className="text-center text-xs leading-5 text-muted-foreground">iPhone/iPad con iOS 16.4 o successivo. Apple non consente il download diretto: sulla schermata Home è comunque un’app a tutti gli effetti.</p>
           </>}
 
           {/* Non iPhone-da-installare: qui conta l'accesso (le notifiche hanno i
