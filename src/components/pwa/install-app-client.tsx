@@ -243,35 +243,44 @@ export function InstallAppClient({ restaurant, authenticated, staffName, loginHr
         </>}
 
         {!(platform.android && !standalone) && <>
-          {!authenticated && <>
-            <StatusCard tone="neutral" icon={<LogIn />} title="Prima accedi al pannello" body={`Le notifiche contengono i dati dei clienti: puoi riceverle solo dopo esserti autenticato come staff di ${restaurant.shortName}.`} />
-            <Button asChild size="lg" className="min-h-12 w-full text-base" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}><Link href={loginHref}>Accedi<ArrowRight /></Link></Button>
-          </>}
-
-          {authenticated && platform.ios && !standalone && platform.iosOtherBrowser && <>
-            <StatusCard tone="warning" icon={<TriangleAlert />} title="Apri questo link in Safari" body="Su iPhone solo Safari può installare un’app che riceve notifiche. In questo browser non funziona." />
+          {/* iPhone non ancora installato: i passaggi per aggiungere l'app alla
+              Home NON richiedono l'accesso — chiunque può installare il guscio,
+              poi accede e attiva le notifiche da dentro. Prima era tutto dietro
+              il login, e da iPhone sembrava che non si potesse installare. */}
+          {platform.ios && !standalone && platform.iosOtherBrowser && <>
+            <StatusCard tone="warning" icon={<TriangleAlert />} title="Apri questo link in Safari" body="Su iPhone solo Safari può installare l’app che riceve le notifiche. In questo browser non funziona." />
             <ol className="space-y-3">
               <Step n={1}>Tocca il menu <strong>⋯</strong> in alto e scegli <strong>“Apri in Safari”</strong>. Oppure copia l’indirizzo e incollalo in Safari.</Step>
-              <Step n={2}>In Safari torna su questa pagina e segui i due tocchi per aggiungere l’app.</Step>
+              <Step n={2}>In Safari torna su questa pagina e segui i tre tocchi per aggiungere l’app.</Step>
             </ol>
           </>}
 
-          {authenticated && platform.ios && !standalone && !platform.iosOtherBrowser && <>
-            <StatusCard tone="neutral" icon={<SquarePlus />} title="Aggiungi l’app alla schermata Home" body="Su iPhone le notifiche funzionano solo dall’app installata. Bastano due tocchi:" />
+          {platform.ios && !standalone && !platform.iosOtherBrowser && <>
+            <StatusCard tone="neutral" icon={<SquarePlus />} title={`Scarica l’app ${restaurant.shortName} su iPhone`} body="Un’app vera sulla schermata Home, veloce e con le notifiche. Bastano tre tocchi in Safari:" />
             <ol className="space-y-3">
               <Step n={1}>Tocca <Share className="mx-1 inline size-4 align-text-bottom" /> <strong>Condividi</strong> nella barra di Safari, in basso.</Step>
-              <Step n={2}>Scorri e tocca <strong>“Aggiungi a Home”</strong>, poi <strong>Aggiungi</strong>.</Step>
-              <Step n={3}>Apri l’app <strong>{restaurant.shortName}</strong> dalla schermata Home, accedi e torna qui per attivare le notifiche.</Step>
+              <Step n={2}>Scorri e tocca <strong>“Aggiungi alla schermata Home”</strong>, poi <strong>Aggiungi</strong>.</Step>
+              <Step n={3}>Apri l’app <strong>{restaurant.shortName}</strong> dalla Home{authenticated ? "" : ", accedi"} e tocca <strong>“Attiva le notifiche”</strong>. Fatto.</Step>
             </ol>
+            <p className="text-center text-xs leading-5 text-muted-foreground">Funziona su iPhone e iPad con iOS 16.4 o successivo. Le notifiche arrivano solo dall’app aperta dalla Home almeno una volta.</p>
           </>}
 
-          {authenticated && !(platform.ios && !standalone) && <>
-            {staffName && <p className="text-center text-sm text-muted-foreground">Ciao {staffName.split(" ")[0]} — un ultimo passo.</p>}
-            <Button onClick={() => void enable()} disabled={busy} size="lg" className="min-h-14 w-full text-base font-semibold" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}>
-              {busy ? <LoaderCircle className="animate-spin" /> : <BellRing />}
-              {busy ? "Attivazione…" : "Attiva le notifiche"}
-            </Button>
-            {!standalone && !platform.ios && <p className="text-center text-xs leading-5 text-muted-foreground">Suggerimento: dal menu del browser puoi anche scegliere “Installa app” per tenerla a portata di mano.</p>}
+          {/* Non iPhone-da-installare: qui conta l'accesso (le notifiche hanno i
+              dati dei clienti e si attivano solo da staff autenticato). */}
+          {!(platform.ios && !standalone) && <>
+            {!authenticated && <>
+              <StatusCard tone="neutral" icon={<LogIn />} title="Accedi per attivare le notifiche" body={`Le notifiche contengono i dati dei clienti: puoi riceverle solo dopo esserti autenticato come staff di ${restaurant.shortName}.`} />
+              <Button asChild size="lg" className="min-h-12 w-full text-base" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}><Link href={loginHref}>Accedi<ArrowRight /></Link></Button>
+            </>}
+
+            {authenticated && <>
+              {staffName && <p className="text-center text-sm text-muted-foreground">Ciao {staffName.split(" ")[0]} — un ultimo passo.</p>}
+              <Button onClick={() => void enable()} disabled={busy} size="lg" className="min-h-14 w-full text-base font-semibold" style={{ background: "var(--app-accent)", color: "var(--app-accent-fg)" }}>
+                {busy ? <LoaderCircle className="animate-spin" /> : <BellRing />}
+                {busy ? "Attivazione…" : "Attiva le notifiche"}
+              </Button>
+              {!standalone && !platform.ios && <p className="text-center text-xs leading-5 text-muted-foreground">Suggerimento: dal menu del browser puoi anche scegliere “Installa app” per tenerla a portata di mano.</p>}
+            </>}
           </>}
         </>}
       </>}
