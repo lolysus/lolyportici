@@ -19,6 +19,17 @@ const text = (value: unknown, fallback = "") => typeof value === "string" ? valu
 const number = (value: unknown, fallback = 0) => typeof value === "number" ? value : Number(value ?? fallback);
 const bool = (value: unknown) => value === true;
 const iso = (value: unknown) => value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
+
+/**
+ * Il codice tavolo è unico per sede anche fra i tavoli eliminati: Postgres
+ * segnala lo scontro con il codice 23505. Riconoscerlo permette di trasformare
+ * un crash generico in un messaggio chiaro ("numero già in uso").
+ */
+function isDuplicateCodeViolation(error: unknown) {
+  const code = (error as { code?: string })?.code;
+  const constraint = (error as { constraint_name?: string })?.constraint_name;
+  return code === "23505" && (!constraint || constraint.includes("code"));
+}
 /**
  * Una colonna `date` di Postgres arriva come oggetto `Date`, non come stringa.
  *
@@ -184,19 +195,45 @@ export class PostgresReservationRepository implements ReservationRepository {
 
   async createTable(input: TableInput): Promise<TableResource> {
     const sql = getPostgres();
-    const duplicate = await sql<Row[]>`select 1 from public.restaurant_tables where location_id=${this.locationId} and code=${input.code} and is_active limit 1`;
-    if (duplicate[0]) throw new TableCodeAlreadyUsedError(input.code);
+    // Un codice già usato da un tavolo ATTIVO è un vero doppione: si ferma con
+    // un messaggio chiaro.
+    const active = await sql<Row[]>`select 1 from public.restaurant_tables where location_id=${this.locationId} and code=${input.code} and is_active limit 1`;
+    if (active[0]) throw new TableCodeAlreadyUsedError(input.code);
     const areaId = await this.diningAreaFor(input.isOutdoor);
     // I nuovi tavoli entrano in planimetria su una griglia leggibile: senza
     // coordinate finirebbero tutti impilati nell'angolo in alto a sinistra.
     const placed = await sql<Row[]>`select count(*)::int as total from public.restaurant_tables where location_id=${this.locationId} and is_outdoor=${input.isOutdoor} and is_active`;
     const index = number(placed[0]?.total);
-    const rows = await sql<Row[]>`
-      insert into public.restaurant_tables
-        (location_id,dining_area_id,code,display_name,minimum_capacity,maximum_capacity,is_outdoor,is_accessible,position_x,position_y)
-      values (${this.locationId},${areaId},${input.code},${input.displayName},${input.minimumCapacity},${input.maximumCapacity},${input.isOutdoor},${input.isAccessible},${12 + (index % 5) * 18},${14 + Math.floor(index / 5) * 20})
+    const positionX = 12 + (index % 5) * 18;
+    const positionY = 14 + Math.floor(index / 5) * 20;
+    // Lo stesso codice può però esistere come tavolo ELIMINATO (soft-delete):
+    // il vincolo unico del database lo conta ancora, quindi un nuovo insert
+    // andrebbe in errore ("Si è verificato un errore"). In quel caso si
+    // RIPRISTINA quella riga con i nuovi dati, che è ciò che il ristoratore si
+    // aspetta riaggiungendo un tavolo con lo stesso numero.
+    const revived = await sql<Row[]>`
+      update public.restaurant_tables set
+        is_active=true, status='available', dining_area_id=${areaId},
+        display_name=${input.displayName}, minimum_capacity=${input.minimumCapacity},
+        maximum_capacity=${input.maximumCapacity}, is_outdoor=${input.isOutdoor},
+        is_accessible=${input.isAccessible}, position_x=${positionX}, position_y=${positionY},
+        updated_at=now()
+      where location_id=${this.locationId} and code=${input.code} and is_active=false
       returning id`;
-    return this.tableById(text(rows[0].id));
+    if (revived[0]) return this.tableById(text(revived[0].id));
+    try {
+      const rows = await sql<Row[]>`
+        insert into public.restaurant_tables
+          (location_id,dining_area_id,code,display_name,minimum_capacity,maximum_capacity,is_outdoor,is_accessible,position_x,position_y)
+        values (${this.locationId},${areaId},${input.code},${input.displayName},${input.minimumCapacity},${input.maximumCapacity},${input.isOutdoor},${input.isAccessible},${positionX},${positionY})
+        returning id`;
+      return this.tableById(text(rows[0].id));
+    } catch (error) {
+      // Rete di sicurezza: qualsiasi collisione sul codice diventa un messaggio
+      // chiaro, mai un 500.
+      if (isDuplicateCodeViolation(error)) throw new TableCodeAlreadyUsedError(input.code);
+      throw error;
+    }
   }
 
   async updateTable(id: string, changes: TableChanges): Promise<TableResource> {
@@ -212,17 +249,24 @@ export class PostgresReservationRepository implements ReservationRepository {
     const areaId = changes.isOutdoor !== undefined && changes.isOutdoor !== current.isOutdoor
       ? await this.diningAreaFor(isOutdoor)
       : undefined;
-    await sql`
-      update public.restaurant_tables set
-        code=${changes.code ?? current.code},
-        display_name=${changes.displayName ?? current.displayName},
-        minimum_capacity=${changes.minimumCapacity ?? current.minimumCapacity},
-        maximum_capacity=${changes.maximumCapacity ?? current.maximumCapacity},
-        is_outdoor=${isOutdoor},
-        is_accessible=${changes.isAccessible ?? current.isAccessible},
-        status=${changes.status ?? current.status},
-        updated_at=now()
-      where id=${id} and location_id=${this.locationId}`;
+    try {
+      await sql`
+        update public.restaurant_tables set
+          code=${changes.code ?? current.code},
+          display_name=${changes.displayName ?? current.displayName},
+          minimum_capacity=${changes.minimumCapacity ?? current.minimumCapacity},
+          maximum_capacity=${changes.maximumCapacity ?? current.maximumCapacity},
+          is_outdoor=${isOutdoor},
+          is_accessible=${changes.isAccessible ?? current.isAccessible},
+          status=${changes.status ?? current.status},
+          updated_at=now()
+        where id=${id} and location_id=${this.locationId}`;
+    } catch (error) {
+      // Rinominare verso un codice già occupato (anche da un tavolo eliminato)
+      // deve dire "codice già in uso", non far comparire un errore generico.
+      if (isDuplicateCodeViolation(error)) throw new TableCodeAlreadyUsedError(changes.code ?? current.code);
+      throw error;
+    }
     if (areaId) await sql`update public.restaurant_tables set dining_area_id=${areaId} where id=${id} and location_id=${this.locationId}`;
     return this.tableById(id);
   }
