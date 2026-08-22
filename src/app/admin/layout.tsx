@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { restaurantLocations } from "@/config/brand";
+import { adminAccessPath } from "@/config/admin-access";
 import { canAccessAdminLocation, getAccessibleAdminLocations, getActiveAdminLocation, getScopedAdminRestaurant } from "@/lib/admin/location";
-import { requireStaffSession } from "@/lib/auth/dal";
+import { getCurrentStaffSession } from "@/lib/auth/dal";
 
 /**
  * ⚠️ Niente `loading.tsx` in questa cartella. Non è una dimenticanza.
@@ -38,14 +39,22 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await requireStaffSession();
+  const session = await getCurrentStaffSession();
+  const scoped = await getScopedAdminRestaurant();
+
+  // Sessione assente o scaduta: NON si finisce sulla pagina generica "Ogni
+  // ristorante ha il suo ingresso", che è un vicolo cieco senza modo di
+  // rientrare — l'app installata ci sbatteva ogni volta che il login scadeva.
+  // Si torna all'ingresso riservato della propria sede, che ha il form di
+  // accesso e riporta dritti al pannello.
+  if (!session) redirect(scoped ? adminAccessPath(scoped) : "/login");
+
   const accessibleLocations = getAccessibleAdminLocations(session);
 
   // Chi apre il pannello di una sede in cui non lavora non ci entra e non ci
   // guarda dentro nemmeno per sbaglio: viene rimandato al proprio. Senza
   // questo controllo l'indirizzo direbbe "yuko" mentre i dati sarebbero di
   // KouSushi, che è peggio di un errore.
-  const scoped = await getScopedAdminRestaurant();
   if (scoped && !canAccessAdminLocation(session, scoped.id)) {
     const own = accessibleLocations[0];
     redirect(own ? `/admin/${own.slug}/dashboard` : "/login");
